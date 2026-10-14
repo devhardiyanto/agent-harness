@@ -1,0 +1,9 @@
+{
+  "name": "harness",
+  "displayName": "Harness v1",
+  "version": "1.0.0",
+  "description": "Skill per fase untuk alur kerja agentic: impact, plan, build, review, ship, onboard, refresh, status.",
+  "author": { "name": "devhardiyanto" },
+  "license": "MIT",
+  "keywords": ["harness", "workflow", "plan", "review"]
+}

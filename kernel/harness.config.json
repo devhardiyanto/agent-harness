@@ -1,0 +1,14 @@
+{
+  "harness_version": "1.0.0",
+  "project": "",
+  "root_branch": "main",
+  "layout": "multi-repo",
+  "services_dir": "source-code",
+  "services": [],
+  "protected_branches": ["main", "master", "develop", "release/*"],
+  "schema_paths": ["**/migrations/**", "**/migration/**", "**/*.sql", "**/schema.prisma"],
+  "gate": { "test_command": null, "test_required": false, "test_timeout_sec": 300 },
+  "context": { "window_tokens": 1000000, "warn_tokens": 400000 },
+  "plane": { "enabled": false, "project_id": null, "workspace": null },
+  "graphify": { "enabled": true, "version": "0.9.90" }
+}

@@ -1,0 +1,6 @@
+node_modules/
+.harness-staging/
+.harness-backup-*/
+.claude/audit/
+.claude/state/
+*.zip
