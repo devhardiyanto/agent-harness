@@ -13,6 +13,7 @@ Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file
 2. `/harness:plan <slug>` — `plan.md` berstatus `draft` (AC bernomor `- AC1: ...`). **Sesi planning berhenti di sini.**
 3. User mengetik `/harness:approve <slug>` → hook menulis `approved`. Agent tidak boleh.
 4. Sesi baru: `/harness:build <slug>` → `in-progress`, catat bukti per AC di `progress.md`.
+   Opsional (modul executor terpasang dan `executor.enabled`): `/harness:dispatch <slug>` menggantikan implementer untuk kode; Claude tetap memverifikasi dan meng-commit.
 5. `/harness:review <slug>` → `review.md` (`verdict: clean|blockers`). Ada blocker → kembali ke build.
 6. `done` hanya bila tiap AC punya bukti + review `clean` (hook memeriksa). 
 7. `/harness:ship <slug>` — branch kerja, commit, push, PR via `gh`. `merged` setelah PR benar-benar MERGED.

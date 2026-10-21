@@ -150,6 +150,15 @@ test('secret literal dan file rahasia diblokir', () => {
   assert.equal(bash(root, 'cat source-code/svc-a/.env').status, 2);
   assert.equal(bash(root, 'cat source-code/svc-a/.env.example').status, 0);
 });
+test('modul executor dilindungi dari Claude (.agents, scripts/executor); menjalankan dispatch tetap boleh', () => {
+  const root = mkProject();
+  assert.equal(edit(root, 'scripts/executor/executor.py').status, 2);
+  assert.equal(edit(root, '.agents/agents/implementer/agent.md').status, 2);
+  assert.equal(bash(root, "sed -i 's/a/b/' scripts/executor/executor.py").status, 2);
+  assert.equal(bash(root, 'echo x > .agents/hooks.json').status, 2);
+  assert.equal(bash(root, 'bash scripts/executor/dispatch-executor.sh w1 T1 svc-a 2>&1').status, 0);
+  assert.equal(bash(root, 'python3 scripts/executor/executor.py audit w1 T1 svc-a').status, 0);
+});
 test('file harness dilindungi; HARNESS_ADMIN membuka', () => {
   const root = mkProject();
   assert.equal(edit(root, '.claude/hooks/gate.mjs').status, 2);

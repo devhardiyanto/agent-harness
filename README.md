@@ -13,10 +13,10 @@ node "$d/install.mjs" --dry-run           # tinjau rencana: apa yang dibuang / d
 node "$d/install.mjs"                     # interaktif; project existing: ketik "ganti"
 # non-interaktif: node "$d/install.mjs" --yes
 ```
-Opsi: `--branch NAMA` (default `harness-v1`), `--root-branch main`, `--project-name`, `--repo owner/repo`, `--allow-dirty`, `--no-commit`.
+Opsi: `--branch NAMA` (default `harness-v1`), `--root-branch main`, `--project-name`, `--repo owner/repo`, `--allow-dirty`, `--no-commit`, `--with-executor` (modul opsional, lihat bawah).
 
 Yang dilakukan installer: cek prasyarat (tidak memasang apa pun) → deteksi mode & service → tag cadangan `harness-pre-v1-<waktu>` → branch `harness-v1` → buang harness lama → pasang kernel → commit. Mundur kapan saja: `git switch -c lama harness-pre-v1-<waktu>`. Project tanpa git: salinan `.harness-backup-<waktu>/`.
-Dipertahankan: `source-code/`, `.mcp.json`, `.claude/settings.local.json`, `docs/` selain yang dibuang, `scripts/` selain skrip harness lama. Memasang ulang = ganti penuh lagi (tidak ada mode pembaruan).
+Dipertahankan: `source-code/`, `.mcp.json`, `.claude/settings.local.json`, `docs/` selain yang dibuang, `scripts/` selain skrip harness lama. Memasang ulang = ganti penuh perangkat (hook, rule, agent, skill), tetapi **data user dipertahankan** bila harness v1 sudah ada: `docs/work/` (kecuali `_TEMPLATE`), `docs/knowledge/`, `docs/_map.md`, dan blok `executor`/`checks` di `harness.config.json`.
 
 Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge); opsional `pip install graphifyy==0.9.90` (graph L1), MCP Plane.
 
@@ -35,6 +35,10 @@ Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge); ops
 
 Tipe: `feature`, `improvement`, `hotfix` (plan 4 baris, gerbang tetap), `analysis`, `cross-repo`, `schema`, `onboard`.
 Status: `draft → approved → in-progress → in-review → done → merged`. Selesai = PR merged.
+
+## Modul opsional: executor (Claude Code + Antigravity CLI)
+
+`node install.mjs --with-executor` memasang `scripts/executor/` dan `.agents/`, **nonaktif** secara bawaan. Claude tetap merencanakan, memverifikasi, dan meng-commit; `agy` mengeksekusi satu task dari brief tertulis (`/harness:dispatch <slug>`), dibatasi Scope, allowlist perintah, hook gate, dan audit diff. Prasyarat tambahan: python3, bash (Windows: Git Bash), `agy` ≥ 1.1.12. Detail, exit code, dan batas yang diketahui: `modules/executor/scripts/executor/README.md`.
 
 ## Yang ditegakkan hook (bukan sekadar anjuran)
 
@@ -58,13 +62,14 @@ Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_comma
 
 ## Pengujian
 
-`npm test` (26 uji: hook + installer di project contoh, termasuk existing, baru, tanpa git, layout single, pasang ulang). `claude plugin validate .` lolos.
+`npm test` (hook + installer di project contoh, termasuk existing, baru, tanpa git, layout single, pasang ulang, modul executor). `npm run test:executor` (44 uji modul executor dengan agy tiruan; butuh bash + python3). `claude plugin validate .` lolos.
 Diuji live dengan Claude Code 2.1.300 di sandbox: gerbang 1, approve via hook, transisi ilegal, rule per service (`paths`) termuat, `onFailure: block`, dan alur `impact → plan → approve → build → review → done` pada project mini.
 
 ## Belum teruji (jujur)
 
 - `ship` (commit/push/PR) dan cek `merged` lewat `gh` pada repo GitHub nyata; Plane MCP; `onboard`/`refresh` pada repo besar dan 14 repo (biaya belum diukur — jalankan satu service dulu); Graphify hanya diuji pada sampel kecil.
-- Windows (hook murni Node, tetapi belum dicoba), Codex CLI / Antigravity (adapter dari `AGENTS.md` sengaja ditunda sampai inti stabil).
+- Windows untuk inti harness: hook murni Node; perbaikan gagal-terbuka pada path berspasi diuji otomatis di Linux, belum di Windows.
+- Modul executor: diuji manual di Windows 11 + Git Bash dengan agy 1.4.3 (penulisan dalam Scope, gate, audit). Belum teruji: skill `/harness:dispatch` end-to-end dengan Claude Code, `sandbox: false` dengan agy asli, dan alur pada repo nyata. Codex CLI belum didukung (adapter dari `AGENTS.md` ditunda sampai inti stabil).
 - Pendaftaran plugin otomatis lewat `extraKnownMarketplaces` di `.claude/settings.json`: pemasangan lokal terverifikasi; jalur github privat tergantung kredensial git di mesinmu (`gh auth setup-git`). Cadangan manual: `claude plugin marketplace add devhardiyanto/agent-harness && claude plugin install harness@harness-marketplace`.
 - Mode `-p`/headless: entri `permissions.allow` diabaikan sampai workspace dipercaya (dialog trust).
 

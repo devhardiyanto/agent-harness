@@ -5,6 +5,6 @@
   "description": "Installer harness v1 untuk Claude Code",
   "license": "MIT",
   "type": "module",
-  "scripts": { "test": "node --test test/*.test.mjs" },
+  "scripts": { "test": "node --test test/*.test.mjs", "test:executor": "bash modules/executor/scripts/executor/test-executor.sh" },
   "engines": { "node": ">=18" }
 }

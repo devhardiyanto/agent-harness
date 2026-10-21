@@ -60,7 +60,7 @@ export function evaluate(root, cfg, payload) {
   // tulis ke file harness / plan.md lewat shell
   if (WRITE_OP.test(cmd)) {
     if (/docs\/work\/[^\s'"]*plan\.md/.test(flat)) return fail('jangan ubah plan.md lewat shell; pakai Edit/Write (transisi status diperiksa hook) atau harness.mjs set-status.');
-    if (!process.env.HARNESS_ADMIN && /(\.claude\/(hooks|agents)\/|\.claude\/settings\.json|harness\.config\.json)/.test(flat)) return fail('file harness dilindungi; ubah manual di luar sesi agent.');
+    if (!process.env.HARNESS_ADMIN && /(\.claude\/(hooks|agents)\/|\.claude\/settings\.json|harness\.config\.json|\.agents\/|scripts\/executor\/)/.test(flat)) return fail('file harness dilindungi; ubah manual di luar sesi agent.');
     // gerbang 1 untuk tulis lewat shell ke services_dir
     if (cfg.layout === 'multi-repo') {
       const dir = posix(cfg.services_dir).replace(/\/$/, '');
