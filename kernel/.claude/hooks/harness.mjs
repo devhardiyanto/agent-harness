@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // CLI harness: dipakai skill dan user. Usage: node .claude/hooks/harness.mjs <cmd> [args]
 //   new <type> <judul...>   buat work item dari template
-//   list                    daftar work item
-//   show <slug>             ringkas satu item
+//   list [--json]           daftar work item
+//   show <slug> [--json]    ringkas satu item
+//   snapshot [--json]       metadata work item + baseline + kesegaran knowledge dalam satu JSON (untuk viewer; tanpa isi dokumen)
 //   set-status <slug> <to>  ubah status (dengan pemeriksaan transisi/gerbang)
 //   start <slug>            = set-status in-progress
 //   check <slug>            dry-run gerbang 2
@@ -29,7 +30,7 @@ import {
 } from './knowledge.mjs';
 import {
   projectRoot, loadConfig, listItems, readItem, resolveSlug, checkTransition, checkDone, setFmKey, STATUSES,
-  splitFrontmatter, parseAcs, readJson, audit,
+  splitFrontmatter, parseAcs, readJson, audit, summarizeItem,
 } from './lib.mjs';
 
 const root = projectRoot();
@@ -82,13 +83,15 @@ switch (cmd) {
   }
   case 'list': {
     const items = listItems(root);
+    if (args.includes('--json')) { console.log(JSON.stringify(items.map(summarizeItem), null, 2)); break; }
     if (!items.length) { console.log('(belum ada work item)'); break; }
     console.log('| slug | type | status | services |\n|---|---|---|---|');
     for (const i of items) console.log(`| ${i.slug} | ${i.type} | ${i.status} | ${i.services.join(',') || '-'} |`);
     break;
   }
   case 'show': {
-    const i = need(args[0]);
+    const i = need(args.find((a) => !a.startsWith('--')));
+    if (args.includes('--json')) { console.log(JSON.stringify(summarizeItem(i), null, 2)); break; }
     console.log(`${i.slug}\nstatus: ${i.status}\ntype: ${i.type}\nservices: ${i.services.join(', ') || '-'}\nAC: ${parseAcs(i.body).map((a) => a.id).join(', ') || '-'}\npr: ${i.fm.pr || '-'}`);
     break;
   }
@@ -199,6 +202,25 @@ switch (cmd) {
     for (const r of rows) console.log(`| ${r.service} | ${r.status || '-'} | ${(r.source_commit || '-').slice(0, 8)} | ${r.baseline || '-'} | ${r.behind ?? '-'} | ${r.files ?? '-'} | ${r.state} |`);
     break;
   }
+  case 'snapshot': {
+    // Satu objek JSON metadata untuk viewer (tempel/unggah). Tanpa isi dokumen, teks AC, atau path kode.
+    const services = (cfg.services || []).map((s) => {
+      const b = baselineOf(root, cfg, s);
+      const k = knowledgeStatus(root, cfg, s);
+      return {
+        service: s,
+        baseline: b.ok ? { ref: b.ref, sha: b.sha.slice(0, 10), via: b.via, checkout: b.checkout, on_baseline: b.on_baseline, dirty: b.dirty, note: b.note } : { ref: null, note: b.note },
+        knowledge: { state: k.state, status: k.status, behind: k.behind, files: k.files, source_commit: k.source_commit ? k.source_commit.slice(0, 10) : null, updated: k.updated || null },
+      };
+    });
+    const snap = {
+      schema: 1, generated_at: new Date().toISOString(), project: cfg.project || path.basename(root),
+      work_items: listItems(root).map(summarizeItem).sort((a, b) => a.slug.localeCompare(b.slug)),
+      services,
+    };
+    console.log(JSON.stringify(snap, null, 2));
+    break;
+  }
   case 'propose-checks': {
     const out = {};
     for (const s of svcArgs(args)) { const r = proposeChecks(root, cfg, s); out[s] = r.ok ? { ...r.checks } : { error: r.note }; if (r.ok && r.basis.length) console.error(`# ${s}: dasar → ${r.basis.join(', ')}`); }
@@ -234,5 +256,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('perintah: new | list | show | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | patterns-check | verify-knowledge | patterns-approve');
+    die('perintah: new | list | show | snapshot | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | patterns-check | verify-knowledge | patterns-approve');
 }
