@@ -3,10 +3,11 @@
 Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file di `docs/work/`, bukan chat.
 
 ## Peta
+- Pertama kali di workspace: `/harness:init` (inventaris, baseline production/main, knowledge, usulan checks). Peringatan "tertinggal" di awal sesi → `/harness:refresh <svc>`.
 - `docs/_map.md` — service, peran, relasi antar-service (L0). Baca dulu.
-- `docs/knowledge/<svc>/` — ringkasan (L2) dan pola + contoh emas (L3) per service. Baca hanya service yang kena.
+- `docs/knowledge/<svc>/` — ringkasan (L2) dan pola + contoh emas (L3) per service. Baca hanya service yang kena. Status `draft` = belum diverifikasi manusia: perlakukan sebagai petunjuk, cek ke kode.
 - `docs/work/<tanggal-slug>/` — `brief.md` `impact.md` `plan.md` `progress.md` `review.md`.
-- `docs/knowledge/graph/` — graph struktural (L1), opsional, di-gitignore; jangan dibaca utuh: `graphify explain "<simbol>" --graph docs/knowledge/graph/<svc>/graph.json`.
+- `docs/knowledge/graph/` — graph struktural (L1), opsional (nonaktif bawaan), di-gitignore; hanya menambah daftar dampak; jangan dibaca utuh: `graphify explain "<simbol>" --graph docs/knowledge/graph/<svc>/graph.json`.
 
 ## Alur (satu work item = satu alur penuh)
 1. `/harness:impact <permintaan>` — dampak dari prompt pertama → `brief.md`, `impact.md`.

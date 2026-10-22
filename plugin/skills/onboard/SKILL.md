@@ -1,26 +1,27 @@
 ---
 name: onboard
-description: Membangun pengetahuan project (L0 peta, L1 graph opsional, L2 ringkasan, L3 pola) untuk satu service atau semua service. Mulai dari satu service untuk mengukur biaya sebelum menjalankan semuanya.
+description: Membangun (ulang) knowledge satu service dari commit baseline (production/main), bukan dari branch yang sedang di-checkout. Dipanggil oleh /harness:init per service; bisa dipakai sendiri untuk satu service.
 argument-hint: "<nama-service|all>"
 disable-model-invocation: true
 ---
 # /harness:onboard
 
-Masukan: `$ARGUMENTS`. Daftar service: `harness.config.json` → `services`.
+Masukan: `$ARGUMENTS`. Daftar service: `harness.config.json` → `services`. Untuk bootstrap seluruh workspace pakai `/harness:init`.
 
-## Langkah
-1. **Ukur dulu.** Bila `$ARGUMENTS` = `all` dan belum ada satu pun `docs/knowledge/<svc>/summary.md` berstatus draft/verified: kerjakan HANYA service pertama, lalu berhenti dan minta user melihat `/usage` (biaya satu service) dan menjawab apakah lanjut `all`.
-2. Per service, panggil agent `explorer` (paralel maks 4) dengan perintah: isi `summary.md` (≤80 baris: tujuan, stack, entry point, perintah build/test, env var **nama saja**, data/tabel, endpoint, dependensi antar-service) dan `patterns.md` (pola berulang + 1–2 contoh emas berupa path nyata). Tiap fakta `path:baris`; yang tidak ketemu `UNKNOWN`.
-3. Kamu (bukan explorer) menulis hasilnya ke `docs/knowledge/<svc>/summary.md` dan `patterns.md` dengan frontmatter: `service`, `source_commit` (`git -C source-code/<svc> rev-parse HEAD`), `status: draft`, `updated`.
-4. **Graph (L1), opsional, tanpa token.** Hanya bila `graphify.enabled` dan perintah `graphify` ada (terverifikasi pada graphifyy 0.9.90; pin di `harness.config.json` → `graphify.version`; pasang: `pip install graphifyy==<versi>`):
-   - `graphify update source-code/<svc>` — ekstraksi AST code-only, offline, tanpa LLM. **Jangan** menjalankan `graphify install` (menulis hook/skill ke config global) dan **jangan** mode semantik (memakai token) tanpa persetujuan user.
-   - Pindahkan hasilnya keluar dari repo service: `mv source-code/<svc>/graphify-out docs/knowledge/graph/<svc>`.
-   - Gabungan lintas service: `graphify merge-graphs docs/knowledge/graph/*/graph.json --out docs/knowledge/graph/merged-graph.json`.
-   - Query (jangan baca graph utuh): `graphify explain "<simbol>" --graph docs/knowledge/graph/<svc>/graph.json`, `graphify path "A" "B" --graph ...`.
-   - Graph AST tidak menangkap panggilan HTTP antar-service; relasi itu tetap dari langkah 5.
-   Tidak ada/gagal → lewati dan catat satu baris di `_map.md`.
-5. Perbarui `docs/_map.md`: tabel service (stack, peran, aktif?, pemilik skema?), relasi antar-service (dari env var base URL, klien HTTP, queue, tabel bersama; bukan dari graph saja), data bersama. Tandai `?` untuk dugaan, jangan mengarang.
-6. Tanyakan ke user (satu pesan) hal yang `UNKNOWN` dan menentukan: service tak aktif, pemilik skema.
+## Langkah (per service)
+1. **Ukur dulu.** Bila `$ARGUMENTS` = `all` dan belum ada satu pun `docs/knowledge/<svc>/summary.md`: kerjakan HANYA service pertama, lalu berhenti dan minta user melihat `/usage` dan menjawab apakah lanjut.
+2. **Baseline.** `node .claude/hooks/harness.mjs baseline <svc> --json` → catat `sha` dan `ref`. Gagal → hentikan, sampaikan alasan.
+3. **Worktree sementara.** `node .claude/hooks/harness.mjs worktree add <svc>` → path `.claude/state/worktrees/<svc>` (isi = commit baseline; checkout user tidak tersentuh).
+4. **Explorer** (agent `explorer`, paralel maks 4 antar-service): baca dari path worktree itu dan isi
+   - `summary.md` (≤80 baris): tujuan, stack, entry point, perintah build/test, env var (**nama saja**), data/tabel, endpoint, dependensi antar-service;
+   - `patterns.md` (≤150 baris): pola berulang + 1–2 contoh emas (path nyata).
+   Sitasi `path:baris` **relatif ke root service** (tanpa awalan worktree), format `src/x.ts:42` atau `src/x.ts:42-50`, dengan simbol yang diklaim di backtick pada baris yang sama: `` `withAuth` (src/http/auth.ts:1-5) ``. Yang tidak ketemu: `UNKNOWN`; dugaan: `?`. Dilarang mengarang.
+5. **Tulis** (kamu, bukan explorer) `docs/knowledge/<svc>/summary.md` dan `patterns.md` dengan frontmatter: `service`, `source_commit: <sha baseline>`, `status: draft`, `updated`. Lalu `node .claude/hooks/harness.mjs lint-knowledge <svc>`; perbaiki ERROR (hapus klaim tak terbukti atau tulis `UNKNOWN`; jangan memutus sitasi hanya agar lint lolos). Maksimal dua putaran; sisanya laporkan.
+6. **Lepas worktree**: `node .claude/hooks/harness.mjs worktree rm <svc>`.
+7. **Graph (L1), hanya bila `graphify.enabled`** dan `graphify` ada (pin `graphify.version`; `pip install graphifyy==<versi>`), dijalankan SEBELUM langkah 6 terhadap worktree: `graphify update .claude/state/worktrees/<svc>` (AST code-only, offline, tanpa LLM; **jangan** `graphify install`, **jangan** mode semantik tanpa persetujuan) → pindahkan `graphify-out` ke `docs/knowledge/graph/<svc>` (di-gitignore). Query: `graphify explain "<simbol>" --graph docs/knowledge/graph/<svc>/graph.json`. Graph tidak menangkap HTTP antar-service dan wiring implisit; ia hanya menambah daftar dampak.
+8. `docs/_map.md`: tambah/ubah baris service (stack, peran, branch baseline) dan relasi yang terbukti.
+
+Status tetap `draft` sampai manusia mengetik `/harness:verify <svc>`.
 
 ## Balasan chat (maks 5 baris)
-Service ter-onboard: ... · UNKNOWN: n item (di `_map.md`) · berikutnya: verifikasi `draft` lalu `/harness:impact`
+Service ter-onboard: ... · baseline: ref@sha · lint: bersih/n ERROR · UNKNOWN: n · berikutnya: `knowledge-sample <svc>` lalu `/harness:verify <svc>`

@@ -210,3 +210,38 @@ test('pasang ulang di atas v1: work item, knowledge, peta, executor & checks dip
   assert.equal((fs.readFileSync(path.join(root, '.gitattributes'), 'utf8').match(/scripts\/executor\/\*\* text eol=lf/g) || []).length, 1, '.gitattributes tidak boleh digandakan');
   assert.equal(hx(root, 'doctor').status, 0);
 });
+
+test('backup/ di root diabaikan otomatis; file lain yang belum di-track TIDAK ikut ter-commit', () => {
+  const root = existingProject();
+  fs.mkdirSync(path.join(root, 'backup'));
+  fs.writeFileSync(path.join(root, 'backup', 'dump.sql'), 'rahasia');
+  fs.writeFileSync(path.join(root, 'scratch.txt'), 'catatan pribadi');
+  const dry = install(root, '--dry-run');
+  assert.match(dry.stdout, /DIABAIKAN[^|]*\| backup/);
+  const r = install(root, '--yes');
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(sh('git', ['ls-files', 'backup', 'scratch.txt'], root).stdout.trim(), '', 'backup/ dan scratch.txt tidak boleh ter-track');
+  assert.match(fs.readFileSync(path.join(root, '.gitignore'), 'utf8'), /^\/backup\/$/m);
+  assert.equal(sh('git', ['status', '--porcelain'], root).stdout.trim(), '?? scratch.txt');
+  assert.equal(fs.readFileSync(path.join(root, 'backup', 'dump.sql'), 'utf8'), 'rahasia');
+  // harness-nya sendiri tetap ter-commit
+  assert.match(sh('git', ['ls-files', 'AGENTS.md', 'harness.config.json'], root).stdout, /AGENTS\.md[\s\S]*harness\.config\.json/);
+});
+test('--ignore: beberapa nama, dan --no-auto-ignore mematikan deteksi backup/', () => {
+  const root = existingProject();
+  fs.mkdirSync(path.join(root, 'arsip')); fs.writeFileSync(path.join(root, 'arsip', 'a.txt'), 'x');
+  fs.mkdirSync(path.join(root, 'backup')); fs.writeFileSync(path.join(root, 'backup', 'b.txt'), 'x');
+  const r = install(root, '--yes', '--ignore', 'arsip', '--no-auto-ignore');
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  const gi = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
+  assert.match(gi, /^\/arsip\/$/m);
+  assert.doesNotMatch(gi, /^\/backup\/$/m);
+});
+test('--ignore menolak path berbahaya atau direktori milik harness', () => {
+  const root = existingProject();
+  for (const bad of ['../x', 'a/b', 'docs', 'source-code', '*.zip']) {
+    const r = install(root, '--dry-run', '--ignore', bad);
+    assert.notEqual(r.status, 0, bad);
+    assert.match(r.stderr, /--ignore/);
+  }
+});

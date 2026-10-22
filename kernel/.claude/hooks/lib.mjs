@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.0.0',
+  harness_version: '1.1.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -26,7 +26,9 @@ export const DEFAULT_CONFIG = {
   gate: { test_command: null, test_required: false, test_timeout_sec: 300 },
   context: { window_tokens: 1000000, warn_tokens: 400000 },
   plane: { enabled: false, project_id: null, workspace: null },
-  graphify: { enabled: true, version: null },
+  graphify: { enabled: false, version: null }, // opsional; aktif hanya setelah uji terukur (lihat plugin/skills/init)
+  knowledge: { summary_max_lines: 80, patterns_max_lines: 150, stale_warn_commits: 15 },
+  baseline: {}, // override per service: { "ce-api": "production" } (bawaan: origin/HEAD → production → main → master)
 };
 
 // True bila modul ini dijalankan sebagai skrip (bukan di-import). JANGAN membandingkan import.meta.url dengan
@@ -54,7 +56,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'plane', 'graphify']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'plane', 'graphify', 'knowledge']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   return cfg;
 }
 

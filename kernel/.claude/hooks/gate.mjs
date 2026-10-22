@@ -7,6 +7,7 @@ import {
   splitFrontmatter, readItem, checkTransition, findSecret, SECRET_FILE, deny, STATUSES,
   isMain,
 } from './lib.mjs';
+import { proposalStatuses } from './knowledge.mjs';
 
 function incoming(tool, input) {
   if (tool === 'Write') return { full: input.content ?? '' };
@@ -85,6 +86,35 @@ export function evaluate(root, cfg, payload) {
       if (item.status !== 'draft' && fmStripped(current) !== fmStripped(next)) return fail('ubah status dan isi plan dalam edit terpisah.');
       const problems = checkTransition(root, cfg, { ...item, status: item.status, body: item.body }, toStatus, { actor: 'agent' });
       if (problems.length) return fail(`transisi ${item.status} → ${toStatus} ditolak:\n- ${problems.join('\n- ')}`);
+    }
+    return { ok: true };
+  }
+
+  // 4b. knowledge: status verified hanya oleh manusia; isi verified tidak diubah agent tanpa turun ke draft
+  const km = /^docs\/knowledge\/([^/]+)\/(summary|patterns)\.md$/.exec(rel);
+  if (km) {
+    const abs = path.resolve(root, rel);
+    const current = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
+    const next = simulate(current, inc);
+    const c = splitFrontmatter(current); const n = splitFrontmatter(next);
+    const cs = c.fm.status || null; const ns = n.fm.status || 'draft';
+    if (ns === 'verified' && cs !== 'verified') return fail(`status "verified" hanya oleh manusia: ketik /harness:verify ${km[1]} (atau "! node .claude/hooks/harness.mjs verify-knowledge ${km[1]}"). Tulis sebagai draft.`);
+    if (cs === 'verified' && ns === 'verified' && (c.body !== n.body || c.fm.source_commit !== n.fm.source_commit)) {
+      return fail(`${rel} berstatus verified (diverifikasi manusia). Perubahan oleh agent harus menurunkan status ke draft dalam edit yang sama; verifikasi ulang dengan /harness:verify ${km[1]}.`);
+    }
+    return { ok: true };
+  }
+  // 4c. usulan pola: agent hanya boleh menulis "proposed"; approved/applied ditulis hook saat manusia menyetujui
+  const pp = /^docs\/work\/([^/]+)\/patterns-proposal\.md$/.exec(rel);
+  if (pp) {
+    const abs = path.resolve(root, rel);
+    const current = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
+    const before = proposalStatuses(current); const after = proposalStatuses(simulate(current, inc));
+    for (const [id, st] of Object.entries(after)) {
+      if (st !== 'proposed' && before[id] !== st) return fail(`${id}: status "${st}" hanya boleh ditulis hook saat manusia mengetik /harness:patterns ${pp[1]} ${id}. Agent hanya menulis "Status: proposed".`);
+    }
+    for (const [id, st] of Object.entries(before)) {
+      if (st !== 'proposed' && after[id] !== st) return fail(`${id}: item yang sudah ${st} tidak boleh diubah atau dihapus.`);
     }
     return { ok: true };
   }
