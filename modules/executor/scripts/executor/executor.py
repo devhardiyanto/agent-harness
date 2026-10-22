@@ -55,9 +55,21 @@ PROTECTED = ["**/.git/**", ".agents/**", ".claude/**", "scripts/**", "harness.co
 WRITE_NAME = re.compile(r"(write|edit|replace|delete|remove|move|rename|create|patch)", re.I)
 NET_NAME = re.compile(r"(search_web|read_url|web_search|fetch|browser|http)", re.I)  # executor tidak boleh menyentuh jaringan
 READ_TOOLS = {"read_file", "list_dir", "list_directory", "view_file", "grep_search", "find_by_name", "search"}
+# Pembacaan yang ditolak walau tool-nya "read": rahasia/kredensial dan riwayat git (bisa memuat token lama).
+SECRET_GLOBS = ["**/.env", "**/.env.*", "**/*.pem", "**/*.key", "**/*.p12", "**/*.pfx", "**/*.tfvars", "**/*.secret",
+                "**/id_rsa*", "**/id_ed25519*", "**/id_ecdsa*", "**/.npmrc", "**/.netrc", "**/.pypirc",
+                "**/credentials", "**/credentials.*", "**/secrets.json", "**/secrets.yml", "**/secrets.yaml",
+                "**/service-account*.json", "**/.docker/config.json",
+                "**/.aws/**", "**/.ssh/**", "**/.gnupg/**", "**/.kube/**", "**/.config/gcloud/**", "**/.gemini/**",
+                "**/.git/**"]
+SECRET_OK = re.compile(r"\.(example|sample|template|dist)$", re.I)  # .env.example dll. boleh dibaca
+# Tool pembacaan yang menelusuri isi banyak berkas sekaligus: path pencarian harus berada di dalam Scope.
+CONTENT_SEARCH = re.compile(r"(grep|search|find_in|ripgrep)", re.I)
+PATH_KEYS = ("Path", "AbsolutePath", "TargetFile", "TargetPath", "SearchPath", "SearchDirectory", "DirectoryPath",
+             "Directory", "Dir", "File", "FilePath", "FileName", "Cwd")
 DEFAULTS = {"command": "agy", "min_version": "1.1.12", "print_timeout": "10m", "model": "", "effort": "",
             "allowed_commands": ["git status", "git diff"], "protected_branches": ["main", "master", "develop", "dev"],
-            "ttl_minutes": 120, "path_prepend": [], "sandbox": True, "require_approved_plan": True,
+            "ttl_minutes": 120, "path_prepend": [], "sandbox": True, "require_approved_plan": True, "read_outside_root": False,
             "agent_runs_checks": False}
 
 
@@ -210,6 +222,65 @@ def validate_scope(scope, service):
 
 
 # ---------------------------------------------------------------- gate
+def read_paths(args):
+    """Kumpulkan kandidat path dari argumen tool baca (kunci umum + nilai string yang tampak seperti path)."""
+    out = []
+    for k, v in (args or {}).items():
+        if not isinstance(v, str) or not v.strip():
+            continue
+        v = v.strip()
+        if k in PATH_KEYS:
+            out.append(v)
+        elif k not in ("Query", "Pattern", "Regex", "CommandLine", "Includes", "Excludes") and \
+                re.match(r"^(~|/|[A-Za-z]:[\\/]|\.\.[\\/])", v):
+            out.append(v)
+    return out
+
+
+def scope_bases(scope):
+    """Direktori literal terdalam dari tiap glob Scope (mis. source-code/svc/src/** -> source-code/svc/src)."""
+    bases = set()
+    for g in scope:
+        g = g.replace("\\", "/").strip()
+        parts, wild = [], False
+        for seg in g.split("/"):
+            if re.search(r"[*?]", seg):
+                wild = True
+                break
+            parts.append(seg)
+        if g.endswith("/"):  # "dir/" setara "dir/**"
+            wild = True
+        if wild:  # berkas tunggal (tanpa wildcard) tidak membuka pencarian di direktori induknya
+            bases.add("/".join(parts).rstrip("/"))
+    return {b for b in bases if b}
+
+
+def read_decision(tool, args, active):
+    """Pemeriksaan pembacaan. Kembalikan (decision, reason, extra_info)."""
+    paths = read_paths(args)
+    allow_out = bool(active.get("read_outside_root", False))
+    for p in paths:
+        if p.startswith("~"):
+            if allow_out:
+                continue
+            return "deny", "baca di luar root workspace (home): %s" % p, {"outside_root": True}
+        r = rel(p)
+        full = norm(p) if r is None else r
+        if r is None and not allow_out:
+            return "deny", "baca di luar root workspace: %s" % p[:160], {"outside_root": True}
+        if matches(full, SECRET_GLOBS) and not SECRET_OK.search(full):
+            return "deny", "path rahasia/kredensial/riwayat git tidak boleh dibaca executor: %s" % full[-120:], {"secret": True}
+    if CONTENT_SEARCH.search(tool or ""):
+        bases = scope_bases(active.get("scope", []))
+        for p in paths:
+            r = rel(p)
+            if r is None:
+                continue
+            if not any(r == b or r.startswith(b + "/") for b in bases) and not r.startswith("docs/work/"):
+                return "deny", "pencarian isi hanya boleh di dalam Scope: %s" % (r or "(root)"), {"search_scope": True}
+    return "allow", "", {}
+
+
 def decide(payload, active):
     """Murni: kembalikan (decision, reason, info)."""
     call = (payload or {}).get("toolCall") or {}
@@ -238,7 +309,11 @@ def decide(payload, active):
         return "allow", "", info
     brief = json.dumps(args, ensure_ascii=False)[:160]  # untuk diagnosis: apa yang dibaca/dipanggil agy
     if tool in READ_TOOLS or tool == "finish":
-        return "allow", "", {"tool": tool, "args": brief}
+        d, why, extra = read_decision(tool, args, active)
+        return d, why, dict({"tool": tool, "args": brief}, **extra)
+    d, why, extra = read_decision(tool, args, active)  # tool tak dikenal: tetap periksa path-nya
+    if d == "deny":
+        return d, why, dict({"tool": tool, "unknown": True, "args": brief}, **extra)
     return "allow", "tool tidak dikenal (diizinkan, dicatat): %s" % tool, {"tool": tool, "unknown": True, "args": brief}
 
 
@@ -283,7 +358,17 @@ def cmd_gate_selftest():
         (w("write_file", ROOT + "/source-code/svc/.git/config"), "deny"),
         (w("write_file", "/etc/passwd"), "deny"),
         (w("delete_file", ROOT + "/source-code/svc/other/b.txt"), "deny"),
-        (w("read_file", "/etc/passwd"), "allow"),
+        (w("read_file", "/etc/passwd"), "deny"),
+        (w("read_file", ROOT + "/source-code/svc/.env"), "deny"),
+        (w("read_file", ROOT + "/source-code/svc/.env.production"), "deny"),
+        (w("read_file", ROOT + "/source-code/svc/.env.example"), "allow"),
+        (w("read_file", ROOT + "/source-code/svc/.git/config"), "deny"),
+        (w("read_file", ROOT + "/source-code/svc/src/a.txt"), "allow"),
+        (w("view_file", "~/.ssh/id_rsa"), "deny"),
+        (w("read_file", ROOT + "/../outside/x.txt"), "deny"),
+        (w("grep_search", ROOT + "/source-code/svc", Query="x"), "deny"),
+        (w("grep_search", ROOT + "/source-code/svc/src", Query="x"), "allow"),
+        ({"toolCall": {"name": "mystery_tool", "args": {"Target": "/etc/shadow"}}}, "deny"),
         ({"toolCall": {"name": "search_web", "args": {"query": "x"}}}, "deny"),
         ({"toolCall": {"name": "read_url_content", "args": {"Url": "http://x"}}}, "deny"),
         ({"toolCall": {"name": "view_file", "args": {"AbsolutePath": ROOT + "/a"}}}, "allow"),
@@ -353,7 +438,8 @@ def cmd_prepare(work, task, service):
     with open(ACTIVE, "w", encoding="utf-8") as f:
         json.dump({"work_id": work, "task_id": task, "service": service, "scope": scope,
                    "allowed_commands": list(c["allowed_commands"]) + agent_checks(service), "gate_log": "%s/%s.gate.log" % (task_dir(work), task),
-                   "started": now(), "ttl_minutes": c["ttl_minutes"]}, f, indent=2)
+                   "started": now(), "ttl_minutes": c["ttl_minutes"],
+                   "read_outside_root": _truthy(c.get("read_outside_root", False))}, f, indent=2)
     return 0
 
 
