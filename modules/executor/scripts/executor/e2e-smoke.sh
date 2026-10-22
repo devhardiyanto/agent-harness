@@ -11,6 +11,52 @@ set -uo pipefail
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODE=setup; [ "${1:-}" = "--run" ] && { MODE=run; shift; }; [ "${1:-}" = "--negative" ] && { MODE=negative; shift; }
 D="${1:-$HOME/agy-e2e}"
+
+# Brief mengikuti mode D7 service demo: A (agent_runs:true) agy menjalankan node check.js; B (false) agy TIDAK menjalankan cek apa pun.
+write_brief() {
+  local mode="$1" f="$D/docs/work/e2e/tasks/T1.brief.md" shell done_when stop report
+  if [ "$mode" = B ]; then
+    shell='- Shell yang boleh: `git status` dan `git diff` SAJA. Jangan menjalankan `node`, `npm`, atau perintah lain (otomatis ditolak; jangan dicoba).'
+    done_when='- `source-code/demo/src/greet.js` ada dan mengekspor `greet(name)` sesuai AC-1. Kamu TIDAK menjalankan cek; Claude yang menjalankannya setelah membaca diff.'
+    stop='- Bila sebuah perintah ditolak, berhenti dan laporkan BLOCKED. Jangan mencoba jalan lain.'
+    report='- Mode B: `commands_run` HARUS kosong (`[]`). Jangan mengarang.'
+  else
+    shell='- Shell yang boleh: `git status`, `git diff`, dan `node check.js` (PERSIS, tanpa cd/pipe). Jalankan `node check.js`
+  dengan parameter Cwd = `source-code/demo`; JANGAN memakai `cd`.'
+    done_when='- `node check.js` (Cwd `source-code/demo`) keluar dengan kode 0 dan mencetak OK.'
+    stop='- Bila sebuah perintah ditolak, berhenti dan laporkan BLOCKED. Jangan mencoba jalan lain.'
+    report='- Isi `commands_run` dengan perintah dan exit code ASLI. Jangan mengarang.'
+  fi
+  cat > "$f" <<B
+# Brief T1 — fungsi greet (mode $mode)
+## Task
+Buat \`source-code/demo/src/greet.js\` yang mengekspor \`greet(name)\` dan mengembalikan \`"Halo, <name>!"\`
+(CommonJS: \`module.exports = { greet }\`).
+## Scope
+- \`source-code/demo/src/\`
+## AC
+- AC-1: \`greet("Irfan")\` mengembalikan \`Halo, Irfan!\`.
+## Boundaries
+- Hanya ubah berkas di Scope. Jangan commit, push, atau install dependency.
+$shell
+## Done-when
+$done_when
+## Stop rule
+$stop
+## Laporan
+$report
+B
+}
+# Mode D7 dari config (checks.demo.agent_runs); bawaan setup = true (A).
+demo_mode() { python3 -c 'import json,sys;print("A" if json.load(open("harness.config.json"))["checks"]["demo"].get("agent_runs") else "B")' 2>/dev/null || echo A; }
+# Sandbox sekali pakai: buang sisa run sebelumnya supaya tree bersih dan T1 mulai dari nol.
+reset_sandbox() {
+  local T="docs/work/e2e/tasks"
+  rm -f "$T"/T1.{base,rootbase,conversation,stdout,stderr,envelope.json,result.json,audit.json,gate.log,agy.log,feedback.md} \
+        source-code/demo/src/greet.js source-code/demo/src/probe-ok.js source-code/demo/.env
+  git -C source-code/demo add -A >/dev/null 2>&1
+  git -C source-code/demo -c user.email=t@t -c user.name=t commit -qm "sandbox: reset" >/dev/null 2>&1 || true
+}
 if [ "$MODE" = setup ]; then
 [ -e "$D" ] && { echo "$D sudah ada; hapus dulu atau beri folder lain" >&2; exit 1; }
 command -v node >/dev/null 2>&1 || { echo "node tidak ada; tes ini memakai 'node check.js' sebagai test_command" >&2; exit 1; }
@@ -36,26 +82,7 @@ git -C "$D/source-code/demo" checkout -qb feat/greet
 printf -- '---\ntitle: e2e\ntype: feature\nstatus: approved\nservices: [demo]\n---\n# Plan\n- AC1: greet\n' > "$D/docs/work/e2e/plan.md"
 git -C "$D" init -q -b main; git -C "$D" add -A
 git -C "$D" -c user.email=t@t -c user.name=t commit -qm init
-cat > "$D/docs/work/e2e/tasks/T1.brief.md" <<'B'
-# Brief T1 — fungsi greet
-## Task
-Buat `source-code/demo/src/greet.js` yang mengekspor `greet(name)` dan mengembalikan `"Halo, <name>!"`
-(CommonJS: `module.exports = { greet }`).
-## Scope
-- `source-code/demo/src/`
-## AC
-- AC-1: `greet("Irfan")` mengembalikan `Halo, Irfan!`.
-## Boundaries
-- Hanya ubah berkas di Scope. Jangan commit, push, atau install dependency.
-- Shell yang boleh: `git status`, `git diff`, dan `node check.js` (PERSIS, tanpa cd/pipe). Jalankan `node check.js`
-  dengan parameter Cwd = `source-code/demo`; JANGAN memakai `cd`.
-## Done-when
-- `node check.js` (Cwd `source-code/demo`) keluar dengan kode 0 dan mencetak OK.
-## Stop rule
-- Bila sebuah perintah ditolak, berhenti dan laporkan BLOCKED. Jangan mencoba jalan lain.
-## Laporan
-- Isi `commands_run` dengan perintah dan exit code ASLI. Jangan mengarang.
-B
+write_brief A
 git -C "$D" add -A; git -C "$D" -c user.email=t@t -c user.name=t commit -qm brief
 cd "$D" || exit 1
 echo "== install"
@@ -196,6 +223,10 @@ fi
 # ---- mode run
 [ -d "$D/docs/work/e2e" ] || { echo "$D belum disiapkan (jalankan tanpa --run dulu)" >&2; exit 1; }
 cd "$D" || exit 1
+MODE_D7="$(demo_mode)"
+echo "== mode D7 service demo: $MODE_D7  (A = agent_runs:true, agy menjalankan node check.js | B = false, agy tidak menjalankan cek)"
+reset_sandbox; write_brief "$MODE_D7"
+git add -A >/dev/null 2>&1; git -c user.email=t@t -c user.name=t commit -qm "e2e: brief mode $MODE_D7" >/dev/null 2>&1 || true
 echo "== dispatch (agy asli; bisa 1-5 menit)"
 EXECUTOR_FORCE=1 bash scripts/executor/dispatch-executor.sh e2e T1 demo; rc=$?
 echo "== exit dispatch: $rc   (0 ok | 11 prasyarat | 12 agy gagal | 13 BLOCKED | 14 audit)"
@@ -212,3 +243,20 @@ echo; echo "== gate.log (keputusan hook)"; cat "$T/T1.gate.log" 2>/dev/null
 echo; echo "== file hasil"; cat source-code/demo/src/greet.js 2>/dev/null
 echo "== verifikasi independen oleh skrip ini (bukan klaim agy)"
 ( cd source-code/demo && node check.js ); echo "node check.js exit=$?"
+echo "== penilaian mode $MODE_D7"
+python3 - "$MODE_D7" "$rc" <<'PYEOF'
+import json, sys
+mode, rc = sys.argv[1], int(sys.argv[2])
+try: r = json.load(open("docs/work/e2e/tasks/T1.result.json"))
+except Exception: r = None
+checks = []
+checks.append(("dispatch exit 0", rc == 0))
+if r is not None:
+    cr = r.get("commands_run") or []
+    if mode == "B": checks.append(("Mode B: commands_run kosong (agy tidak menjalankan cek)", len(cr) == 0))
+    else: checks.append(("Mode A: commands_run memuat node check.js", any("node check.js" in str(c.get("cmd", c)) for c in cr)))
+    checks.append(("status agy DONE", r.get("status") == "DONE"))
+else: checks.append(("result.json ada", False))
+for n, ok in checks: print("  %s  %s" % ("OK  " if ok else "FAIL", n))
+sys.exit(0 if all(ok for _, ok in checks) else 1)
+PYEOF
