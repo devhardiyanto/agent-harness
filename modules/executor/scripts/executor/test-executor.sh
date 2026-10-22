@@ -137,6 +137,16 @@ expect "cek service lain ditolak" "$(d '{"toolCall":{"name":"run_command","args"
 expect "cek service agent_runs:false ditolak untuk svc" "$(d '{"toolCall":{"name":"run_command","args":{"CommandLine":"make verify"}}}')" deny
 expect "cd + perintah ditolak (pencocokan tepat)" "$(d '{"toolCall":{"name":"run_command","args":{"CommandLine":"cd source-code/svc; npm test"}}}')" deny
 expect "git push ditolak" "$(d '{"toolCall":{"name":"run_command","args":{"CommandLine":"git push"}}}')" deny
+# pembacaan: rahasia, riwayat git, luar root, pencarian isi di luar Scope
+expect "baca berkas Scope" "$(d '{"toolCall":{"name":"read_file","args":{"AbsolutePath":"'"$R"'/source-code/svc/src/a.txt"}}}')" allow
+expect "baca .env ditolak" "$(d '{"toolCall":{"name":"read_file","args":{"AbsolutePath":"'"$R"'/source-code/svc/.env"}}}')" deny
+expect "baca .env.example boleh" "$(d '{"toolCall":{"name":"read_file","args":{"AbsolutePath":"'"$R"'/source-code/svc/.env.example"}}}')" allow
+expect "baca .git ditolak" "$(d '{"toolCall":{"name":"view_file","args":{"AbsolutePath":"'"$R"'/source-code/svc/.git/config"}}}')" deny
+expect "baca di luar root ditolak" "$(d '{"toolCall":{"name":"read_file","args":{"AbsolutePath":"/etc/passwd"}}}')" deny
+expect "baca ~/.ssh ditolak" "$(d '{"toolCall":{"name":"read_file","args":{"AbsolutePath":"~/.ssh/id_rsa"}}}')" deny
+expect "grep di root service (luar Scope) ditolak" "$(d '{"toolCall":{"name":"grep_search","args":{"SearchPath":"'"$R"'/source-code/svc","Query":"KEY"}}}')" deny
+expect "grep di dalam Scope boleh" "$(d '{"toolCall":{"name":"grep_search","args":{"SearchPath":"'"$R"'/source-code/svc/src","Query":"KEY"}}}')" allow
+grep -q '"secret": true' "$R/docs/work/w1/tasks/T1.gate.log" && ok "penolakan rahasia tercatat di gate.log" || bad "gate.log mencatat secret"
 rm -f "$R/.agents/active-task.json"
 # bawaan global agent_runs_checks=true mengaktifkan cek untuk service tanpa flag sendiri (termasuk skema lama)
 python3 - "$R/harness.config.json" <<'PY'
