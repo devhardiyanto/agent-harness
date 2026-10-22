@@ -96,3 +96,48 @@ test('snapshot: tanpa work item dan service tanpa baseline tetap JSON valid', ()
   assert.equal(s.services[0].baseline.ref, null);
   assert.match(s.services[0].baseline.note, /bukan repo git/);
 });
+
+test('board: berkas HTML berisi snapshot tertanam, aman dari </script>, tanpa isi dokumen', () => {
+  const root = mkProject();
+  const it = newItem(root, 'fitur rahasia');
+  writePlan(it, { acs: ['- AC1: teks-ac-rahasia'] });
+  fs.writeFileSync(path.join(it.dir, 'impact.md'), 'isi-impact-rahasia </script><b>x</b>');
+  const r = cli(root, 'board');
+  assert.equal(r.status, 0, r.stderr);
+  const out = path.join(root, '.claude/state/board.html');
+  assert.ok(fs.existsSync(out));
+  assert.match(r.stdout, /board: .*board\.html/);
+  assert.match(r.stdout, /1 work item, 1 service/);
+  const html = fs.readFileSync(out, 'utf8');
+  assert.ok(html.startsWith('<!doctype html>'));
+  assert.ok(!html.includes('/*SNAPSHOT*/'), 'penanda harus terganti');
+  assert.ok(html.includes('"project":"proyek-uji"'));
+  assert.ok(html.includes(it.slug));
+  for (const secret of ['judul-rahasia-plan', 'teks-ac-rahasia', 'isi-impact-rahasia']) assert.ok(!html.includes(secret), secret + ' bocor');
+  // satu-satunya </script> harus penutup skrip papan; data tidak boleh menyisipkannya
+  assert.equal(html.split('</script>').length - 1, 1);
+});
+
+test('board: --out ke path lain; judul project dengan karakter berbahaya tidak memecah halaman', () => {
+  const root = mkProject();
+  const cfgP = path.join(root, 'harness.config.json');
+  const cfg = JSON.parse(fs.readFileSync(cfgP, 'utf8')); cfg.project = '</script><img src=x>\u2028';
+  fs.writeFileSync(cfgP, JSON.stringify(cfg));
+  const out = path.join(root, 'tmp', 'papan.html');
+  const r = cli(root, 'board', '--out', out);
+  assert.equal(r.status, 0, r.stderr);
+  const html = fs.readFileSync(out, 'utf8');
+  assert.equal(html.split('</script>').length - 1, 1);
+  assert.ok(html.includes('\\u003c/script>') || html.includes('\\u003c/script\\u003e'));
+  assert.ok(!html.includes('\u2028'));
+});
+
+test('board: --out tanpa nilai ditolak; template tanpa penanda ditolak', () => {
+  const root = mkProject();
+  assert.notEqual(cli(root, 'board', '--out').status, 0);
+  const tpl = path.join(root, '.claude/hooks/board.html');
+  fs.writeFileSync(tpl, '<p>kosong</p>');
+  const r = cli(root, 'board');
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /penanda/);
+});
