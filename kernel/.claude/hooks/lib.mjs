@@ -15,7 +15,8 @@ export const DEFAULT_CONFIG = {
   services: [],
   // 'single': semua path di luar allow_paths dianggap kode dan di-gate
   allow_paths: ['docs/**', '.claude/rules/**', '.claude/audit/**', 'AGENTS.md', 'CLAUDE.md', '.gitignore'],
-  protected_paths: ['.claude/hooks/**', '.claude/settings.json', '.claude/agents/**', 'harness.config.json'],
+  // .agents/** dan scripts/executor/** = modul executor opsional (aman bila tidak terpasang)
+  protected_paths: ['.claude/hooks/**', '.claude/settings.json', '.claude/agents/**', 'harness.config.json', '.agents/**', 'scripts/executor/**'],
   schema_paths: ['**/migrations/**', '**/migration/**', '**/*.sql', '**/schema.prisma'],
   protected_branches: ['main', 'master', 'develop', 'release/*'],
   deny_commands: [
