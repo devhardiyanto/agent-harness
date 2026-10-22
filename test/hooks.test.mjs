@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const kernel = path.join(here, '..', 'kernel');
 
-function mkProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hx-'));
+function mkProject(prefix = 'hx-') {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   fs.cpSync(kernel, root, { recursive: true });
   const cfgPath = path.join(root, 'harness.config.json');
   const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
@@ -223,4 +223,15 @@ test('session: menyuntik ringkasan', () => {
   const r = run(root, 'session.mjs', { hook_event_name: 'SessionStart', source: 'startup' });
   assert.equal(r.status, 0);
   assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /Work item terbuka/);
+});
+
+// Regresi: guard "dijalankan sebagai skrip" membandingkan import.meta.url dengan file://${argv[1]}. Di Windows dan pada path
+// berspasi keduanya berbeda, sehingga hook keluar 0 tanpa memeriksa (gerbang gagal-terbuka).
+test('gerbang tetap menegakkan aturan pada path project berspasi (regresi gagal-terbuka)', () => {
+  const root = mkProject('hx space ');
+  assert.ok(root.includes(' '));
+  const r = edit(root, 'source-code/svc-a/src/x.ts');
+  assert.equal(r.status, 2, 'edit tanpa work item harus diblokir walau path berspasi');
+  const b = bash(root, 'git push origin main', path.join(root, 'source-code', 'svc-a'));
+  assert.equal(b.status, 2, 'push ke branch utama harus diblokir walau path berspasi');
 });

@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
@@ -26,6 +27,20 @@ export const DEFAULT_CONFIG = {
   plane: { enabled: false, project_id: null, workspace: null },
   graphify: { enabled: true, version: null },
 };
+
+// True bila modul ini dijalankan sebagai skrip (bukan di-import). JANGAN membandingkan import.meta.url dengan
+// `file://${process.argv[1]}`: di Windows (C:\\... vs file:///C:/...) dan pada path berspasi/berkarakter khusus
+// (URL-encoded) keduanya tidak pernah sama, hook keluar 0 tanpa memeriksa apa pun (gagal-terbuka).
+// Bila pembandingan gagal karena error, anggap "dijalankan sebagai skrip" agar gerbang tetap berlaku (gagal-tertutup).
+export function isMain(metaUrl, argv1 = process.argv[1]) {
+  if (!argv1) return false;
+  try {
+    const real = fs.realpathSync.native || fs.realpathSync;
+    return real(fileURLToPath(metaUrl)) === real(argv1);
+  } catch {
+    return true;
+  }
+}
 
 export function readJson(file, fallback = null) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; }

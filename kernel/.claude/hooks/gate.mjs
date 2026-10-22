@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   readStdinJson, projectRoot, loadConfig, relPath, matchAny, serviceOf, activeItems, coversService,
   splitFrontmatter, readItem, checkTransition, findSecret, SECRET_FILE, deny, STATUSES,
+  isMain,
 } from './lib.mjs';
 
 function incoming(tool, input) {
@@ -104,7 +105,7 @@ export function evaluate(root, cfg, payload) {
   return { ok: true };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   const payload = await readStdinJson();
   const root = projectRoot(payload);
   const cfg = loadConfig(root);

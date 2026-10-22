@@ -3,6 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import {
   readStdinJson, projectRoot, loadConfig, globToRegex, activeItems, coversService, posix, deny, SECRET_FILE,
+  isMain,
 } from './lib.mjs';
 
 const WRITE_OP = /(\bsed\s+(-[a-zA-Z]*i|--in-place)|\btee\b|(^|[^<>&=\d])>>?(?![>&=])|\bmv\b|\bcp\b|\brm\b|\bpatch\b|\bgit\s+apply\b|\bperl\s+-[a-z]*i|\btruncate\b|\binstall\s+-|\bdd\b)/;
@@ -74,7 +75,7 @@ export function evaluate(root, cfg, payload) {
   return { ok: true };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   const payload = await readStdinJson();
   const root = projectRoot(payload);
   const cfg = loadConfig(root);
