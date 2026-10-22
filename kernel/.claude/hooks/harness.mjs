@@ -4,6 +4,7 @@
 //   list [--json]           daftar work item
 //   show <slug> [--json]    ringkas satu item
 //   snapshot [--json]       metadata work item + baseline + kesegaran knowledge dalam satu JSON (untuk viewer; tanpa isi dokumen)
+//   board [--out f] [--open] papan HTML lokal (lajur per service) dengan snapshot tertanam; default .claude/state/board.html
 //   set-status <slug> <to>  ubah status (dengan pemeriksaan transisi/gerbang)
 //   start <slug>            = set-status in-progress
 //   check <slug>            dry-run gerbang 2
@@ -24,6 +25,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   inventory, baselineOf, worktreeAdd, worktreeRm, lintService, formatLint, sampleService, knowledgeStatus, proposeChecks,
   verifyService, checkProposal, approveProposal, isRepo, svcDir,
@@ -38,6 +40,22 @@ const cfg = loadConfig(root);
 const [cmd, ...args] = process.argv.slice(2);
 const die = (m, code = 1) => { console.error(m); process.exit(code); };
 const TYPES = ['feature', 'improvement', 'hotfix', 'analysis', 'cross-repo', 'schema', 'onboard'];
+function buildSnapshot() {
+  const services = (cfg.services || []).map((s) => {
+    const b = baselineOf(root, cfg, s);
+    const k = knowledgeStatus(root, cfg, s);
+    return {
+      service: s,
+      baseline: b.ok ? { ref: b.ref, sha: b.sha.slice(0, 10), via: b.via, checkout: b.checkout, on_baseline: b.on_baseline, dirty: b.dirty, note: b.note } : { ref: null, note: b.note },
+      knowledge: { state: k.state, status: k.status, behind: k.behind, files: k.files, source_commit: k.source_commit ? k.source_commit.slice(0, 10) : null, updated: k.updated || null },
+    };
+  });
+  return {
+    schema: 1, generated_at: new Date().toISOString(), project: cfg.project || path.basename(root),
+    work_items: listItems(root).map(summarizeItem).sort((a, b) => a.slug.localeCompare(b.slug)),
+    services,
+  };
+}
 
 function need(q) {
   if (!q) die('slug wajib diisi.');
@@ -204,21 +222,32 @@ switch (cmd) {
   }
   case 'snapshot': {
     // Satu objek JSON metadata untuk viewer (tempel/unggah). Tanpa isi dokumen, teks AC, atau path kode.
-    const services = (cfg.services || []).map((s) => {
-      const b = baselineOf(root, cfg, s);
-      const k = knowledgeStatus(root, cfg, s);
-      return {
-        service: s,
-        baseline: b.ok ? { ref: b.ref, sha: b.sha.slice(0, 10), via: b.via, checkout: b.checkout, on_baseline: b.on_baseline, dirty: b.dirty, note: b.note } : { ref: null, note: b.note },
-        knowledge: { state: k.state, status: k.status, behind: k.behind, files: k.files, source_commit: k.source_commit ? k.source_commit.slice(0, 10) : null, updated: k.updated || null },
-      };
-    });
-    const snap = {
-      schema: 1, generated_at: new Date().toISOString(), project: cfg.project || path.basename(root),
-      work_items: listItems(root).map(summarizeItem).sort((a, b) => a.slug.localeCompare(b.slug)),
-      services,
-    };
-    console.log(JSON.stringify(snap, null, 2));
+    console.log(JSON.stringify(buildSnapshot(), null, 2));
+    break;
+  }
+  case 'board': {
+    // Papan lokal: template board.html + snapshot tertanam. Hanya metadata yang sama dengan `snapshot`.
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const tplPath = path.join(here, 'board.html');
+    if (!fs.existsSync(tplPath)) die('board.html tidak ditemukan di .claude/hooks/. Pasang ulang harness atau salin dari repo agent-harness.');
+    const oi = args.indexOf('--out');
+    if (oi >= 0 && !args[oi + 1]) die('--out butuh path berkas.');
+    const out = path.resolve(oi >= 0 ? args[oi + 1] : path.join(root, '.claude/state/board.html'));
+    const snap = buildSnapshot();
+    const json = JSON.stringify(snap).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+    const tpl = fs.readFileSync(tplPath, 'utf8');
+    if (tpl.split('/*SNAPSHOT*/null').length !== 2) die('board.html tidak valid: penanda /*SNAPSHOT*/null harus tepat satu.');
+    const body = tpl.replace('/*SNAPSHOT*/null', () => json);
+    const doc = `<!doctype html>\n<html lang="id">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<style>:root{color-scheme:light}body{margin:0}</style>\n</head>\n<body>\n${body}\n</body>\n</html>\n`;
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, doc);
+    const url = pathToFileURL(out).href;
+    console.log(`board: ${out}\nurl:   ${url}\nisi:   ${snap.work_items.length} work item, ${snap.services.length} service (snapshot ${snap.generated_at})`);
+    if (args.includes('--open')) {
+      const [bin, ...a] = process.platform === 'win32' ? ['cmd.exe', '/c', 'start', '', out] : process.platform === 'darwin' ? ['open', out] : ['xdg-open', out];
+      const r = spawnSync(bin, a, { stdio: 'ignore' });
+      if (r.error || (r.status ?? 0) !== 0) console.log('catatan: gagal membuka browser otomatis; buka url di atas secara manual.');
+    }
     break;
   }
   case 'propose-checks': {
@@ -256,5 +285,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('perintah: new | list | show | snapshot | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | patterns-check | verify-knowledge | patterns-approve');
+    die('perintah: new | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | patterns-check | verify-knowledge | patterns-approve');
 }

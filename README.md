@@ -33,7 +33,7 @@ Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge); ops
 | 5. review / feedback | `/harness:review <slug> [feedback]` | `review.md`; blocker → balik ke build; clean → `done` |
 | 6. kirim | `/harness:ship <slug>` | branch, commit, push, PR (`gh`); panggil lagi setelah merge → `merged` |
 | usulan pola (kamu) | `/harness:patterns <slug> P1,P3\|all` | hook menerapkan usulan dari review ke `patterns.md` |
-| lain | `/harness:status`, `/harness:refresh <svc>` | tabel item + cek instalasi; perbarui knowledge yang tertinggal dari baseline |
+| lain | `/harness:status`, `/harness:board`, `/harness:refresh <svc>` | tabel item + cek instalasi; papan HTML lokal per service (`.claude/state/board.html`); perbarui knowledge yang tertinggal dari baseline |
 
 Awal setiap sesi, hook melaporkan (tanpa token, git lokal saja): service tanpa knowledge, knowledge tertinggal dari baseline (ambang `knowledge.stale_warn_commits`, bawaan 15), dan yang masih `draft`.
 
@@ -72,7 +72,7 @@ Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_comma
 - **`lint-knowledge`** (deterministik, nol token): tiap sitasi `path:baris` harus ada **pada `source_commit`**, barisnya ada, dan simbol backtick sebaris ditemukan di ±3 baris; batas panjang; secret literal; `UNKNOWN` dan dugaan `?` tidak dianggap klaim. Membuktikan sitasi ada, **bukan** bahwa penjelasannya benar — karena itu `verified` tetap keputusan manusia (`knowledge-sample` memudahkan: 6 klaim acak + kodenya).
 - **Pola** dibedakan dari fakta: fakta diperbarui otomatis sebagai `draft`; pola hanya diusulkan (review, hanya saat `clean`) dan disetujui manusia.
 - **Graphify** nonaktif; syarat aktif ada di `plugin/skills/init/GRAPHIFY-TRIAL.md` (recall ≥ grep **dan** token turun berarti, kriteria ditetapkan sebelum uji).
-- Perintah CLI: `harness.mjs inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | patterns-check` (+ `verify-knowledge`, `patterns-approve`: hanya manusia).
+- Perintah CLI: `harness.mjs snapshot | board | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | patterns-check` (+ `verify-knowledge`, `patterns-approve`: hanya manusia).
 
 ## Pengujian
 
