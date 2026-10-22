@@ -74,7 +74,8 @@ test('worktree: checkout baseline sementara, checkout user tidak tersentuh, bers
   g(p.svc, 'switch', '-q', '-c', 'feat/x'); fs.writeFileSync(path.join(p.svc, 'src/http/auth.ts'), 'diubah di branch fitur\n');
   const add = cli(p.root, 'worktree', 'add', 'svc-a'); assert.equal(add.status, 0, add.stderr + add.stdout);
   const wt = path.join(p.root, '.claude/state/worktrees/svc-a');
-  assert.equal(fs.readFileSync(path.join(wt, 'src/http/auth.ts'), 'utf8'), AUTH, 'isi = baseline, bukan branch fitur');
+  // Windows (core.autocrlf=true) mengubah LF jadi CRLF saat checkout; yang diuji adalah isinya, bukan akhir barisnya.
+  assert.equal(fs.readFileSync(path.join(wt, 'src/http/auth.ts'), 'utf8').replace(/\r\n/g, '\n'), AUTH, 'isi = baseline, bukan branch fitur');
   assert.equal(g(p.svc, 'branch', '--show-current').stdout.trim(), 'feat/x');
   assert.equal(fs.readFileSync(path.join(p.svc, 'src/http/auth.ts'), 'utf8'), 'diubah di branch fitur\n');
   assert.equal(cli(p.root, 'worktree', 'rm', 'svc-a').status, 0);

@@ -112,7 +112,7 @@ mencari jalan lain untuk langkah yang sama).
 ## Laporan
 - Jujur: tulis tiap langkah beserta hasilnya. Jangan mengarang.
 B
-echo "== dispatch T2 (agy asli, 1 panggilan model; exit 13 = ada penolakan = DIHARAPKAN)"
+echo "== dispatch T2 (agy asli, 1 panggilan model; penolakan hook TIDAK mengubah exit dispatch: terlihat di gate.log dan warning audit)"
 EXECUTOR_FORCE=1 bash scripts/executor/dispatch-executor.sh e2e T2 demo; rc=$?
 echo "== exit dispatch: $rc"
 "$PY" - "$D" "$CANARY" <<'PYEOF'
