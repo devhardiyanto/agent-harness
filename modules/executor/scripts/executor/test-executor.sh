@@ -42,6 +42,7 @@ case "${STUB_MODE:-ok}" in
   manifest) echo '{"x":1}' > "$SVC/package.json" ;;
   commit)   echo y > "$SVC/src/b.txt"; git -C "$SVC" add -A; git -C "$SVC" commit -qm sneaky ;;
   rootchg)  echo z > "$PWD/AGENTS.md" ;;
+  gatedeny) echo edit > "$SVC/src/b.txt"; printf '%s' '{"toolCall":{"name":"read_file","args":{"Path":"https://example.com"}}}' | bash "$PWD/scripts/executor/agy-gate.sh" >/dev/null ;;
 esac
 CID="conv-${STUB_MODE:-ok}"
 case "${STUB_MODE:-ok}" in
@@ -105,6 +106,8 @@ expect "commit liar -> 14" "$(run commit)" 14; grep -q commit_made "$R/docs/work
 expect "perubahan liar di root -> 14" "$(run rootchg)" 14; reset
 expect "run ok (untuk uji hasil basi)" "$(run ok)" 0
 git -C "$S" clean -qfd   # bersihkan service saja; result.json run sebelumnya sengaja dibiarkan
+expect "hook gate menolak tapi agy lanjut -> exit 0 (tidak terlihat di denied_actions)" "$(run gatedeny)" 0
+grep -q "gate menolak 1 panggilan" "$R/docs/work/w1/tasks/T1.audit.json" && ok "audit memberi warning penolakan gate" || bad "warning penolakan gate"; reset
 expect "denied_actions -> 13" "$(run denied)" 13
 [ ! -e "$R/docs/work/w1/tasks/T1.result.json" ] && ok "result.json lama dibuang sebelum run" || bad "result.json lama masih ada (hasil basi)"
 reset
@@ -143,6 +146,7 @@ expect "baca .env ditolak" "$(d '{"toolCall":{"name":"read_file","args":{"Absolu
 expect "baca .env.example boleh" "$(d '{"toolCall":{"name":"read_file","args":{"AbsolutePath":"'"$R"'/source-code/svc/.env.example"}}}')" allow
 expect "baca .git ditolak" "$(d '{"toolCall":{"name":"view_file","args":{"AbsolutePath":"'"$R"'/source-code/svc/.git/config"}}}')" deny
 expect "baca di luar root ditolak" "$(d '{"toolCall":{"name":"read_file","args":{"AbsolutePath":"/etc/passwd"}}}')" deny
+expect "read_file dengan URL (mengambil jaringan) ditolak" "$(d '{"toolCall":{"name":"read_file","args":{"Path":"https://example.com"}}}')" deny
 expect "baca ~/.ssh ditolak" "$(d '{"toolCall":{"name":"read_file","args":{"AbsolutePath":"~/.ssh/id_rsa"}}}')" deny
 expect "grep di root service (luar Scope) ditolak" "$(d '{"toolCall":{"name":"grep_search","args":{"SearchPath":"'"$R"'/source-code/svc","Query":"KEY"}}}')" deny
 expect "grep di dalam Scope boleh" "$(d '{"toolCall":{"name":"grep_search","args":{"SearchPath":"'"$R"'/source-code/svc/src","Query":"KEY"}}}')" allow

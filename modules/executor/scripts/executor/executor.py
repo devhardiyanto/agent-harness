@@ -64,6 +64,9 @@ SECRET_GLOBS = ["**/.env", "**/.env.*", "**/*.pem", "**/*.key", "**/*.p12", "**/
                 "**/.git/**"]
 SECRET_OK = re.compile(r"\.(example|sample|template|dist)$", re.I)  # .env.example dll. boleh dibaca
 # Tool pembacaan yang menelusuri isi banyak berkas sekaligus: path pencarian harus berada di dalam Scope.
+# Nilai argumen tingkat atas berbentuk URL (scheme://...). Terbukti di agy 1.4.5: read_file dengan Path "https://..."
+# MENGAMBIL URL (jaringan lewat tool baca), sehingga pemeriksaan nama tool saja tidak cukup.
+URL_ARG = re.compile(r"^\s*[A-Za-z][A-Za-z0-9+.-]*://")
 CONTENT_SEARCH = re.compile(r"(grep|search|find_in|ripgrep)", re.I)
 PATH_KEYS = ("Path", "AbsolutePath", "TargetFile", "TargetPath", "SearchPath", "SearchDirectory", "DirectoryPath",
              "Directory", "Dir", "File", "FilePath", "FileName", "Cwd")
@@ -291,6 +294,10 @@ def decide(payload, active):
         if cmd in active.get("allowed_commands", []):
             return "allow", "", {"tool": tool, "cmd": cmd}
         return "deny", "perintah tidak ada di allowlist executor: %s" % cmd[:120], {"tool": tool, "cmd": cmd}
+    urls = [k for k, v in args.items() if isinstance(v, str) and URL_ARG.match(v)]
+    if urls:
+        return "deny", "argumen berbentuk URL tidak diizinkan untuk executor (%s di tool %s)" % (urls[0], tool), \
+            {"tool": tool, "network": True, "args": json.dumps(args, ensure_ascii=False)[:160]}
     if NET_NAME.search(tool or ""):
         return "deny", "tool jaringan tidak diizinkan untuk executor: %s" % tool, {"tool": tool, "args": json.dumps(args, ensure_ascii=False)[:160]}
     is_write = tool in ("write_file", "edit_file") or (tool not in READ_TOOLS and WRITE_NAME.search(tool or ""))
@@ -359,6 +366,11 @@ def cmd_gate_selftest():
         (w("write_file", "/etc/passwd"), "deny"),
         (w("delete_file", ROOT + "/source-code/svc/other/b.txt"), "deny"),
         (w("read_file", "/etc/passwd"), "deny"),
+        (w("read_file", "https://example.com"), "deny"),
+        (w("view_file", "http://169.254.169.254/latest/meta-data"), "deny"),
+        (w("read_file", "file:///etc/passwd"), "deny"),
+        ({"toolCall": {"name": "mystery_tool", "args": {"Url": "https://example.com"}}}, "deny"),
+        ({"toolCall": {"name": "finish", "args": {"ac_claims": [{"id": "AC-1", "evidence": "lihat https://example.com"}]}}}, "allow"),
         (w("read_file", ROOT + "/source-code/svc/.env"), "deny"),
         (w("read_file", ROOT + "/source-code/svc/.env.production"), "deny"),
         (w("read_file", ROOT + "/source-code/svc/.env.example"), "allow"),
@@ -572,8 +584,12 @@ def cmd_audit(work, task, service):
     if not found:
         warn.append("transcript tidak ditemukan (bukti tambahan saja; diff git tetap otoritas)")
     gate = read_gate_log("%s/%s.gate.log" % (td, task))
+    denials = [g for g in gate if g.get("decision") == "deny"]
+    if denials:  # penolakan hook TIDAK muncul di denied_actions agy dan tidak mengubah exit code; tampilkan di sini
+        warn.append("gate menolak %d panggilan tool agy (agent mencoba tindakan terlarang): %s" % (
+            len(denials), "; ".join(sorted({"%s: %s" % (g.get("tool", "?"), (g.get("reason") or "")[:70]) for g in denials})[:5])))
     out = {"ok": not viol, "violations": viol, "warnings": warn, "changed": full, "tool_calls": tools,
-           "gate_denials": [g for g in gate if g.get("decision") == "deny"]}
+           "gate_denials": denials}
     Path("%s/%s.audit.json" % (td, task)).write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
     emit({"ok": out["ok"], "violations": viol, "warnings": len(warn), "changed": len(full)})
     return 0 if not viol else 14

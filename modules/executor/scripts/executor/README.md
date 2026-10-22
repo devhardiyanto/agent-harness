@@ -42,7 +42,7 @@ Lalu di root project (Windows: **Git Bash**):
 4. (opsional, disarankan sebelum aktif) uji dengan agy asli di folder sekali pakai (masing-masing 1 panggilan model):
    - `bash scripts/executor/e2e-smoke.sh ~/agy-e2e` (siapkan; folder lama dihapus dulu: salinan `scripts/` di dalamnya dibuat saat setup dan tidak ikut diperbarui)
    - `... --run ~/agy-e2e` — jalur **positif**: task kecil harus selesai dan lolos audit.
-   - `... --negative ~/agy-e2e` — jalur **negatif**: agy diminta mencoba baca `.env` (canary), tulis di luar Scope / path terlindung, shell di luar allowlist, baca di luar root, baca `.git`, grep di luar Scope, dan jaringan. Hasil per probe: `OK` ditolak gate, `FAIL` lolos/bocor (exit 2), `TIDAK TERUJI` agy tidak mencoba (exit 3, ulangi). Exit dispatch 13 pada uji ini **diharapkan**.
+   - `... --negative ~/agy-e2e` — jalur **negatif**: agy diminta mencoba baca `.env` (canary), tulis di luar Scope / path terlindung, shell di luar allowlist, baca di luar root, baca `.git`, grep di luar Scope, dan jaringan. Hasil per probe: `OK` ditolak gate, `FAIL` lolos/bocor (exit 2), `TIDAK TERUJI` agy tidak mencoba (exit 3, ulangi). Penolakan oleh hook gate **tidak** mengubah exit dispatch (agy hanya melihat tool ditolak lalu lanjut; terbukti di agy 1.4.5: exit 0, `denied_actions` kosong); sinyalnya `gate.log` dan warning audit "gate menolak N panggilan".
 5. Aktifkan: `"executor": { "enabled": true }`, lalu `/harness:dispatch <slug>`.
 
 ## Konfigurasi (`harness.config.json` → `executor`)
@@ -71,7 +71,7 @@ Lalu di root project (Windows: **Git Bash**):
 | 14 | audit menemukan pelanggaran (`T<n>.audit.json`) |
 | 15 | agy melapor `BLOCKED` (ambigu / butuh di luar Scope) — baca `open_questions` |
 
-Exit code agy sendiri tidak mencerminkan penolakan izin; sinyalnya `denied_actions`, teks `JSON hook ... failed`, dan `T<n>.gate.log`.
+Exit code agy sendiri tidak mencerminkan penolakan izin; sinyalnya `denied_actions`, teks `JSON hook ... failed`, dan `T<n>.gate.log`. Penolakan oleh **hook gate** (agent mencoba tindakan terlarang tetapi tool ditolak) tidak masuk `denied_actions` dan tidak mengubah exit code; audit menambahkan warning "gate menolak N panggilan" dan Claude wajib membacanya saat verifikasi.
 
 Berkas per task di `docs/work/<slug>/tasks/`: `T<n>.brief.md` dan `T<n>.feedback.md` (masukan), `.envelope.json .result.json .gate.log .audit.json .base .rootbase .conversation` (keluaran), `.stdout .stderr .agy.log` (log lokal, di-gitignore).
 
@@ -101,6 +101,7 @@ Terverifikasi di Windows 11 + Git Bash (agy 1.4.3): dengan `--sandbox`, toolchai
 ## Batas yang diketahui (jujur)
 
 - Gate baca bekerja pada **path argumen tool**. Tool pencarian isi (grep) dibatasi ke direktori di dalam Scope, tetapi bila Scope berupa `source-code/<svc>/` penuh dan berkas rahasia ada di dalamnya (mis. `.env` yang tidak masuk `.gitignore`), hasil grep di dalam Scope masih dapat memuat barisnya. Jaga Scope sesempit mungkin dan jangan menyimpan rahasia sungguhan di dalam direktori yang menjadi Scope.
+- Argumen tingkat atas berbentuk URL (`scheme://`) ditolak di semua tool: terbukti di agy 1.4.5 bahwa `read_file` dengan `Path` URL mengambil halaman web (celah jaringan lewat tool baca yang ditemukan `--negative`).
 - Nama tool agy yang tak dikenal gate tetap diperiksa path-nya, tetapi bila argumennya tidak berisi path yang dikenali, tool itu diizinkan dan dicatat (`unknown` di `gate.log`). `e2e-smoke.sh --negative` mencetak daftar nama tool yang teramati agar celah ini terlihat.
 - Terminal/`run_command` hanya lolos bila **tepat** ada di allowlist; perintah yang diizinkan (mis. `node check.js` pada mode A) tetap menjalankan kode service yang belum ditinjau.
 - Bukti keamanan nyata hanya dari run dengan agy asli di mesin Anda; test tiruan membuktikan logika gate, bukan perilaku agy.
