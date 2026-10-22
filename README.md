@@ -13,25 +13,29 @@ node "$d/install.mjs" --dry-run           # tinjau rencana: apa yang dibuang / d
 node "$d/install.mjs"                     # interaktif; project existing: ketik "ganti"
 # non-interaktif: node "$d/install.mjs" --yes
 ```
-Opsi: `--branch NAMA` (default `harness-v1`), `--root-branch main`, `--project-name`, `--repo owner/repo`, `--allow-dirty`, `--no-commit`, `--with-executor` (modul opsional, lihat bawah).
+Opsi: `--branch NAMA` (default `harness-v1`), `--root-branch main`, `--project-name`, `--repo owner/repo`, `--allow-dirty`, `--no-commit`, `--with-executor` (modul opsional, lihat bawah), `--ignore backup,tmp` (entri root yang diabaikan: masuk `.gitignore`, tidak disentuh, tidak di-commit; folder `backup/` dan `backups/` otomatis, matikan dengan `--no-auto-ignore`).
 
-Yang dilakukan installer: cek prasyarat (tidak memasang apa pun) → deteksi mode & service → tag cadangan `harness-pre-v1-<waktu>` → branch `harness-v1` → buang harness lama → pasang kernel → commit. Mundur kapan saja: `git switch -c lama harness-pre-v1-<waktu>`. Project tanpa git: salinan `.harness-backup-<waktu>/`.
-Dipertahankan: `source-code/`, `.mcp.json`, `.claude/settings.local.json`, `docs/` selain yang dibuang, `scripts/` selain skrip harness lama. Memasang ulang = ganti penuh perangkat (hook, rule, agent, skill), tetapi **data user dipertahankan** bila harness v1 sudah ada: `docs/work/` (kecuali `_TEMPLATE`), `docs/knowledge/`, `docs/_map.md`, dan blok `executor`/`checks` di `harness.config.json`.
+Yang dilakukan installer: cek prasyarat (tidak memasang apa pun) → deteksi mode & service → tag cadangan `harness-pre-v1-<waktu>` → branch `harness-v1` → buang harness lama → pasang kernel → commit **hanya path milik harness** (bukan `git add -A`: file/folder lain yang belum di-track tidak ikut ter-commit). Mundur kapan saja: `git switch -c lama harness-pre-v1-<waktu>`. Project tanpa git: salinan `.harness-backup-<waktu>/`.
+Dipertahankan: `source-code/`, `.mcp.json`, `.claude/settings.local.json`, `docs/` selain yang dibuang, `scripts/` selain skrip harness lama. Memasang ulang = ganti penuh perangkat (hook, rule, agent, skill), tetapi **data user dipertahankan** bila harness v1 sudah ada: `docs/work/` (kecuali `_TEMPLATE`), `docs/knowledge/`, `docs/_map.md`, dan blok `executor`/`checks`/`baseline`/`knowledge`/`graphify` di `harness.config.json`.
 
-Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge); opsional `pip install graphifyy==0.9.90` (graph L1), MCP Plane.
+Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge); opsional (nonaktif bawaan) `pip install graphifyy==0.9.90` untuk graph L1 setelah uji terukur, MCP Plane.
 
 ## Alur pakai
 
 | langkah | perintah | hasil |
 |---|---|---|
-| isi pengetahuan (sekali) | `/harness:onboard <service>` lalu `/harness:onboard all` | `docs/_map.md`, `docs/knowledge/<svc>/{summary,patterns}.md` (+graph) |
+| bootstrap (sekali; ulangi untuk service baru) | `/harness:init` (satu service dulu, lihat `/usage`, lalu `all`) | inventaris, baseline per service, `docs/_map.md`, `docs/knowledge/<svc>/{summary,patterns}.md` dari commit baseline, usulan `checks.<svc>` |
+| verifikasi knowledge (kamu) | `harness.mjs knowledge-sample <svc>` → `/harness:verify <svc>` | `draft → verified` (hanya bila `lint-knowledge` bersih) |
 | 1. dampak | `/harness:impact feature <permintaan>` | `docs/work/<slug>/{brief,impact}.md` |
 | 2. plan (sesi planning) | `/harness:plan <slug>` | `plan.md` `draft` + AC bernomor |
 | 3. setuju (kamu) | `/harness:approve <slug>` | hook menulis `approved` |
 | 4. eksekusi (sesi baru) | `/harness:build <slug>` | kode + bukti per AC di `progress.md` → `in-review` |
 | 5. review / feedback | `/harness:review <slug> [feedback]` | `review.md`; blocker → balik ke build; clean → `done` |
 | 6. kirim | `/harness:ship <slug>` | branch, commit, push, PR (`gh`); panggil lagi setelah merge → `merged` |
-| lain | `/harness:status`, `/harness:refresh <svc>` | tabel item + cek instalasi; perbarui knowledge |
+| usulan pola (kamu) | `/harness:patterns <slug> P1,P3\|all` | hook menerapkan usulan dari review ke `patterns.md` |
+| lain | `/harness:status`, `/harness:refresh <svc>` | tabel item + cek instalasi; perbarui knowledge yang tertinggal dari baseline |
+
+Awal setiap sesi, hook melaporkan (tanpa token, git lokal saja): service tanpa knowledge, knowledge tertinggal dari baseline (ambang `knowledge.stale_warn_commits`, bawaan 15), dan yang masih `draft`.
 
 Tipe: `feature`, `improvement`, `hotfix` (plan 4 baris, gerbang tetap), `analysis`, `cross-repo`, `schema`, `onboard`.
 Status: `draft → approved → in-progress → in-review → done → merged`. Selesai = PR merged.
@@ -53,21 +57,31 @@ Status: `draft → approved → in-progress → in-review → done → merged`. 
 | tanpa baca/tulis `.env`/kunci, tanpa secret literal | `PreToolUse` + `permissions.deny` |
 | `.claude/hooks`, `settings.json`, `harness.config.json` dilindungi | `PreToolUse` (buka: `HARNESS_ADMIN=1` saat menjalankan `claude`) |
 | migrasi/skema hanya di item bertipe `schema` | `PreToolUse` |
+| knowledge `verified` hanya manusia; mengedit file `verified` = turun ke `draft` | `PreToolUse` (gate) + hook `UserPromptSubmit` (`/harness:verify`, hanya bila lint bersih) |
+| pola baru/berubah hanya diusulkan agent (`Status: proposed`); `applied` hanya setelah manusia mengetik `/harness:patterns` | `PreToolUse` + `UserPromptSubmit` |
 | audit JSONL tanpa secret (`.claude/audit/`), laporan diff manifest dependency, peringatan konteks ±400k | `PostToolUse`, `InstructionsLoaded` |
 | hook rusak/timeout = aksi diblokir | `onFailure: "block"` |
 
 Hook adalah guardrail berbasis pola, **bukan sandbox**: agent yang sengaja mencari celah lewat shell bisa saja menemukannya. Ia menutup jalan yang lazim dan membuat pelanggaran terlihat di audit.
 
-Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_command`, ambang konteks, Plane, Graphify).
+Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_command`, ambang konteks, Plane, `graphify` (nonaktif bawaan), `knowledge` (batas baris, ambang kedaluwarsa), `baseline` (override branch baseline per service)).
+
+## Knowledge: baseline, lint, kedaluwarsa
+
+- **Baseline** per service: `baseline.<svc>` di config → `origin/HEAD` → `production` → `main` → `master`; remote-tracking didahulukan atas branch lokal. Analisa memakai `git worktree` sementara (`.claude/state/worktrees/<svc>`) di commit baseline: checkout/branch fitur Anda tidak disentuh. Tanpa jaringan kecuali `baseline --fetch`.
+- **`lint-knowledge`** (deterministik, nol token): tiap sitasi `path:baris` harus ada **pada `source_commit`**, barisnya ada, dan simbol backtick sebaris ditemukan di ±3 baris; batas panjang; secret literal; `UNKNOWN` dan dugaan `?` tidak dianggap klaim. Membuktikan sitasi ada, **bukan** bahwa penjelasannya benar — karena itu `verified` tetap keputusan manusia (`knowledge-sample` memudahkan: 6 klaim acak + kodenya).
+- **Pola** dibedakan dari fakta: fakta diperbarui otomatis sebagai `draft`; pola hanya diusulkan (review, hanya saat `clean`) dan disetujui manusia.
+- **Graphify** nonaktif; syarat aktif ada di `plugin/skills/init/GRAPHIFY-TRIAL.md` (recall ≥ grep **dan** token turun berarti, kriteria ditetapkan sebelum uji).
+- Perintah CLI: `harness.mjs inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | patterns-check` (+ `verify-knowledge`, `patterns-approve`: hanya manusia).
 
 ## Pengujian
 
-`npm test` (hook + installer di project contoh, termasuk existing, baru, tanpa git, layout single, pasang ulang, modul executor). `npm run test:executor` (50 uji modul executor dengan agy tiruan; butuh bash + python3). `claude plugin validate .` lolos.
+`npm test` (hook + installer di project contoh, termasuk existing, baru, tanpa git, layout single, pasang ulang, `--ignore`/`backup/`, modul executor; knowledge: baseline, worktree, lint, kedaluwarsa, verifikasi, usulan pola). `npm run test:executor` (50 uji modul executor dengan agy tiruan; butuh bash + python3). `claude plugin validate .` lolos.
 Diuji live dengan Claude Code 2.1.300 di sandbox: gerbang 1, approve via hook, transisi ilegal, rule per service (`paths`) termuat, `onFailure: block`, dan alur `impact → plan → approve → build → review → done` pada project mini.
 
 ## Belum teruji (jujur)
 
-- `ship` (commit/push/PR) dan cek `merged` lewat `gh` pada repo GitHub nyata; Plane MCP; `onboard`/`refresh` pada repo besar dan 14 repo (biaya belum diukur — jalankan satu service dulu); Graphify hanya diuji pada sampel kecil.
+- `ship` (commit/push/PR) dan cek `merged` lewat `gh` pada repo GitHub nyata; Plane MCP; `init`/`onboard`/`refresh` pada repo besar dan 14 repo (biaya token belum diukur — jalankan satu service dulu; bagian yang dijalankan model, yaitu kualitas ringkasan explorer, hanya diperiksa lint dan manusia); `lint-knowledge` diuji pada repo contoh kecil (heuristik simbol ±3 baris bisa memberi false positive pada bahasa/gaya tertentu); Graphify hanya diuji pada sampel kecil dan nonaktif.
 - Windows untuk inti harness: hook murni Node; perbaikan gagal-terbuka pada path berspasi diuji otomatis di Linux, belum di Windows.
 - Modul executor: diuji manual di Windows 11 + Git Bash dengan agy 1.4.3 (penulisan dalam Scope, gate, audit). Belum teruji: skill `/harness:dispatch` end-to-end dengan Claude Code, `sandbox: false` dengan agy asli, dan alur pada repo nyata. Codex CLI belum didukung (adapter dari `AGENTS.md` ditunda sampai inti stabil).
 - Pendaftaran plugin otomatis lewat `extraKnownMarketplaces` di `.claude/settings.json`: pemasangan lokal terverifikasi; jalur github privat tergantung kredensial git di mesinmu (`gh auth setup-git`). Cadangan manual: `claude plugin marketplace add devhardiyanto/agent-harness && claude plugin install harness@harness-marketplace`.

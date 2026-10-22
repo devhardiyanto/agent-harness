@@ -13,3 +13,5 @@ Aturan:
 - Keluaran = tabel/daftar ringkas sesuai format yang diminta pemanggil. Tanpa narasi, tanpa mengulang kode panjang.
 - Relasi antar-service: cari env var base URL, klien HTTP, nama queue/topic, tabel yang dipakai bersama. Graph AST sering tidak menangkap panggilan HTTP.
 - Bila diminta mengisi template pengetahuan, ikuti kolom template apa adanya dan tulis `UNKNOWN` untuk yang tidak ditemukan.
+- Sitasi `path:baris` SELALU relatif ke root service (bukan ke worktree/folder kerja), dengan simbol yang diklaim di backtick pada baris yang sama; `lint-knowledge` memeriksa keduanya.
+- Bila diberi path worktree baseline (`.claude/state/worktrees/<svc>`), baca hanya dari sana, bukan dari `source-code/<svc>` (yang bisa berada di branch lain).

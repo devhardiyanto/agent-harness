@@ -23,6 +23,9 @@ export function evaluate(root, cfg, payload) {
   // approve hanya manusia
   if (/harness\.mjs\s+approve\b/.test(flat)) return fail('approve hanya boleh dilakukan manusia (ketik /harness:approve <slug>, atau jalankan sendiri dengan awalan "!").');
 
+  // verifikasi knowledge dan persetujuan pola hanya manusia
+  if (/harness\.mjs\s+(verify-knowledge|patterns-approve)\b/.test(flat)) return fail('verify-knowledge / patterns-approve hanya manusia: ketik /harness:verify <svc> atau /harness:patterns <slug> <P1,P3|all>, atau jalankan sendiri dengan awalan "!".');
+
   // perintah terlarang dari config
   for (const re of cfg.deny_commands) if (new RegExp(re, 'i').test(flat)) return fail(`perintah cocok dengan daftar larangan (${re}). Lakukan manual di luar agent.`);
 
@@ -60,6 +63,7 @@ export function evaluate(root, cfg, payload) {
   // tulis ke file harness / plan.md lewat shell
   if (WRITE_OP.test(cmd)) {
     if (/docs\/work\/[^\s'"]*plan\.md/.test(flat)) return fail('jangan ubah plan.md lewat shell; pakai Edit/Write (transisi status diperiksa hook) atau harness.mjs set-status.');
+    if (/docs\/knowledge\/[^\s'"]*(summary|patterns)\.md|docs\/work\/[^\s'"]*patterns-proposal\.md/.test(flat)) return fail('jangan ubah summary.md/patterns.md/patterns-proposal.md lewat shell; pakai Edit/Write (status verified/approved dijaga hook).');
     if (!process.env.HARNESS_ADMIN && /(\.claude\/(hooks|agents)\/|\.claude\/settings\.json|harness\.config\.json|\.agents\/|scripts\/executor\/)/.test(flat)) return fail('file harness dilindungi; ubah manual di luar sesi agent.');
     // gerbang 1 untuk tulis lewat shell ke services_dir
     if (cfg.layout === 'multi-repo') {
