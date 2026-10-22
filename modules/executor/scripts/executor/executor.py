@@ -11,6 +11,7 @@ Subcommand (dipanggil oleh wrapper bash, jarang dipanggil langsung):
   preflight                    cek lingkungan (agy, settings.json, trust, hooks.json, gate)
   settings-merge               tambah allowlist command() ke settings.json agy (dengan backup)
   hooks-gen                    tulis .agents/hooks.json dengan path absolut ke gate
+  checks <svc>                 perintah cek service + apakah agy boleh menjalankannya (checks.<svc>.agent_runs)
   cfg <key> [default]          baca harness.config.json -> executor.<key>
 
 Fakta yang dipakai (terverifikasi di agy 1.4.2, Windows 11 26300, Git Bash):
@@ -56,7 +57,8 @@ NET_NAME = re.compile(r"(search_web|read_url|web_search|fetch|browser|http)", re
 READ_TOOLS = {"read_file", "list_dir", "list_directory", "view_file", "grep_search", "find_by_name", "search"}
 DEFAULTS = {"command": "agy", "min_version": "1.1.12", "print_timeout": "10m", "model": "", "effort": "",
             "allowed_commands": ["git status", "git diff"], "protected_branches": ["main", "master", "develop", "dev"],
-            "ttl_minutes": 120, "path_prepend": [], "sandbox": True, "require_approved_plan": True}
+            "ttl_minutes": 120, "path_prepend": [], "sandbox": True, "require_approved_plan": True,
+            "agent_runs_checks": False}
 
 
 def rel(path, root=ROOT):
@@ -114,27 +116,51 @@ def cfg_all():
     return d
 
 
-def project_checks(service=None):
-    """Perintah cek (lint/test) per service dari harness.config.json -> checks.<svc>.{lint,test}; fallback ke
-    projects.<svc>.{lint_command,test_command} (skema boilerplate lama). Satu sumber kebenaran dengan verifikasi Claude.
+def _truthy(v):
+    return v is True or str(v).strip().lower() in ("true", "1", "yes", "ya")
+
+
+def check_entries():
+    """[(service, perintah, agent_runs)] dari harness.config.json -> checks.<svc>.{lint,test,agent_runs};
+    cadangan projects.<svc>.{lint_command,test_command} (skema lama). agent_runs = apakah agy BOLEH menjalankan perintah
+    itu: checks.<svc>.agent_runs bila ada, selain itu executor.agent_runs_checks (bawaan false).
     Nilai null / kosong / placeholder {{...}} / <...> dilewati."""
     try:
         conf = load_json(ROOT + "/harness.config.json")
     except Exception:
         conf = {}
+    default = _truthy((conf.get("executor") or {}).get("agent_runs_checks", False))
     sources = []
     for name, p in (conf.get("checks") or {}).items():
-        sources.append((name, [(p or {}).get("lint"), (p or {}).get("test")]))
+        p = p or {}
+        sources.append((name, [p.get("lint"), p.get("test")], _truthy(p["agent_runs"]) if "agent_runs" in p else default))
     for name, p in (conf.get("projects") or {}).items():
-        sources.append((name, [(p or {}).get("lint_command"), (p or {}).get("test_command")]))
+        p = p or {}
+        sources.append((name, [p.get("lint_command"), p.get("test_command")], default))
     out = []
-    for name, vals in sources:
-        if service and name != service:
-            continue
+    for name, vals, flag in sources:
         for v in vals:
-            if isinstance(v, str) and v.strip() and "{{" not in v and "<" not in v and v.strip() not in out:
-                out.append(v.strip())
+            if isinstance(v, str) and v.strip() and "{{" not in v and "<" not in v:
+                out.append((name, v.strip(), flag))
     return out
+
+
+def service_checks(service=None):
+    """Semua perintah cek (untuk verifikasi Claude), terlepas dari izin agy."""
+    return list(dict.fromkeys(c for n, c, f in check_entries() if not service or n == service))
+
+
+def agent_checks(service=None):
+    """Perintah cek yang BOLEH dijalankan agy (masuk allowlist)."""
+    return list(dict.fromkeys(c for n, c, f in check_entries() if f and (not service or n == service)))
+
+
+def cmd_checks(service):
+    ents = [e for e in check_entries() if e[0] == service]
+    emit({"service": service, "agent_runs": bool(ents) and all(e[2] for e in ents),
+          "commands": list(dict.fromkeys(e[1] for e in ents)),
+          "agent_commands": list(dict.fromkeys(e[1] for e in ents if e[2]))})
+    return 0
 
 
 def settings_path():
@@ -211,7 +237,7 @@ def decide(payload, active):
             return "deny", "di luar Scope: %s" % r, info
         return "allow", "", info
     brief = json.dumps(args, ensure_ascii=False)[:160]  # untuk diagnosis: apa yang dibaca/dipanggil agy
-    if tool in READ_TOOLS:
+    if tool in READ_TOOLS or tool == "finish":
         return "allow", "", {"tool": tool, "args": brief}
     return "allow", "tool tidak dikenal (diizinkan, dicatat): %s" % tool, {"tool": tool, "unknown": True, "args": brief}
 
@@ -326,7 +352,7 @@ def cmd_prepare(work, task, service):
     os.makedirs(ROOT + "/.agents", exist_ok=True)
     with open(ACTIVE, "w", encoding="utf-8") as f:
         json.dump({"work_id": work, "task_id": task, "service": service, "scope": scope,
-                   "allowed_commands": list(c["allowed_commands"]) + project_checks(service), "gate_log": "%s/%s.gate.log" % (task_dir(work), task),
+                   "allowed_commands": list(c["allowed_commands"]) + agent_checks(service), "gate_log": "%s/%s.gate.log" % (task_dir(work), task),
                    "started": now(), "ttl_minutes": c["ttl_minutes"]}, f, indent=2)
     return 0
 
@@ -474,8 +500,8 @@ def vtuple(s):
 
 
 def required_allow():
-    """Semua perintah yang boleh dijalankan executor di mana pun: dasar + cek tiap project di registry."""
-    cmds = list(cfg_all()["allowed_commands"]) + project_checks()
+    """Perintah yang boleh dijalankan executor di mana pun: dasar + cek service yang agent_runs-nya aktif."""
+    cmds = list(cfg_all()["allowed_commands"]) + agent_checks()
     return ["command(%s)" % c for c in dict.fromkeys(cmds)]
 
 
@@ -583,7 +609,7 @@ def main(argv):
     table = {"gate": lambda: cmd_gate(), "gate-selftest": lambda: cmd_gate_selftest(),
              "prepare": lambda: cmd_prepare(*a), "envelope": lambda: cmd_envelope(*a),
              "audit": lambda: cmd_audit(*a), "preflight": lambda: cmd_preflight(),
-             "settings-merge": lambda: cmd_settings_merge(), "hooks-gen": lambda: cmd_hooks_gen(),
+             "settings-merge": lambda: cmd_settings_merge(), "checks": lambda: cmd_checks(*a), "hooks-gen": lambda: cmd_hooks_gen(),
              "cfg": lambda: cmd_cfg(*a)}
     if c not in table:
         sys.stderr.write("subcommand tidak dikenal: %s\n" % c)

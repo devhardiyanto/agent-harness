@@ -16,7 +16,7 @@ expect() { [ "$2" = "$3" ] && ok "$1" || bad "$1 (dapat '$2', harapan '$3')"; }
 R="$T/root"; mkdir -p "$R/scripts" "$R/source-code" "$T/bin" "$T/home/.gemini/antigravity-cli"
 cp -r "$SRC/scripts/executor" "$R/scripts/"
 cat > "$R/harness.config.json" <<'J'
-{"executor":{"enabled":true,"allowed_commands":["git status","git diff"]},"checks":{"svc":{"test":"npm test","lint":null}},"projects":{"other":{"test_command":"go test ./...","lint_command":"{{LINT}}"}}}
+{"executor":{"enabled":true,"allowed_commands":["git status","git diff"]},"checks":{"svc":{"test":"npm test","lint":null,"agent_runs":true},"manual":{"test":"make verify","lint":"make lint"}},"projects":{"other":{"test_command":"go test ./...","lint_command":"{{LINT}}"}}}
 J
 git -C "$R" init -q; git -C "$R" config user.email t@t; git -C "$R" config user.name t
 printf 'source-code/\n.agents/hooks.json\n.agents/active-task.json\n' > "$R/.gitignore"
@@ -78,8 +78,12 @@ python3 "$R/scripts/executor/executor.py" gate-selftest; expect "gate-selftest" 
 echo "== 2. install + preflight"
 bash "$R/scripts/executor/install.sh" >/dev/null 2>"$T/pre.err"; expect "install.sh exit" "$?" 0
 grep -q '"command(git status)"' "$AGY_SETTINGS" && ok "allowlist digabung" || bad "allowlist digabung"
-grep -q '"command(npm test)"' "$AGY_SETTINGS" && ok "checks.<svc>.test masuk allowlist" || bad "checks.<svc>.test masuk allowlist"
-grep -q '"command(go test ./...)"' "$AGY_SETTINGS" && ok "fallback projects.<svc>.test_command masuk allowlist" || bad "fallback projects.<svc> masuk allowlist"
+grep -q '"command(npm test)"' "$AGY_SETTINGS" && ok "agent_runs:true -> checks.<svc>.test masuk allowlist" || bad "agent_runs:true masuk allowlist"
+grep -q 'make verify' "$AGY_SETTINGS" && bad "agent_runs tidak diset (bawaan false) tidak boleh masuk allowlist" || ok "agent_runs bawaan false: cek TIDAK masuk allowlist"
+grep -q 'go test' "$AGY_SETTINGS" && bad "fallback projects.<svc> mengikuti bawaan false" || ok "fallback projects.<svc>: bawaan false, tidak masuk allowlist"
+CK="$(python3 "$R/scripts/executor/executor.py" checks manual | tr -d '\r')"
+echo "$CK" | grep -q '"agent_runs": false' && echo "$CK" | grep -q 'make verify' && echo "$CK" | grep -q '"agent_commands": \[\]' && ok "executor.py checks: Claude melihat perintah, agent_commands kosong" || bad "executor.py checks manual: $CK"
+python3 "$R/scripts/executor/executor.py" checks svc | tr -d '\r' | grep -q '"agent_runs": true' && ok "executor.py checks svc: agent_runs true" || bad "checks svc"
 grep -q '{{LINT}}' "$AGY_SETTINGS" && bad "placeholder tidak boleh masuk allowlist" || ok "placeholder/null dilewati"
 grep -q '"keep": true' "$AGY_SETTINGS" && ok "field lain di settings.json utuh" || bad "field lain utuh"
 grep -q "$R/scripts/executor/executor.py" "$R/.agents/hooks.json" && ok "hooks.json path absolut" || bad "hooks.json path absolut"
@@ -130,9 +134,17 @@ expect "write dalam Scope" "$(d '{"toolCall":{"name":"write_file","args":{"Path"
 expect "write di luar Scope" "$(d '{"toolCall":{"name":"write_file","args":{"Path":"'"$R"'/source-code/svc/zzz.txt","Content":"x"}}}')" deny
 expect "test_command service ini diizinkan" "$(d '{"toolCall":{"name":"run_command","args":{"CommandLine":"npm test"}}}')" allow
 expect "cek service lain ditolak" "$(d '{"toolCall":{"name":"run_command","args":{"CommandLine":"go test ./..."}}}')" deny
+expect "cek service agent_runs:false ditolak untuk svc" "$(d '{"toolCall":{"name":"run_command","args":{"CommandLine":"make verify"}}}')" deny
 expect "cd + perintah ditolak (pencocokan tepat)" "$(d '{"toolCall":{"name":"run_command","args":{"CommandLine":"cd source-code/svc; npm test"}}}')" deny
 expect "git push ditolak" "$(d '{"toolCall":{"name":"run_command","args":{"CommandLine":"git push"}}}')" deny
 rm -f "$R/.agents/active-task.json"
+# bawaan global agent_runs_checks=true mengaktifkan cek untuk service tanpa flag sendiri (termasuk skema lama)
+python3 - "$R/harness.config.json" <<'PY'
+import json, sys
+p = sys.argv[1]; c = json.load(open(p)); c["executor"]["agent_runs_checks"] = True; json.dump(c, open(p, "w"))
+PY
+[ "$(python3 "$R/scripts/executor/executor.py" checks manual | tr -d '\r' | grep -c '"agent_runs": true')" = 1 ] && ok "executor.agent_runs_checks=true berlaku untuk service tanpa flag" || bad "agent_runs_checks global"
+python3 "$R/scripts/executor/executor.py" checks other | tr -d '\r' | grep -q 'go test' && ok "skema lama ikut bawaan global" || bad "skema lama bawaan global"
 expect "tanpa task aktif: gate nonaktif" "$(d '{"toolCall":{"name":"write_file","args":{"Path":"/anywhere","Content":"x"}}}')" allow
 
 echo; echo "lulus=$pass gagal=$fail"; [ "$fail" -eq 0 ]

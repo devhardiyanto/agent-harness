@@ -25,16 +25,23 @@
 - Jangan commit, push, buat branch, atau ubah konfigurasi git.
 - Jangan menambah/mengubah dependency, menjalankan migrasi, atau mengubah skema.
 - Jangan refactor atau memperbaiki hal di luar Scope. Temuan di luar Scope masuk `open_questions`.
-- Perintah shell yang boleh: `git status`, `git diff`, dan perintah cek service ini (lihat Done-when), PERSIS seperti tertulis,
+- Perintah shell yang boleh: `git status`, `git diff`, dan HANYA bila Done-when memakai mode A, perintah cek yang tertulis di sana, PERSIS
   tanpa `cd`, pipe, atau argumen tambahan. Pilih direktori kerja lewat parameter `Cwd` (mis. `source-code/<svc>`), bukan `cd`. Selebihnya otomatis ditolak; jangan dicoba dengan cara lain.
 - Jangan menulis atribusi AI di kode atau komentar.
 
 ## Done-when
-> Dari `harness.config.json` → `projects.{{service}}` (`lint_command`, `test_command`; lewati yang null).
-> Agy menjalankannya sendiri dan melaporkan exit code di `commands_run`. Claude menjalankan ulang yang sama di P5.
+> Sumber: `python3 scripts/executor/executor.py checks {{service}}` (`agent_runs`, `commands`, `agent_commands`). **Pilih satu mode, hapus yang lain.**
+>
+> **Mode A** (`agent_runs: true`): agy menjalankan `agent_commands` PERSIS dan melaporkan exit code aslinya di `commands_run`.
+> Perhatian: kode yang baru ditulis agy ikut berjalan (test/linter) sebelum Claude membacanya.
 - `{{lint_command}}`
 - `{{test_command}}`
-- (curl / perilaku runtime: hanya dijalankan Claude di P5)
+
+> **Mode B** (`agent_runs: false`, bawaan): agy TIDAK menjalankan cek apa pun; `commands_run` dikosongkan. Claude membaca diff lebih dulu,
+> lalu menjalankan `commands` sendiri. Tulis persis baris ini:
+- Agy tidak menjalankan perintah cek apa pun (hanya `git status` dan `git diff`); `commands_run` kosong.
+
+> Dalam kedua mode: curl / perilaku runtime hanya dijalankan Claude.
 
 ## Stop rule
 Bila ada yang ambigu, bertentangan dengan AC, atau butuh sesuatu di luar Scope/Boundaries: HENTIKAN, isi

@@ -19,7 +19,7 @@ Masukan: `$ARGUMENTS` (slug, opsional `T<n>`). Claude = perencana + verifikator 
 3. Tulis brief: salin `scripts/executor/templates/brief.md` ke `docs/work/<slug>/tasks/T<n>.brief.md`, isi lengkap. Agy **tidak** melihat chat; semua yang ia perlu harus ada di brief:
    - Scope sesempit mungkin, di bawah `source-code/<svc>/`; direktori diakhiri `/`. Manifest dependency hanya bila memang diperlukan dan disebut persis.
    - AC disalin dari `plan.md` (teks AC, bukan ringkasan).
-   - Done-when = perintah dari `harness.config.json` → `checks.<svc>.lint` / `.test` (lewati yang null), persis tanpa `cd`/pipe.
+   - Done-when: jalankan `python3 scripts/executor/executor.py checks <svc>` lalu pilih mode di template. `agent_runs: true` → **Mode A**: agy menjalankan `agent_commands` persis (tanpa `cd`/pipe). `agent_runs: false` → **Mode B**: agy tidak menjalankan cek apa pun; Claude yang menjalankan `commands` di langkah 6. Jangan menaruh perintah cek di brief bila mode B.
 4. Jalankan `bash scripts/executor/dispatch-executor.sh <slug> T<n> <svc>` (tanpa redirect atau pipe). Tindak lanjut menurut exit code:
 
 | exit | arti | tindakan |
@@ -33,7 +33,7 @@ Masukan: `$ARGUMENTS` (slug, opsional `T<n>`). Claude = perencana + verifikator 
 | 15 | agy melapor BLOCKED | baca `open_questions` di `T<n>.result.json`; perbaiki brief atau tanya user |
 
 5. Baca hasil sebagai klaim: `T<n>.result.json`, `T<n>.audit.json`, dan `git -C source-code/<svc> diff` (baca diff-nya sendiri). Status `PARTIAL` diperlakukan sebagai belum selesai.
-6. Verifikasi sendiri: jalankan ulang perintah cek yang sama dan buktikan tiap AC dengan output nyata (termasuk perilaku runtime/curl yang tidak boleh dijalankan agy). Jangan mengandalkan `commands_run` milik agy.
+6. Verifikasi sendiri: jalankan `commands` dari `executor.py checks <svc>` (mode B: ini pertama kalinya cek dijalankan, setelah Anda membaca diff; mode A: jalankan ulang) dan buktikan tiap AC dengan output nyata (termasuk perilaku runtime/curl yang tidak boleh dijalankan agy). Jangan mengandalkan `commands_run` milik agy.
 7. Gagal → tulis `T<n>.feedback.md` yang konkret (file:baris, output asli, yang diharapkan), lalu `bash scripts/executor/dispatch-executor.sh <slug> T<n> <svc> --resume`. AC yang sama gagal 3× → berhenti dan eskalasi ke user (kemungkinan plan perlu `reopen`).
 8. Lolos → commit di service (`git -C source-code/<svc> add -A` lalu `git commit`, pesan sesuai konvensi repo). Tulis `- AC<n>: <bukti>` di `progress.md` bagian `## Verifikasi` dan perbarui "Status terkini".
 

@@ -146,6 +146,7 @@ const haveBash = sh('bash', ['--version'], os.tmpdir()).status === 0 && (sh('pyt
 test('tanpa --with-executor: modul tidak terpasang', () => {
   const root = existingProject();
   assert.equal(install(root, '--yes').status, 0);
+  assert.equal(fs.existsSync(path.join(root, '.gitattributes')), false);
   assert.equal(fs.existsSync(path.join(root, 'scripts/executor')), false);
   assert.equal(fs.existsSync(path.join(root, '.agents')), false);
   assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'harness.config.json'), 'utf8')).executor, undefined);
@@ -160,13 +161,16 @@ test('--with-executor: modul terpasang NONAKTIF, checks per service, allow terba
   }
   const cfg = JSON.parse(fs.readFileSync(path.join(root, 'harness.config.json'), 'utf8'));
   assert.equal(cfg.executor.enabled, false);
-  assert.deepEqual(cfg.checks['ce-api'], { lint: null, test: null });
+  assert.deepEqual(cfg.checks['ce-api'], { lint: null, test: null, agent_runs: false });
   assert.ok(cfg.checks['ce-web']);
   const st = JSON.parse(fs.readFileSync(path.join(root, '.claude/settings.json'), 'utf8'));
   assert.ok(st.permissions.allow.includes('Bash(bash scripts/executor/dispatch-executor.sh *)'));
-  assert.ok(!st.permissions.allow.some((a) => /scripts\/executor\/\*\)$/.test(a) && !/dispatch|preflight/.test(a)), 'allow tidak boleh terlalu lebar');
+  assert.ok(st.permissions.allow.includes('Bash(python3 scripts/executor/executor.py checks *)'));
+  assert.ok(!st.permissions.allow.some((a) => /scripts\/executor\/\*\)$/.test(a) && !/dispatch|preflight|checks/.test(a)), 'allow tidak boleh terlalu lebar');
   const gi = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
   assert.match(gi, /\.agents\/hooks\.json/); assert.match(gi, /tasks\/\*\.agy\.log/);
+  const ga = fs.readFileSync(path.join(root, '.gitattributes'), 'utf8');
+  assert.match(ga, /scripts\/executor\/\*\* text eol=lf/); assert.match(ga, /\.agents\/\*\* text eol=lf/);
   assert.equal(hx(root, 'doctor').status, 0);
   assert.equal(hook(root, 'gate.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: path.join(root, 'scripts/executor/executor.py'), old_string: 'a', new_string: 'b' } }).status, 2);
   assert.equal(sh('git', ['status', '--porcelain'], root).stdout.trim(), '');
@@ -203,5 +207,6 @@ test('pasang ulang di atas v1: work item, knowledge, peta, executor & checks dip
   assert.equal(after.executor.enabled, true); assert.equal(after.executor.sandbox, false);
   assert.equal(after.checks['ce-api'].test, 'npm test');
   assert.ok(fs.existsSync(path.join(root, 'docs/work/_TEMPLATE/plan.md')));
+  assert.equal((fs.readFileSync(path.join(root, '.gitattributes'), 'utf8').match(/scripts\/executor\/\*\* text eol=lf/g) || []).length, 1, '.gitattributes tidak boleh digandakan');
   assert.equal(hx(root, 'doctor').status, 0);
 });

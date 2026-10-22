@@ -62,7 +62,7 @@ Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_comma
 
 ## Pengujian
 
-`npm test` (hook + installer di project contoh, termasuk existing, baru, tanpa git, layout single, pasang ulang, modul executor). `npm run test:executor` (44 uji modul executor dengan agy tiruan; butuh bash + python3). `claude plugin validate .` lolos.
+`npm test` (hook + installer di project contoh, termasuk existing, baru, tanpa git, layout single, pasang ulang, modul executor). `npm run test:executor` (50 uji modul executor dengan agy tiruan; butuh bash + python3). `claude plugin validate .` lolos.
 Diuji live dengan Claude Code 2.1.300 di sandbox: gerbang 1, approve via hook, transisi ilegal, rule per service (`paths`) termuat, `onFailure: block`, dan alur `impact → plan → approve → build → review → done` pada project mini.
 
 ## Belum teruji (jujur)

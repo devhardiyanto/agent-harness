@@ -34,9 +34,9 @@ Lalu di root project (Windows: **Git Bash**):
 
 1. Isi perintah cek per service di `harness.config.json` (edit manual; file dilindungi dari agent):
    ```json
-   "checks": { "<service>": { "lint": "npm run lint", "test": "npm test" } }
+   "checks": { "<service>": { "lint": "npm run lint", "test": "npm test", "agent_runs": false } }
    ```
-   Hanya perintah ini (dan `git status`, `git diff`) yang boleh dijalankan agy; null/kosong dilewati. Skema lama `projects.<svc>.{lint_command,test_command}` tetap dibaca sebagai cadangan.
+   `lint`/`test` adalah perintah yang Claude jalankan saat verifikasi. `agent_runs` menentukan apakah **agy juga boleh** menjalankannya (lihat "Keputusan D7"). Bawaan `false`. Null/kosong dilewati. Skema lama `projects.<svc>.{lint_command,test_command}` tetap dibaca sebagai cadangan dan mengikuti `executor.agent_runs_checks`.
 2. `bash scripts/executor/test-executor.sh` — uji tanpa agy asli (agy tiruan).
 3. `bash scripts/executor/install.sh` — menulis `.agents/hooks.json` (path absolut, lokal mesin) dan menggabungkan allowlist ke `settings.json` agy **global** (backup otomatis). Trust workspace diatur sendiri lewat agy interaktif; tanpa itu hook tidak dimuat.
 4. (opsional) `bash scripts/executor/e2e-smoke.sh ~/agy-e2e` lalu `... --run ~/agy-e2e` — uji dengan agy asli di folder sekali pakai (1 panggilan model).
@@ -48,9 +48,10 @@ Lalu di root project (Windows: **Git Bash**):
 |---|---|---|
 | `enabled` | `false` | `EXECUTOR_FORCE=1` mengabaikannya (hanya untuk uji) |
 | `print_timeout` | `"10m"` | batas waktu satu run agy |
-| `sandbox` | `true` | lihat "Sandbox dan keputusan D7" |
+| `sandbox` | `true` | `false` hanya bila mode A di mesin yang toolchain-nya tidak terjangkau sandbox (lihat D7) |
 | `path_prepend` | `[]` | direktori yang ditambahkan ke PATH agy (mis. shim mise/nvm), slash maju |
-| `allowed_commands` | `git status`, `git diff` | ditambah perintah dari `checks.<svc>` |
+| `allowed_commands` | `git status`, `git diff` | ditambah perintah cek service yang `agent_runs`-nya aktif |
+| `agent_runs_checks` | `false` | bawaan global bila `checks.<svc>.agent_runs` tidak diisi |
 | `require_approved_plan` | `true` | `false` hanya untuk uji |
 | `min_version`, `model`, `effort`, `ttl_minutes`, `protected_branches` | lihat `executor.py` | |
 
@@ -70,16 +71,18 @@ Exit code agy sendiri tidak mencerminkan penolakan izin; sinyalnya `denied_actio
 
 Berkas per task di `docs/work/<slug>/tasks/`: `T<n>.brief.md` dan `T<n>.feedback.md` (masukan), `.envelope.json .result.json .gate.log .audit.json .base .rootbase .conversation` (keluaran), `.stdout .stderr .agy.log` (log lokal, di-gitignore).
 
-## Sandbox dan keputusan D7
+## Keputusan D7: siapa yang menjalankan lint/test (per service)
 
-Terverifikasi di Windows 11 + Git Bash: dengan `--sandbox`, toolchain di luar workspace (node via mise) tidak ditemukan; agy lalu meminta eksekusi `unsandboxed`, yang ditolak otomatis di headless (exit 13). Dua jalan:
+`checks.<svc>.agent_runs` diputuskan **per service**, di `harness.config.json` root (bukan di repo service: izin eksekusi adalah keputusan pemilik workspace; file di repo service bisa diubah kontributor atau oleh agy sendiri).
 
-| pilihan | konsekuensi |
-|---|---|
-| `sandbox: false` + agy menjalankan cek | kode yang baru ditulis agy (test/linter) berjalan **sebelum** Claude membacanya, dengan hak penuh pengguna |
-| agy tidak menjalankan cek (kosongkan `checks`) | lebih aman: Claude membaca diff dulu, lalu menjalankan cek sendiri |
+| `agent_runs` | mode brief | yang terjadi |
+|---|---|---|
+| `false` (bawaan) | B | agy hanya `git status`/`git diff`. Claude membaca diff dulu, lalu menjalankan `checks` sendiri. Perintah cek **tidak** masuk allowlist agy |
+| `true` | A | agy menjalankan `lint`/`test` sendiri dan memperbaiki kegagalan; kode yang baru ditulis agy berjalan **sebelum** Claude membacanya, dengan hak penuh pengguna |
 
-Keputusan ada pada pemilik project; modul tidak memutuskan untuk Anda. Kekuatan `--sandbox` di Windows belum diuji — jangan dihitung sebagai pagar.
+Aktifkan `true` hanya untuk service dengan tes hermetik (tanpa jaringan, DB, atau secret). Claude melihat keduanya lewat `python3 scripts/executor/executor.py checks <svc>`.
+
+Terverifikasi di Windows 11 + Git Bash (agy 1.4.3): dengan `--sandbox`, toolchain di luar workspace (node via mise) tidak ditemukan; agy meminta eksekusi `unsandboxed`, yang ditolak otomatis di headless (exit 13). Mode A di mesin itu karenanya butuh `executor.sandbox: false` (terverifikasi: `node check.js` exit 0, audit bersih). Mode B tidak membutuhkan `sandbox: false`. Kekuatan `--sandbox` di Windows belum diuji — jangan dihitung sebagai pagar.
 
 ## Batas yang diketahui
 
