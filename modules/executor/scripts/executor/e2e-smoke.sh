@@ -16,7 +16,7 @@ cp -r "$SRC/scripts" "$D/"; cp -r "$SRC/.agents" "$D/"
 rm -f "$D/scripts/executor/e2e-smoke.sh"
 cat > "$D/harness.config.json" <<'J'
 {"executor":{"enabled":false,"allowed_commands":["git status","git diff"],"print_timeout":"10m"},
- "checks":{"demo":{"test":"node check.js","lint":null}}}
+ "checks":{"demo":{"test":"node check.js","lint":null,"agent_runs":true}}}
 J
 printf 'source-code/\n' > "$D/.gitignore"
 cat > "$D/source-code/demo/check.js" <<'J'

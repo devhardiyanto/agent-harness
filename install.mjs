@@ -148,7 +148,7 @@ function render(det, mode) {
     const defaults = JSON.parse(fs.readFileSync(path.join(EXECUTOR_MODULE, 'executor.config.json'), 'utf8'));
     cfg.executor = { ...defaults, ...(cfg.executor || {}) };
     cfg.checks = cfg.checks || {};
-    for (const sv of det.services) cfg.checks[sv.name] = cfg.checks[sv.name] || { lint: null, test: null };
+    for (const sv of det.services) cfg.checks[sv.name] = cfg.checks[sv.name] || { lint: null, test: null, agent_runs: false };
   }
   if (exists('.mcp.json') && /plane/i.test(fs.readFileSync(path.join(target, '.mcp.json'), 'utf8'))) cfg.plane.enabled = true;
   fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n');
@@ -178,7 +178,7 @@ function render(det, mode) {
   if (WITH_EXECUTOR) {
     for (const d of ['scripts', '.agents']) fs.cpSync(path.join(EXECUTOR_MODULE, d), path.join(stage, d), { recursive: true });
     st.permissions = st.permissions || {}; st.permissions.allow = st.permissions.allow || [];
-    for (const a of ['Bash(bash scripts/executor/dispatch-executor.sh *)', 'Bash(bash scripts/executor/preflight.sh)']) if (!st.permissions.allow.includes(a)) st.permissions.allow.push(a);
+    for (const a of ['Bash(bash scripts/executor/dispatch-executor.sh *)', 'Bash(bash scripts/executor/preflight.sh)', 'Bash(python3 scripts/executor/executor.py checks *)']) if (!st.permissions.allow.includes(a)) st.permissions.allow.push(a);
     fs.writeFileSync(setP, JSON.stringify(st, null, 2) + '\n');
   }
   fs.writeFileSync(path.join(stage, '.claude', 'harness.version'), JSON.stringify({ version: VERSION, installed_at: new Date().toISOString(), installer_repo: slug, mode }, null, 2) + '\n');
@@ -207,6 +207,16 @@ function applyGitignore(isGit) {
   if (exists('source-code') && !(isGit && out(sh('git', ['ls-files', '--', 'source-code']))) ) add.push('/source-code/');
   const missing = add.filter((l) => !lines.has(l));
   if (missing.length) fs.writeFileSync(p, cur.replace(/\n*$/, '\n') + `\n# harness v1\n${missing.join('\n')}\n`);
+}
+
+// Skrip modul wajib LF: git di Windows (core.autocrlf=true) mengubahnya jadi CRLF saat checkout dan bash gagal membacanya.
+const EXECUTOR_GITATTRIBUTES = ['scripts/executor/** text eol=lf', '.agents/** text eol=lf'];
+function applyGitattributes() {
+  const p = path.join(target, '.gitattributes');
+  const cur = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
+  const lines = new Set(cur.split(/\r?\n/).map((l) => l.trim()));
+  const missing = EXECUTOR_GITATTRIBUTES.filter((l) => !lines.has(l));
+  if (missing.length) fs.writeFileSync(p, cur.replace(/\n*$/, cur ? '\n' : '') + `${cur ? '\n' : ''}# harness executor\n${missing.join('\n')}\n`);
 }
 
 async function confirm(q) {
@@ -281,6 +291,7 @@ try {
   fs.cpSync(stage, target, { recursive: true, force: true });
   for (const d of ['docs/knowledge', 'docs/work']) fs.mkdirSync(path.join(target, d), { recursive: true });
   applyGitignore(isGit);
+  if (WITH_EXECUTOR) applyGitattributes();
   fs.rmSync(path.join(target, '.harness-staging'), { recursive: true, force: true });
 } catch (e) {
   die(`penerapan gagal: ${e.message}. Staging ada di ${stage}; pulihkan dengan ${tag ? `git switch - && git branch -D ${branch}` : 'salinan .harness-backup-*'}.`);
@@ -311,6 +322,7 @@ log('4. Pakai:  /harness:impact feature <permintaan>');
 if (WITH_EXECUTOR) {
   log('\n## Modul executor (terpasang, NONAKTIF)');
   log('5. Isi perintah cek per service di harness.config.json → checks.<service>.{lint,test} (edit manual; file itu dilindungi dari agent).');
+  log('   checks.<service>.agent_runs: false (bawaan) = Claude yang menjalankan cek setelah membaca diff; true = agy ikut menjalankannya (kode baru berjalan sebelum ditinjau).');
   log('6. Uji tanpa agy asli:  bash scripts/executor/test-executor.sh      (Windows: dari Git Bash)');
   log('7. Pasang di mesin ini:  bash scripts/executor/install.sh           (menulis allowlist ke settings agy GLOBAL dengan backup; trust workspace Anda atur sendiri lewat agy)');
   log('8. Aktifkan setelah pilot:  "executor": { "enabled": true } di harness.config.json, lalu  /harness:dispatch <slug>   (lihat scripts/executor/README.md)');
