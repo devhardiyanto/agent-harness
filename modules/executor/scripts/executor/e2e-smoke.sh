@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# scripts/executor/e2e-smoke.sh [folder]        siapkan folder + install (default: ~/agy-e2e)
+# scripts/executor/e2e-smoke.sh [--no-sandbox] [folder]  siapkan folder + install (default: ~/agy-e2e)
+#   --no-sandbox: tulis executor.sandbox=false di config demo (keputusan sadar; lihat README "Keputusan D7"). Perlu untuk Mode A
+#                 di mesin yang toolchain-nya (node via mise) di luar workspace; tanpa ini agy bisa melapor BLOCKED "node tidak ditemukan".
 # scripts/executor/e2e-smoke.sh --run [folder]   jalankan dispatch di folder yang sudah disiapkan dan tepercaya
 # scripts/executor/e2e-smoke.sh --negative [folder]  uji NEGATIF dengan agy asli: agy diminta mencoba tindakan terlarang
 #                                                (baca .env, tulis di luar Scope/path terlindung, shell di luar allowlist, jaringan, dll.)
@@ -9,6 +11,7 @@
 # Tidak menyentuh repo Anda yang lain. EXECUTOR_FORCE=1 hanya berlaku di skrip ini.
 set -uo pipefail
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+NOSANDBOX=0; [ "${1:-}" = "--no-sandbox" ] && { NOSANDBOX=1; shift; }
 MODE=setup; [ "${1:-}" = "--run" ] && { MODE=run; shift; }; [ "${1:-}" = "--negative" ] && { MODE=negative; shift; }
 D="${1:-$HOME/agy-e2e}"
 
@@ -67,6 +70,13 @@ cat > "$D/harness.config.json" <<'J'
 {"executor":{"enabled":false,"allowed_commands":["git status","git diff"],"print_timeout":"10m"},
  "checks":{"demo":{"test":"node check.js","lint":null,"agent_runs":true}}}
 J
+if [ "$NOSANDBOX" = 1 ]; then
+  python3 - "$D/harness.config.json" <<'PYS'
+import json, sys
+p = sys.argv[1]; c = json.load(open(p)); c["executor"]["sandbox"] = False; json.dump(c, open(p, "w"))
+PYS
+  echo "== executor.sandbox=false ditulis di config demo (perintah cek agy berjalan tanpa sandbox)"
+fi
 printf 'source-code/\n' > "$D/.gitignore"
 cat > "$D/source-code/demo/check.js" <<'J'
 const { greet } = require("./src/greet.js");
@@ -225,6 +235,12 @@ fi
 cd "$D" || exit 1
 MODE_D7="$(demo_mode)"
 echo "== mode D7 service demo: $MODE_D7  (A = agent_runs:true, agy menjalankan node check.js | B = false, agy tidak menjalankan cek)"
+SANDBOX_D7="$(python3 -c 'import json;print("true" if json.load(open("harness.config.json")).get("executor",{}).get("sandbox",True) else "false")' 2>/dev/null || echo true)"
+echo "== executor.sandbox: $SANDBOX_D7"
+if [ "$MODE_D7" = A ] && [ "$SANDBOX_D7" = true ]; then
+  echo "   CATATAN: Mode A dengan sandbox nyala; bila toolchain (node via mise) di luar workspace, agy bisa melapor BLOCKED \"node tidak ditemukan\"."
+  echo "   Itu keterbatasan lingkungan (D7), bukan celah gate. Ulangi dengan: rm -rf <folder>; e2e-smoke.sh --no-sandbox <folder>."
+fi
 reset_sandbox; write_brief "$MODE_D7"
 git add -A >/dev/null 2>&1; git -c user.email=t@t -c user.name=t commit -qm "e2e: brief mode $MODE_D7" >/dev/null 2>&1 || true
 echo "== dispatch (agy asli; bisa 1-5 menit)"
@@ -244,9 +260,9 @@ echo; echo "== file hasil"; cat source-code/demo/src/greet.js 2>/dev/null
 echo "== verifikasi independen oleh skrip ini (bukan klaim agy)"
 ( cd source-code/demo && node check.js ); echo "node check.js exit=$?"
 echo "== penilaian mode $MODE_D7"
-python3 - "$MODE_D7" "$rc" <<'PYEOF'
+python3 - "$MODE_D7" "$rc" "$SANDBOX_D7" <<'PYEOF'
 import json, sys
-mode, rc = sys.argv[1], int(sys.argv[2])
+mode, rc, sandbox = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 try: r = json.load(open("docs/work/e2e/tasks/T1.result.json"))
 except Exception: r = None
 checks = []
@@ -258,5 +274,14 @@ if r is not None:
     checks.append(("status agy DONE", r.get("status") == "DONE"))
 else: checks.append(("result.json ada", False))
 for n, ok in checks: print("  %s  %s" % ("OK  " if ok else "FAIL", n))
+if r is not None and r.get("status") == "BLOCKED" and rc == 15:
+    txt = json.dumps(r, ensure_ascii=False).lower()
+    if "path" in txt or "tidak ditemukan" in txt or "not found" in txt:
+        print("  DIAGNOSIS: agy BLOCKED karena toolchain tidak terjangkau (kemungkinan sandbox/PATH), bukan pelanggaran gate.")
+        print("             Audit dan gate.log di atas menunjukkan tidak ada penolakan.")
+        if sandbox == "true": print("             Sandbox nyala: ulangi dengan 'rm -rf <folder>' lalu e2e-smoke.sh --no-sandbox <folder> (keputusan sadar, D7).")
+        else: print("             Sandbox sudah mati: isi executor.path_prepend di config demo dengan direktori node (slash maju), lalu --run lagi.")
+    else:
+        print("  DIAGNOSIS: agy BLOCKED; baca open_questions/deviations di result.json di atas.")
 sys.exit(0 if all(ok for _, ok in checks) else 1)
 PYEOF
