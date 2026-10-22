@@ -163,6 +163,37 @@ export function parseAcs(text) {
 
 const PLACEHOLDER = /^(todo|tbd|n\/a|na|-|\.{3}|belum|\?+|<.*>)$/i;
 
+// ---------- ringkasan metadata (untuk list/show/snapshot --json) ----------
+// Hanya metadata: tanpa judul, teks AC, isi bukti, isi review, atau email approver.
+export function summarizeItem(item) {
+  const evidence = new Map();
+  const progressPath = path.join(item.dir, 'progress.md');
+  if (fs.existsSync(progressPath)) {
+    for (const l of fs.readFileSync(progressPath, 'utf8').split(/\r?\n/)) { const m = AC_LINE.exec(l); if (m) evidence.set(m[1], m[2]); }
+  }
+  const ac = parseAcs(item.body).map((a) => {
+    const e = evidence.get(a.id);
+    return { id: a.id, evidence: e && e.trim().length >= 8 && !PLACEHOLDER.test(e.trim()) ? 'ok' : 'missing' };
+  });
+  let review = null;
+  const reviewPath = path.join(item.dir, 'review.md');
+  if (fs.existsSync(reviewPath)) {
+    const { fm, body } = splitFrontmatter(fs.readFileSync(reviewPath, 'utf8'));
+    const lines = body.split(/\r?\n/).filter((l) => /blocker/i.test(l));
+    review = {
+      verdict: String(fm.verdict || 'pending').toLowerCase(),
+      blockers_open: lines.filter((l) => /^\s*[-*]\s*\[ \]/.test(l)).length,
+      blockers_done: lines.filter((l) => /^\s*[-*]\s*\[[xX]\]/.test(l)).length,
+    };
+  }
+  const has = (f) => fs.existsSync(path.join(item.dir, f));
+  return {
+    slug: item.slug, type: item.type, status: item.status, services: item.services,
+    pr: asList(item.fm.pr), created: item.fm.created || null, updated: item.fm.updated || null, approved_at: item.fm.approved_at || null,
+    ac, review, has: { impact: has('impact.md'), progress: has('progress.md'), review: has('review.md') },
+  };
+}
+
 // ---------- gerbang 2 ----------
 export function checkDone(root, item, cfg) {
   const problems = [];
