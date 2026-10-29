@@ -181,5 +181,7 @@ test('--update --dry-run memperingatkan perubahan tracked yang belum di-commit; 
   assert.notEqual(real.status, 0);
   assert.match(real.stderr + real.stdout, /Saran: commit dulu/);
   assert.match(real.stderr + real.stdout, /M docs\/note\.md/, 'status porcelain tidak boleh kehilangan spasi awal baris pertama');
-  assert.equal(install(root, '--update', '--yes', '--allow-dirty').status, 0);
+  const ok = install(root, '--update', '--yes', '--allow-dirty');
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.doesNotMatch(ok.stderr, /DEP0190/, 'tanpa peringatan args+shell di Node 24');
 });

@@ -41,7 +41,7 @@ import {
 } from './knowledge.mjs';
 import {
   projectRoot, loadConfig, listItems, readItem, resolveSlug, checkTransition, checkDone, setFmKey, STATUSES,
-  splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick,
+  splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli,
 } from './lib.mjs';
 
 const root = projectRoot();
@@ -232,7 +232,7 @@ switch (cmd) {
       const bad = dirs.map((d) => ({ d, a: ghAccess(d) })).filter((x) => !x.a.ok);
       ok('akun gh aktif punya akses tulis ke repo service', !bad.length, bad.map((x) => path.basename(x.d) + ': ' + x.a.note).join(' | ').slice(0, 300));
     }
-    const cl = spawnSync('claude', ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' });
+    const cl = runCli('claude', ['--version']);
     const clv = /(\d+)\.(\d+)\.(\d+)/.exec(cl.stdout || '');
     const verOk = clv && (Number(clv[1]) > 2 || (Number(clv[1]) === 2 && (Number(clv[2]) > 1 || (Number(clv[2]) === 1 && Number(clv[3]) >= 295))));
     ok('claude >= 2.1.295 (onFailure: block)', !!verOk, cl.stdout ? `terpasang ${cl.stdout.trim()}` : 'claude tidak ditemukan di PATH');

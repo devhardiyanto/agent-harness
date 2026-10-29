@@ -33,7 +33,10 @@ const cmpVer = (a, b) => { const x = semver(a), y = semver(b); for (let i = 0; i
 const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
 
 // ---------- util ----------
-const sh = (cmd, args, cwd = target) => spawnSync(cmd, args, { cwd, encoding: 'utf8', shell: process.platform === 'win32' && cmd === 'claude' });
+// claude di Windows adalah claude.cmd: perlu shell. Satu string perintah (bukan args + shell:true, yang memicu DEP0190 di Node 24).
+const sh = (cmd, args, cwd = target) => (process.platform === 'win32' && cmd === 'claude' && args.every((a) => /^[\w.=-]+$/.test(a))
+  ? spawnSync([cmd, ...args].join(' '), { cwd, encoding: 'utf8', shell: true })
+  : spawnSync(cmd, args, { cwd, encoding: 'utf8' }));
 // Bandingkan path lewat realpath: di Windows, tmp bisa berbentuk 8.3 (RUNNER~1) sedangkan git mengembalikan nama panjang.
 const real = (p) => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
 const samePath = (a, b) => (process.platform === 'win32' ? real(a).toLowerCase() === real(b).toLowerCase() : real(a) === real(b));
