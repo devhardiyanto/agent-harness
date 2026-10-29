@@ -202,8 +202,8 @@ switch (cmd) {
   case 'ship-plan': {
     const i = need(args[0]);
     const rows = shipPlan(root, cfg, i);
-    console.log('| service | branch kerja | base | PR bertumpuk | gh akun | belum commit | masalah |\n|---|---|---|---|---|---|---|');
-    for (const r of rows) console.log(`| ${r.service} | ${r.branch || '-'} | ${r.base} (${r.base_via}) | ${r.stacked ? 'ya' : 'tidak'} | ${r.gh} | ${r.dirty} | ${r.problems.join(' ') || '-'} |`);
+    console.log('| service | repo | branch kerja | base | PR bertumpuk | gh akun | belum commit | masalah |\n|---|---|---|---|---|---|---|---|');
+    for (const r of rows) console.log(`| ${r.service} | ${r.repo || '-'} | ${r.branch || '-'} | ${r.base} (${r.base_via}) | ${r.stacked ? 'ya' : 'tidak'} | ${r.gh} | ${r.dirty} | ${r.problems.join(' ') || '-'} |`);
     if (rows.some((r) => r.problems.length)) process.exit(2);
     break;
   }

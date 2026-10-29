@@ -8,7 +8,8 @@ Prasyarat: PR #11–#18 sudah kamu merge ke `main` (atau pasang dari branch `fea
 ```bash
 d=$(mktemp -d) && gh repo clone devhardiyanto/agent-harness "$d" -- --depth 1
 cd /path/ke/project
-node "$d/install.mjs" --update --dry-run     # baca rencananya
+node "$d/install.mjs" --update --dry-run     # baca rencananya; perhatikan PERINGATAN soal perubahan belum di-commit
+# bila ada: git add -A && git commit -m "wip: docs"   (atau --allow-dirty bila hanya data docs yang kotor)
 node "$d/install.mjs" --update
 node .claude/hooks/harness.mjs doctor        # tidak boleh ada GAGAL (akun gh ikut diperiksa)
 ```

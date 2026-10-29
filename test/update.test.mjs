@@ -168,3 +168,18 @@ test('pasang ulang tanpa --update di atas v1 tetap menjaga root_branch dan data 
   assert.equal(r.status, 0, r.stderr + r.stdout);
   intact(root);
 });
+
+test('--update --dry-run memperingatkan perubahan tracked yang belum di-commit; pemasangan nyata berhenti dengan saran', () => {
+  const root = project({ v1: true });
+  const v = jr(root, '.claude/harness.version'); v.version = '1.1.0'; wr(root, '.claude/harness.version', JSON.stringify(v)); // meniru instalasi lama
+  wr(root, 'docs/note.md', 'catatan\n'); commitAll(root, 'docs');
+  wr(root, 'docs/note.md', 'catatan diubah\n'); // tracked, belum di-commit
+  const dry = install(root, '--update', '--dry-run');
+  assert.equal(dry.status, 0, dry.stderr + dry.stdout);
+  assert.match(dry.stdout, /PERINGATAN: pemasangan nyata akan berhenti/); assert.match(dry.stdout, /docs\/note\.md/);
+  const real = install(root, '--update', '--yes');
+  assert.notEqual(real.status, 0);
+  assert.match(real.stderr + real.stdout, /Saran: commit dulu/);
+  assert.match(real.stderr + real.stdout, /M docs\/note\.md/, 'status porcelain tidak boleh kehilangan spasi awal baris pertama');
+  assert.equal(install(root, '--update', '--yes', '--allow-dirty').status, 0);
+});

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import './helpers.mjs'; // memasang shim `claude` palsu di PATH
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -21,7 +21,7 @@ const save = () => fs.writeFileSync(f, JSON.stringify(st)); st.log.push(a.join('
 const out = (x) => { console.log(typeof x === 'string' ? x : JSON.stringify(x)); process.exit(0); };
 if (a[0] === '--version') out('gh version 2.0.0');
 if (a[0] === 'api' && a[1] === 'user') { if (!st.login) process.exit(1); out(st.login); }
-if (a[0] === 'repo' && a[1] === 'view') { if (st.perm === 'NONE') { console.error('Could not resolve to a Repository'); process.exit(1); } out({ nameWithOwner: 'o/r', viewerPermission: st.perm }); }
+if (a[0] === 'repo' && a[1] === 'view') { if (st.needSlug && (!a[2] || a[2].startsWith('--'))) { console.error('none of the git remotes configured for this repository point to a known GitHub host.'); process.exit(1); } if (st.perm === 'NONE') { console.error('Could not resolve to a Repository'); process.exit(1); } out({ nameWithOwner: 'o/r', viewerPermission: st.perm }); }
 const pr = st.prs[a[2]];
 if (a[0] === 'pr') {
   if (!pr) { console.error('no pull requests found'); process.exit(1); }
@@ -96,7 +96,7 @@ test('ship-plan: branch utama ditolak; branch kerja lolos; ship.base menandai PR
   g(path.join(root, 'source-code/svc-a'), 'switch', '-q', '-c', 'feat/x');
   p = cli(root, 'ship-plan', slug);
   assert.equal(p.status, 0, p.stdout + p.stderr);
-  assert.match(p.stdout, /\| svc-a \| feat\/x \| feat\/dasar \(config ship\.base\) \| ya \| devhardiyanto \(ADMIN\)/);
+  assert.match(p.stdout, /\| svc-a \| - \| feat\/x \| feat\/dasar \(config ship\.base\) \| ya \| devhardiyanto \(ADMIN\)/);
 });
 
 test('ship-plan: akun gh tanpa akses → pesan jelas dengan saran gh auth switch', () => {
@@ -200,4 +200,29 @@ test('fase A: ketikan ship tanpa PR diteruskan ke skill (tanpa tiket, tanpa blok
   fs.writeFileSync(path.join(root, 'docs/work', slug, 'plan.md'), fs.readFileSync(path.join(root, 'docs/work', slug, 'plan.md'), 'utf8').replace(/^pr: .*$/m, 'pr: null'));
   const r = prompt(root, `/harness:ship ${slug}`);
   assert.equal(r.status, 0); assert.equal(r.stdout, ''); assert.equal(fs.existsSync(ticket(root, slug)), false);
+});
+
+test('remote beralias SSH: repo diberikan eksplisit ke gh (owner/repo), tanpa itu gh menolak', () => {
+  const root = mkProject();
+  const slug = doneItem(root);
+  const svc = path.join(root, 'source-code/svc-a');
+  g(svc, 'remote', 'add', 'origin', 'git@github-pribadi:trio-inovasi-digital/event-backend.git');
+  fake(root, {}, { needSlug: true });
+  const p = cli(root, 'ship-plan', slug);
+  assert.equal(p.status, 0, p.stdout + p.stderr);
+  assert.match(p.stdout, /\| svc-a \| trio-inovasi-digital\/event-backend \|/);
+  assert.ok(state(root).log.some((l) => l === 'repo view trio-inovasi-digital/event-backend --json nameWithOwner,viewerPermission'));
+  // remote yang tidak bisa diurai: tanpa slug, gh (tiruan) menolak dan pesan menjelaskan akses
+  g(svc, 'remote', 'set-url', 'origin', 'file:///tmp/tidak-ada');
+  const q = cli(root, 'ship-plan', slug);
+  assert.equal(q.status, 2); assert.match(q.stdout, /tidak dapat mengakses/);
+});
+
+test('repoSlug mengurai ssh alias, ssh://, dan https', async () => {
+  const { repoSlug } = await import(pathToFileURL(path.join(kernel, '.claude/hooks/ship.mjs')).href);
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'slug-')); g(d, 'init', '-q');
+  for (const [url, want] of [['git@github-pribadi:o/r.git', 'o/r'], ['git@github.com:o/r.git', 'o/r'], ['ssh://git@github.com/o/r.git', 'o/r'], ['https://github.com/o/r', 'o/r'], ['https://github.com/o/r.git/', 'o/r'], ['file:///x/y', null]]) {
+    g(d, 'remote', 'remove', 'origin'); g(d, 'remote', 'add', 'origin', url);
+    assert.equal(repoSlug(d), want, url);
+  }
 });

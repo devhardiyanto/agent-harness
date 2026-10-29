@@ -9,11 +9,11 @@ disable-model-invocation: true
 Masukan: `$ARGUMENTS` (slug). Agent tidak pernah menjalankan `gh pr merge`. Merge terjadi hanya lewat `harness.mjs ship`, dan itu butuh tiket dari ketikan manusia.
 
 ## Fase A — status `done`, `pr:` kosong
-1. `node .claude/hooks/harness.mjs ship-plan <slug>`: tabel branch kerja, base, akun gh, masalah. Ada masalah (di branch utama, akun gh tanpa akses, dst.) → laporkan persis dan berhenti; jangan memutar. Akun salah → user menjalankan `gh auth switch --user <akun>`.
+1. `node .claude/hooks/harness.mjs ship-plan <slug>`: tabel repo (`owner/repo`), branch kerja, base, akun gh, masalah. Selalu beri `-R <repo>` pada `gh`: remote beralias SSH (`git@alias:owner/repo`) tidak dikenali gh tanpa itu. Ada masalah (di branch utama, akun gh tanpa akses, dst.) → laporkan persis dan berhenti; jangan memutar. Akun salah → user menjalankan `gh auth switch --user <akun>`.
 2. Baca `docs/work/<slug>/gate.md`: `verdict` harus `pass`; baris `TIDAK DIPERIKSA` dicantumkan apa adanya di body PR. Kode yang di-commit tidak membuat gate usang; kode yang berubah setelah gate, ya (jalankan `harness.mjs gate <slug>` lagi).
 3. Tiap service: `git -C source-code/<svc> status --short`; commit hanya perubahan terkait (pesan ringkas, rujuk slug). Nama branch `<feat|fix|chore>/<slug-pendek>`.
 4. `git -C source-code/<svc> push -u origin <branch>`.
-5. `gh pr create --base <base dari ship-plan> --title "<judul>" --body-file <file sementara>`. Body = tabel: ringkasan, AC + bukti (dari `progress.md`), risiko, rollback, dependency baru, `TIDAK DIPERIKSA` dari gate, tautan work item. Satu PR per service. Base yang bukan branch utama = PR bertumpuk: sebut urutan merge di body.
+5. `gh pr create -R <repo dari ship-plan> --base <base dari ship-plan> --head <branch> --title "<judul>" --body-file <file sementara>`. Body = tabel: ringkasan, AC + bukti (dari `progress.md`), risiko, rollback, dependency baru, `TIDAK DIPERIKSA` dari gate, tautan work item. Satu PR per service. Base yang bukan branch utama = PR bertumpuk: sebut urutan merge di body.
 6. Tulis `pr: [url1, url2]` ke frontmatter `plan.md` (Edit biasa).
 7. Menunggu CI: `Monitor` dengan `gh pr checks <url> --watch` (satu per PR). Begitu semua selesai, kirim `PushNotification` ("check PR <slug>: hijau/merah") agar user tahu tanpa memantau sesi.
 
