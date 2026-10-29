@@ -23,6 +23,8 @@ export const DEFAULT_CONFIG = {
     '\\bDROP\\s+(TABLE|DATABASE|SCHEMA)\\b', '\\bTRUNCATE\\s+TABLE\\b', 'gh\\s+pr\\s+merge', 'gh\\s+repo\\s+delete',
   ],
   gate: { test_command: null, test_required: false, test_timeout_sec: 300 },
+  quick: { max_files: 5 },   // lajur cepat: 1 service, bukan skema, maksimal N file
+  amend: { max: 3 },         // tambahan AC kecil per work item tanpa approve ulang
   context: { window_tokens: 1000000, warn_tokens: 400000 },
   graphify: { enabled: false, version: null }, // opsional; aktif hanya setelah uji terukur (lihat plugin/skills/init)
   knowledge: { summary_max_lines: 80, patterns_max_lines: 150, stale_warn_commits: 15 },
@@ -54,7 +56,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'graphify', 'knowledge']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'graphify', 'knowledge', 'quick', 'amend']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   return cfg;
 }
 
@@ -210,7 +212,9 @@ export function checkDone(root, item, cfg) {
     }
   }
   const reviewPath = path.join(item.dir, 'review.md');
-  if (!fs.existsSync(reviewPath)) problems.push('review.md belum ada.');
+  if (isQuick(item)) {
+    if (!asList(item.fm.files).length) problems.push('lajur quick: belum ada file yang diubah (files: kosong). Tidak ada yang perlu di-done.');
+  } else if (!fs.existsSync(reviewPath)) problems.push('review.md belum ada.');
   else {
     const rv = fs.readFileSync(reviewPath, 'utf8');
     const { fm, body } = splitFrontmatter(rv);
@@ -237,7 +241,16 @@ export function checkMerged(item) {
   return problems;
 }
 
+export const isQuick = (item) => String(item.fm?.lane || '') === 'quick';
 // transisi yang boleh dilakukan agent. 'approved' hanya lewat manusia (hook prompt / CLI approve).
+// Lajur quick tidak punya in-review (tanpa review subagent): gerbang pengiriman + checks yang menggantikannya.
+const QUICK_TRANSITIONS = {
+  'approved>in-progress': null,
+  'approved>done': 'done',
+  'in-progress>done': 'done',
+  'done>in-progress': null,
+  'done>merged': 'merged',
+};
 const AGENT_TRANSITIONS = {
   'approved>in-progress': null,
   'in-progress>in-review': 'progress',
@@ -260,8 +273,11 @@ export function checkTransition(root, cfg, item, to, { actor = 'agent' } = {}) {
   }
   if (to === 'draft') return []; // reopen: wajib approve ulang
   const key = `${from}>${to}`;
-  if (!(key in AGENT_TRANSITIONS)) return [`transisi ${from} → ${to} tidak diizinkan. Alur: draft → approved → in-progress → in-review → done → merged.`];
-  const need = AGENT_TRANSITIONS[key];
+  const table = isQuick(item) ? QUICK_TRANSITIONS : AGENT_TRANSITIONS;
+  if (!(key in table)) return [isQuick(item)
+    ? `transisi ${from} → ${to} tidak diizinkan untuk lajur quick. Alur: approved → in-progress → done → merged (tanpa in-review).`
+    : `transisi ${from} → ${to} tidak diizinkan. Alur: draft → approved → in-progress → in-review → done → merged.`];
+  const need = table[key];
   if (need === 'progress' && !fs.existsSync(path.join(item.dir, 'progress.md'))) return ['progress.md belum ada.'];
   if (need === 'done') return checkDone(root, item, cfg);
   if (need === 'merged') return checkMerged(item);
@@ -367,4 +383,59 @@ export function contextWarning(root, cfg, payload) {
   fs.writeFileSync(mark, JSON.stringify({ warned: tokens }));
   return `[harness] Konteks sesi ±${Math.round(tokens / 1000)}k token (ambang ${Math.round(cfg.context.warn_tokens / 1000)}k dari ${Math.round(cfg.context.window_tokens / 1000)}k). ` +
     'Segera: tulis status terkini ke progress.md (apa selesai, apa berikutnya, keputusan), selesaikan langkah yang sedang jalan, lalu sarankan user membuka sesi baru dan melanjutkan dengan /harness:build <slug>.';
+}
+
+// ---------- langkah berikutnya (untuk /harness:next dan pesan blokir) ----------
+export function nextStep(item) {
+  const sl = item.slug;
+  const q = isQuick(item);
+  const rows = {
+    draft: q ? ['kamu', `/harness:plan ${sl}, lalu /harness:approve ${sl} (item quick dipromosikan ke standard)`] : ['kamu', `tinjau plan.md; bila setuju ketik /harness:approve ${sl}`],
+    approved: q ? ['agent', `kerjakan di sesi ini; bukti per AC di progress.md; lalu set-status ${sl} done`] : ['kamu', `buka sesi baru, ketik /harness:build ${sl}`],
+    'in-progress': q ? ['agent', `lengkapi bukti AC di progress.md; set-status ${sl} done`] : ['agent', `lanjut /harness:build ${sl}; semua AC berbukti → set-status ${sl} in-review`],
+    'in-review': ['agent', `/harness:review ${sl}`],
+    done: asList(item.fm.pr).length ? ['kamu', `merge PR; lalu /harness:ship ${sl} untuk menutup item`] : ['kamu', `ketik /harness:ship ${sl}`],
+    merged: ['-', 'selesai'],
+  };
+  const [who, cmd] = rows[item.status] || ['?', `status "${item.status}" tidak dikenal`];
+  return { who, cmd };
+}
+
+// ---------- lajur quick: dibuat hook dari ketikan manusia ----------
+const slugify = (t) => String(t).toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 48) || 'item';
+export function createQuick(root, text, who) {
+  const raw = String(text || '').replace(/\s+/g, ' ').trim();
+  if (raw.length < 8) return { ok: false, reason: 'uraikan permintaan (minimal 8 karakter): apa yang harus berubah dan bagaimana dibuktikan.' };
+  const m = /^(hotfix|improvement)\s+(.+)$/i.exec(raw);
+  const type = m ? m[1].toLowerCase() : 'hotfix';
+  const body = (m ? m[2] : raw).slice(0, 240);
+  const day = new Date().toISOString().slice(0, 10);
+  let slug = `${day}-${slugify(body.split(' ').slice(0, 7).join(' '))}`;
+  for (let n = 2; fs.existsSync(path.join(workDir(root), slug)); n++) slug = `${slug.replace(/-\d+$/, '')}-${n}`;
+  const dir = path.join(workDir(root), slug);
+  fs.mkdirSync(dir, { recursive: true });
+  const now = new Date().toISOString();
+  const title = body.slice(0, 80);
+  fs.writeFileSync(path.join(dir, 'plan.md'), `---\ntitle: ${title.replace(/:/g, ' -')}\ntype: ${type}\nlane: quick\nstatus: approved\nservices: []\nfiles: []\ncreated: ${day}\nupdated: ${day}\napproved_at: ${now}\napproved_by: ${who}\ntest_command: null\npr: null\n---\n# Plan (quick) — ${title}\n\nLajur quick: satu service (terikat pada edit pertama), maksimal file sesuai config, bukan skema, tanpa review subagent.\n\n## Acceptance criteria\n- AC1: ${body}\n`);
+  fs.writeFileSync(path.join(dir, 'progress.md'), `# Progress — ${title}\n\n## Verifikasi\n- AC1:\n\n## Status terkini\n- dibuat oleh /harness:quick (${day})\n`);
+  return { ok: true, slug, type };
+}
+
+// ---------- amend: tambahan AC kecil tanpa approve ulang ----------
+export function amendItem(root, cfg, item, acText) {
+  const text = String(acText || '').replace(/\s+/g, ' ').trim();
+  if (!['approved', 'in-progress', 'in-review'].includes(item.status)) return { ok: false, reason: `amend hanya untuk item approved/in-progress/in-review (sekarang: ${item.status}). Item draft: edit plan langsung.` };
+  if (text.length < 8 || text.length > 240) return { ok: false, reason: 'AC harus 8–240 karakter, satu kalimat yang bisa diverifikasi.' };
+  const done = Number(item.fm.amendments || 0);
+  if (done >= cfg.amend.max) return { ok: false, reason: `batas amend ${cfg.amend.max} tercapai. Perubahan lebih besar: "harness.mjs reopen ${item.slug}" lalu /harness:approve ulang.` };
+  const ids = parseAcs(item.text).map((a) => Number(a.id.slice(2)));
+  const id = `AC${Math.max(0, ...ids) + 1}`;
+  let t = item.text;
+  if (!/^## Amandemen\s*$/m.test(t)) t = t.replace(/\s*$/, '\n\n## Amandemen\nTambahan kecil setelah approve (hanya menambah AC; tidak mengubah service, skema, atau AC yang ada).\n');
+  t = t.replace(/\s*$/, `\n- ${id}: ${text}\n`);
+  t = setFmKey(t, 'amendments', done + 1);
+  t = setFmKey(t, 'updated', new Date().toISOString().slice(0, 10));
+  fs.writeFileSync(item.planPath, t);
+  audit(root, { event: 'amend', slug: item.slug, ac: id });
+  return { ok: true, id };
 }

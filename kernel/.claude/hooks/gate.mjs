@@ -5,7 +5,7 @@ import path from 'node:path';
 import {
   readStdinJson, projectRoot, loadConfig, relPath, matchAny, serviceOf, activeItems, coversService,
   splitFrontmatter, readItem, checkTransition, findSecret, SECRET_FILE, deny, STATUSES,
-  isMain,
+  isMain, isQuick, asList, setFmKey,
 } from './lib.mjs';
 import { proposalStatuses } from './knowledge.mjs';
 
@@ -98,9 +98,9 @@ export function evaluate(root, cfg, payload) {
     const next = simulate(current, inc);
     const c = splitFrontmatter(current); const n = splitFrontmatter(next);
     const cs = c.fm.status || null; const ns = n.fm.status || 'draft';
-    if (ns === 'verified' && cs !== 'verified') return fail(`status "verified" hanya oleh manusia: ketik /harness:verify ${km[1]} (atau "! node .claude/hooks/harness.mjs verify-knowledge ${km[1]}"). Tulis sebagai draft.`);
+    if (ns === 'verified' && cs !== 'verified') return fail(`status "verified" hanya oleh manusia: ketik /harness:knowledge verify ${km[1]} (atau "! node .claude/hooks/harness.mjs verify-knowledge ${km[1]}"). Tulis sebagai draft.`);
     if (cs === 'verified' && ns === 'verified' && (c.body !== n.body || c.fm.source_commit !== n.fm.source_commit)) {
-      return fail(`${rel} berstatus verified (diverifikasi manusia). Perubahan oleh agent harus menurunkan status ke draft dalam edit yang sama; verifikasi ulang dengan /harness:verify ${km[1]}.`);
+      return fail(`${rel} berstatus verified (diverifikasi manusia). Perubahan oleh agent harus menurunkan status ke draft dalam edit yang sama; verifikasi ulang dengan /harness:knowledge verify ${km[1]}.`);
     }
     return { ok: true };
   }
@@ -111,7 +111,7 @@ export function evaluate(root, cfg, payload) {
     const current = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
     const before = proposalStatuses(current); const after = proposalStatuses(simulate(current, inc));
     for (const [id, st] of Object.entries(after)) {
-      if (st !== 'proposed' && before[id] !== st) return fail(`${id}: status "${st}" hanya boleh ditulis hook saat manusia mengetik /harness:patterns ${pp[1]} ${id}. Agent hanya menulis "Status: proposed".`);
+      if (st !== 'proposed' && before[id] !== st) return fail(`${id}: status "${st}" hanya boleh ditulis hook saat manusia mengetik /harness:knowledge patterns ${pp[1]} ${id}. Agent hanya menulis "Status: proposed".`);
     }
     for (const [id, st] of Object.entries(before)) {
       if (st !== 'proposed' && after[id] !== st) return fail(`${id}: item yang sudah ${st} tidak boleh diubah atau dihapus.`);
@@ -123,13 +123,31 @@ export function evaluate(root, cfg, payload) {
   const svc = serviceOf(cfg, rel);
   if (svc) {
     const items = activeItems(root);
-    const covering = items.filter((i) => coversService(i, svc) || svc === '*');
-    if (!covering.length) {
-      return fail(`tidak ada work item berstatus approved/in-progress yang mencakup service "${svc}". Alurnya: /harness:impact → /harness:plan → user ketik /harness:approve <slug> → sesi baru /harness:build <slug>.` +
-        (items.length ? ` Item aktif saat ini: ${items.map((i) => `${i.slug}[${i.services.join(',')}]`).join('; ')}.` : ''));
+    const standard = items.filter((i) => !isQuick(i) && (coversService(i, svc) || svc === '*'));
+    // item quick yang belum terikat ke service mana pun akan terikat pada edit pertama (satu service saja)
+    const quick = items.filter((i) => isQuick(i) && (!i.services.length || coversService(i, svc) || svc === '*'));
+    if (!standard.length && !quick.length) {
+      const bound = items.filter((i) => isQuick(i) && i.services.length);
+      return fail(`tidak ada work item berstatus approved/in-progress yang mencakup service "${svc}". Alurnya: /harness:impact → /harness:plan → user ketik /harness:approve <slug> → sesi baru /harness:build <slug>; perubahan kecil: user ketik /harness:quick <permintaan>.` +
+        (items.length ? ` Item aktif saat ini: ${items.map((i) => `${i.slug}[${i.services.join(',') || '-'}]`).join('; ')}.` : '') +
+        (bound.length ? ` Lajur quick hanya 1 service (${bound.map((i) => `${i.slug} → ${i.services.join(',')}`).join('; ')}); untuk menambah service: "node .claude/hooks/harness.mjs promote <slug>" lalu plan + approve.` : ''));
     }
-    if (matchAny(cfg.schema_paths, rel) && !covering.some((i) => i.type === 'schema' || String(i.fm.schema_change) === 'true')) {
-      return fail(`${rel} adalah perubahan skema. Work item harus bertipe "schema" (atau schema_change: true) dan melewati agent dba.`);
+    if (matchAny(cfg.schema_paths, rel) && !standard.some((i) => i.type === 'schema' || String(i.fm.schema_change) === 'true')) {
+      return fail(quick.length && !standard.length
+        ? `${rel} adalah perubahan skema; lajur quick tidak boleh menyentuh skema. "node .claude/hooks/harness.mjs promote ${quick[0].slug}", lalu plan bertipe "schema" dan approve.`
+        : `${rel} adalah perubahan skema. Work item harus bertipe "schema" (atau schema_change: true) dan melewati agent dba.`);
+    }
+    // batas lajur quick hanya berlaku bila tidak ada item standard yang mencakup edit ini
+    if (!standard.length) {
+      const q = quick[0];
+      const files = asList(q.fm.files);
+      if (!files.includes(rel) && files.length >= cfg.quick.max_files) {
+        return fail(`lajur quick dibatasi ${cfg.quick.max_files} file (sudah: ${files.join(', ')}). "node .claude/hooks/harness.mjs promote ${q.slug}" lalu /harness:plan ${q.slug} dan /harness:approve ${q.slug}.`);
+      }
+      let t = q.text;
+      if (!q.services.length) t = setFmKey(t, 'services', `[${svc}]`);
+      if (!files.includes(rel)) t = setFmKey(t, 'files', `[${[...files, rel].join(', ')}]`);
+      if (t !== q.text) fs.writeFileSync(q.planPath, t);
     }
   }
   return { ok: true };

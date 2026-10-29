@@ -369,9 +369,9 @@ a { color: var(--accent); }
   function svcAction(v) {
     var s = v.kn.state;
     if (s === 'missing') return '/harness:init ' + v.service;
-    if (s === 'behind' || s === 'stale') return '/harness:refresh ' + v.service;
-    if (s === 'unknown-commit') return '/harness:onboard ' + v.service;
-    if (s === 'ok' && v.kn.status === 'draft') return '/harness:verify ' + v.service;
+    if (s === 'behind' || s === 'stale') return '/harness:knowledge refresh ' + v.service;
+    if (s === 'unknown-commit') return '/harness:knowledge onboard ' + v.service;
+    if (s === 'ok' && v.kn.status === 'draft') return '/harness:knowledge verify ' + v.service;
     return null;
   }
   function knText(v) {

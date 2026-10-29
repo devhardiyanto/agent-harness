@@ -22,9 +22,10 @@ export function evaluate(root, cfg, payload) {
 
   // approve hanya manusia
   if (/harness\.mjs\s+approve\b/.test(flat)) return fail('approve hanya boleh dilakukan manusia (ketik /harness:approve <slug>, atau jalankan sendiri dengan awalan "!").');
+  if (/harness\.mjs\s+quick\b/.test(flat)) return fail('item quick hanya dibuat dari ketikan manusia: /harness:quick <permintaan> (atau jalankan sendiri dengan awalan "!").');
 
   // verifikasi knowledge dan persetujuan pola hanya manusia
-  if (/harness\.mjs\s+(verify-knowledge|patterns-approve)\b/.test(flat)) return fail('verify-knowledge / patterns-approve hanya manusia: ketik /harness:verify <svc> atau /harness:patterns <slug> <P1,P3|all>, atau jalankan sendiri dengan awalan "!".');
+  if (/harness\.mjs\s+(verify-knowledge|patterns-approve)\b/.test(flat)) return fail('verify-knowledge / patterns-approve hanya manusia: ketik /harness:knowledge verify <svc> atau /harness:knowledge patterns <slug> <P1,P3|all>, atau jalankan sendiri dengan awalan "!".');
 
   // perintah terlarang dari config
   for (const re of cfg.deny_commands) if (new RegExp(re, 'i').test(flat)) return fail(`perintah cocok dengan daftar larangan (${re}). Lakukan manual di luar agent.`);

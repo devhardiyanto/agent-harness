@@ -1,0 +1,15 @@
+---
+name: next
+description: Menampilkan langkah berikutnya untuk tiap work item terbuka: siapa yang bertindak dan perintah persisnya.
+argument-hint: "[slug]"
+disable-model-invocation: true
+---
+# /harness:next
+
+Jalankan dan tampilkan keluarannya apa adanya (tabel):
+
+```
+node .claude/hooks/harness.mjs next $ARGUMENTS
+```
+
+Tanpa argumen: semua item yang belum `merged`. Jangan menambah komentar; jangan menjalankan langkah yang ditandai untuk "kamu" (user).

@@ -10,6 +10,10 @@
 //   check <slug>            dry-run gerbang 2
 //   reopen <slug>           kembali ke draft (butuh approve ulang)
 //   approve <slug>          HANYA manusia (jalankan dengan awalan "!")
+//   quick <permintaan>      HANYA manusia ("!" atau /harness:quick): item lajur quick berstatus approved
+//   amend <slug> --ac ".."  tambah AC kecil setelah approve (batas config.amend.max); tanpa mengubah service/skema/AC lama
+//   promote <slug>          quick → standard (draft; perlu plan + approve)
+//   next [slug]             langkah berikutnya per item: siapa dan perintah persisnya
 //   doctor                  periksa instalasi
 // Pengetahuan (tanpa token, deterministik):
 //   inventory [--json]                  service di source-code/, stack, baseline, status checkout
@@ -20,8 +24,8 @@
 //   knowledge-status [svc|all] [--json] tertinggal berapa commit dari baseline
 //   propose-checks [svc|all]            usulan blok checks.<svc> (user menyalin ke harness.config.json)
 //   patterns-check <slug>               validasi docs/work/<slug>/patterns-proposal.md
-//   verify-knowledge <svc>              HANYA manusia ("!" atau /harness:verify): draft → verified bila lint bersih
-//   patterns-approve <slug> <P1,P3|all> HANYA manusia ("!" atau /harness:patterns): terapkan usulan pola ke patterns.md
+//   verify-knowledge <svc>              HANYA manusia ("!" atau /harness:knowledge verify): draft → verified bila lint bersih
+//   patterns-approve <slug> <P1,P3|all> HANYA manusia ("!" atau /harness:knowledge patterns): terapkan usulan pola ke patterns.md
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -32,7 +36,7 @@ import {
 } from './knowledge.mjs';
 import {
   projectRoot, loadConfig, listItems, readItem, resolveSlug, checkTransition, checkDone, setFmKey, STATUSES,
-  splitFrontmatter, parseAcs, readJson, audit, summarizeItem,
+  splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick,
 } from './lib.mjs';
 
 const root = projectRoot();
@@ -103,14 +107,14 @@ switch (cmd) {
     const items = listItems(root);
     if (args.includes('--json')) { console.log(JSON.stringify(items.map(summarizeItem), null, 2)); break; }
     if (!items.length) { console.log('(belum ada work item)'); break; }
-    console.log('| slug | type | status | services |\n|---|---|---|---|');
-    for (const i of items) console.log(`| ${i.slug} | ${i.type} | ${i.status} | ${i.services.join(',') || '-'} |`);
+    console.log('| slug | type | lajur | status | services |\n|---|---|---|---|---|');
+    for (const i of items) console.log(`| ${i.slug} | ${i.type} | ${isQuick(i) ? 'quick' : 'standard'} | ${i.status} | ${i.services.join(',') || '-'} |`);
     break;
   }
   case 'show': {
     const i = need(args.find((a) => !a.startsWith('--')));
     if (args.includes('--json')) { console.log(JSON.stringify(summarizeItem(i), null, 2)); break; }
-    console.log(`${i.slug}\nstatus: ${i.status}\ntype: ${i.type}\nservices: ${i.services.join(', ') || '-'}\nAC: ${parseAcs(i.body).map((a) => a.id).join(', ') || '-'}\npr: ${i.fm.pr || '-'}`);
+    console.log(`${i.slug}\nstatus: ${i.status}\ntype: ${i.type}\nlane: ${isQuick(i) ? 'quick' : 'standard'}\nservices: ${i.services.join(', ') || '-'}\nAC: ${parseAcs(i.body).map((a) => a.id).join(', ') || '-'}\npr: ${i.fm.pr || '-'}`);
     break;
   }
   case 'start':
@@ -144,6 +148,40 @@ switch (cmd) {
     const who = spawnSync('git', ['config', 'user.email'], { cwd: root, encoding: 'utf8' }).stdout.trim() || 'unknown';
     write(i, 'approved', { approved_at: new Date().toISOString(), approved_by: who });
     console.log(`${i.slug}: draft → approved`);
+    break;
+  }
+  case 'quick': {
+    const who = spawnSync('git', ['config', 'user.email'], { cwd: root, encoding: 'utf8' }).stdout.trim() || 'unknown';
+    const r = createQuick(root, args.join(' '), who);
+    if (!r.ok) die(`DITOLAK: ${r.reason}`, 2);
+    audit(root, { event: 'quick', slug: r.slug, by: who });
+    console.log(`docs/work/${r.slug} (quick, approved oleh ${who})`);
+    break;
+  }
+  case 'amend': {
+    const i = need(args.find((a) => !a.startsWith('--')));
+    const ai = args.indexOf('--ac');
+    const r = amendItem(root, cfg, i, ai >= 0 ? args.slice(ai + 1).join(' ') : '');
+    if (!r.ok) die(`DITOLAK: ${r.reason}`, 2);
+    console.log(`${i.slug}: ${r.id} ditambahkan (amandemen ${Number(i.fm.amendments || 0) + 1}/${cfg.amend.max}). Perubahan besar (service baru, skema, ubah/hapus AC): reopen + approve ulang.`);
+    break;
+  }
+  case 'promote': {
+    const i = need(args[0]);
+    if (!isQuick(i)) die('hanya item quick yang bisa dipromosikan.');
+    let t = fs.readFileSync(i.planPath, 'utf8');
+    t = setFmKey(t, 'lane', 'standard'); t = setFmKey(t, 'status', 'draft'); t = setFmKey(t, 'approved_at', 'null'); t = setFmKey(t, 'approved_by', 'null'); t = setFmKey(t, 'updated', today());
+    fs.writeFileSync(i.planPath, t);
+    audit(root, { event: 'promote', slug: i.slug, from: i.status });
+    console.log(`${i.slug}: quick → standard (draft). Berikutnya: /harness:plan ${i.slug}, lalu user mengetik /harness:approve ${i.slug}.`);
+    break;
+  }
+  case 'next': {
+    const q = args.find((a) => !a.startsWith('--'));
+    const items = q ? [need(q)] : listItems(root).filter((i) => i.status !== 'merged');
+    if (!items.length) { console.log('(tidak ada work item terbuka) Mulai: /harness:quick <permintaan> untuk perubahan kecil, atau /harness:impact <tipe> <permintaan>.'); break; }
+    console.log('| slug | lajur | status | siapa | langkah berikutnya |\n|---|---|---|---|---|');
+    for (const i of items) { const n = nextStep(i); console.log(`| ${i.slug} | ${isQuick(i) ? 'quick' : 'standard'} | ${i.status} | ${n.who} | ${n.cmd} |`); }
     break;
   }
   case 'doctor': {
@@ -213,7 +251,7 @@ switch (cmd) {
     const it = sampleService(root, cfg, args[0], Number(args[1]) || 6);
     if (!it.length) die('tidak ada sitasi yang bisa disampel.', 2);
     it.forEach((x, i) => console.log(`### ${i + 1}. ${x.f}\nKlaim : ${x.claim}\nKode  : ${x.cite}\n\`\`\`\n${x.code.join('\n')}\n\`\`\`\n`));
-    console.log('Cocok semua? Ketik /harness:verify ' + args[0] + ' (atau "! node .claude/hooks/harness.mjs verify-knowledge ' + args[0] + '").');
+    console.log('Cocok semua? Ketik /harness:knowledge verify ' + args[0] + ' (atau "! node .claude/hooks/harness.mjs verify-knowledge ' + args[0] + '").');
     break;
   }
   case 'knowledge-status': {
@@ -323,5 +361,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('perintah: new | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
+    die('perintah: new | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
 }

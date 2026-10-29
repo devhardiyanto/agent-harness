@@ -3,7 +3,7 @@
 Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file di `docs/work/`, bukan chat.
 
 ## Peta
-- Pertama kali di workspace: `/harness:init` (inventaris, baseline production/main, knowledge, usulan checks). Peringatan "tertinggal" di awal sesi → `/harness:refresh <svc>`.
+- Pertama kali di workspace: `/harness:init` (inventaris, baseline production/main, knowledge, usulan checks). Peringatan "tertinggal" di awal sesi → `/harness:knowledge refresh <svc>`.
 - `docs/_map.md` — service, peran, relasi antar-service (L0). Baca dulu.
 - `docs/knowledge/<svc>/` — ringkasan (L2) dan pola + contoh emas (L3) per service. Baca hanya service yang kena. Status `draft` = belum diverifikasi manusia: perlakukan sebagai petunjuk, cek ke kode.
 - `docs/work/<tanggal-slug>/` — `brief.md` `impact.md` `plan.md` `progress.md` `review.md`.
@@ -18,7 +18,10 @@ Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file
 6. `done` hanya bila tiap AC punya bukti + review `clean` (hook memeriksa). 
 7. `/harness:ship <slug>` — branch kerja, commit, push, PR via `gh`. `merged` setelah PR benar-benar MERGED.
 
-Status: `draft → approved → in-progress → in-review → done → merged`. Plan beku setelah approved; revisi = `reopen` lalu approve ulang.
+Status: `draft → approved → in-progress → in-review → done → merged`. Plan beku setelah approved; revisi besar = `reopen` lalu approve ulang; tambahan AC kecil = `harness.mjs amend <slug> --ac "..."` (maks 3).
+
+## Lajur quick (perubahan kecil)
+User mengetik `/harness:quick <permintaan>`: hook membuat item `approved` (ketikan itu = persetujuan). Satu service, maks 5 file, bukan skema, dikerjakan di sesi yang sama, tanpa `in-review` (bukti AC + checks). Melebihi batas → `harness.mjs promote <slug>` lalu plan + approve. Bingung langkah berikutnya: `/harness:next`.
 
 ## Batas keras (ditegakkan hook; jangan dicari celahnya)
 - Edit kode di service tanpa work item `approved/in-progress` yang mencakup service itu → diblokir.

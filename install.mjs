@@ -357,7 +357,7 @@ log('\n## Langkah berikutnya (kamu)');
 log('1. Buka Claude Code di folder ini; setujui prompt kepercayaan marketplace/plugin bila muncul.');
 if (!slug) log('   Plugin manual:  claude plugin marketplace add <owner>/<repo-installer>  &&  claude plugin install harness@harness-marketplace');
 log('2. Cek:  node .claude/hooks/harness.mjs doctor      (atau /harness:status)');
-log('3. Isi pengetahuan:  /harness:init   (satu service dulu → lihat /usage → lanjut all) → knowledge-sample → /harness:verify <svc>');
+log('3. Isi pengetahuan:  /harness:init   (satu service dulu → lihat /usage → lanjut all) → knowledge-sample → /harness:knowledge verify <svc>');
 log('4. Pakai:  /harness:impact feature <permintaan>');
 if (LEFTOVER.length || LEGACY_BLOCKS.some((k) => oldCfg[k])) log(`\nCatatan: sisa modul lama (${[...LEFTOVER, ...LEGACY_BLOCKS.filter((k) => oldCfg[k]).map((k) => `config.${k}`)].join(', ')}) dibiarkan apa adanya. Executor, Plane, dan dispatch sudah dibuang di harness ini; hapus sendiri bila tidak diperlukan.`);
 if (tag) log(`\nKembali ke harness lama kapan saja:  git switch -c lama ${tag}`);

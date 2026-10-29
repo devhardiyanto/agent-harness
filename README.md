@@ -29,17 +29,21 @@ Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge); ops
 | langkah | perintah | hasil |
 |---|---|---|
 | bootstrap (sekali; ulangi untuk service baru) | `/harness:init` (satu service dulu, lihat `/usage`, lalu `all`) | inventaris, baseline per service, `docs/_map.md`, `docs/knowledge/<svc>/{summary,patterns}.md` dari commit baseline, usulan `checks.<svc>` |
-| verifikasi knowledge (kamu) | `harness.mjs knowledge-sample <svc>` → `/harness:verify <svc>` | `draft → verified` (hanya bila `lint-knowledge` bersih) |
+| verifikasi knowledge (kamu) | `harness.mjs knowledge-sample <svc>` → `/harness:knowledge verify <svc>` | `draft → verified` (hanya bila `lint-knowledge` bersih) |
+| **perubahan kecil (kamu)** | `/harness:quick <permintaan>` → kerjakan di sesi yang sama → `/harness:ship <slug>` | item `approved` oleh ketikanmu; 1 service, maks 5 file, bukan skema; tanpa `in-review`. Melebihi batas: `harness.mjs promote <slug>` |
 | 1. dampak | `/harness:impact feature <permintaan>` | `docs/work/<slug>/{brief,impact}.md` |
 | 2. plan (sesi planning) | `/harness:plan <slug>` | `plan.md` `draft` + AC bernomor |
 | 3. setuju (kamu) | `/harness:approve <slug>` | hook menulis `approved` |
 | 4. eksekusi (sesi baru) | `/harness:build <slug>` | kode + bukti per AC di `progress.md` → `in-review` |
 | 5. review / feedback | `/harness:review <slug> [feedback]` | `review.md`; blocker → balik ke build; clean → `done` |
 | 6. kirim | `/harness:ship <slug>` | branch, commit, push, PR (`gh`); panggil lagi setelah merge → `merged` |
-| usulan pola (kamu) | `/harness:patterns <slug> P1,P3\|all` | hook menerapkan usulan dari review ke `patterns.md` |
-| lain | `/harness:status`, `/harness:board`, `/harness:refresh <svc>` | tabel item + cek instalasi; papan HTML lokal per service (`.claude/state/board.html`); perbarui knowledge yang tertinggal dari baseline |
+| usulan pola (kamu) | `/harness:knowledge patterns <slug> P1,P3\|all` | hook menerapkan usulan dari review ke `patterns.md` |
+| bingung langkah berikutnya | `/harness:next` | tabel: item, status, siapa yang bertindak, perintah persisnya |
+| lain | `/harness:status`, `/harness:status board`, `/harness:knowledge refresh <svc>` | tabel item + cek instalasi; papan HTML lokal per service (`.claude/state/board.html`); perbarui knowledge yang tertinggal dari baseline |
 
 Awal setiap sesi, hook melaporkan (tanpa token, git lokal saja): service tanpa knowledge, knowledge tertinggal dari baseline (ambang `knowledge.stale_warn_commits`, bawaan 15), dan yang masih `draft`.
+
+Tambahan kecil setelah approve: `harness.mjs amend <slug> --ac "..."` (maks `amend.max`, bawaan 3; hanya menambah AC). Perubahan besar: `reopen` + approve ulang. Skill ada 11: `init impact plan approve build review ship status knowledge next quick`.
 
 Tipe: `feature`, `improvement`, `hotfix` (plan 4 baris, gerbang tetap), `analysis`, `cross-repo`, `schema`, `onboard`.
 Status: `draft → approved → in-progress → in-review → done → merged`. Selesai = PR merged.
@@ -58,8 +62,8 @@ Status: `draft → approved → in-progress → in-review → done → merged`. 
 | tanpa tulis `.env`/kunci, tanpa secret literal | `PreToolUse` (Edit/Write) |
 | `.claude/hooks`, `settings.json`, `harness.config.json` dilindungi | `PreToolUse` (buka: `HARNESS_ADMIN=1` saat menjalankan `claude`) |
 | migrasi/skema hanya di item bertipe `schema` | `PreToolUse` |
-| knowledge `verified` hanya manusia; mengedit file `verified` = turun ke `draft` | `PreToolUse` (gate) + hook `UserPromptSubmit` (`/harness:verify`, hanya bila lint bersih) |
-| pola baru/berubah hanya diusulkan agent (`Status: proposed`); `applied` hanya setelah manusia mengetik `/harness:patterns` | `PreToolUse` + `UserPromptSubmit` |
+| knowledge `verified` hanya manusia; mengedit file `verified` = turun ke `draft` | `PreToolUse` (gate) + hook `UserPromptSubmit` (`/harness:knowledge verify`, hanya bila lint bersih) |
+| pola baru/berubah hanya diusulkan agent (`Status: proposed`); `applied` hanya setelah manusia mengetik `/harness:knowledge patterns` | `PreToolUse` + `UserPromptSubmit` |
 | audit JSONL tanpa secret (`.claude/audit/`) untuk perubahan (Edit/Write/Bash), laporan diff manifest dependency, peringatan konteks ±400k | `PostToolUse` (hanya tool penulis dan Bash), `UserPromptSubmit` (peringatan konteks), `InstructionsLoaded` |
 | hook rusak/timeout = aksi diblokir | `onFailure: "block"` |
 

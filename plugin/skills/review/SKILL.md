@@ -6,7 +6,7 @@ disable-model-invocation: true
 ---
 # /harness:review
 
-Masukan: `$ARGUMENTS` (slug, opsional feedback).
+Masukan: `$ARGUMENTS` (slug, opsional feedback). Item lajur quick tidak di-review (tidak punya `in-review`); langsung `/harness:ship <slug>`.
 
 ## Langkah
 1. `node .claude/hooks/harness.mjs show <slug>`; status harus `in-review` (atau `in-progress` bila user ingin review awal).
@@ -28,7 +28,7 @@ Masukan: `$ARGUMENTS` (slug, opsional feedback).
    - <satu butir pola, ≤8 baris, dengan sitasi path:baris@<sha>>
    ```
    ````
-   Agent hanya boleh menulis `Status: proposed`; gate menolak `approved/applied`. Validasi: `node .claude/hooks/harness.mjs patterns-check <slug>`. AI **hanya mengusulkan**: pola adalah aturan yang akan diikuti sesi-sesi berikutnya, jadi persetujuannya milik manusia (`/harness:patterns <slug> P1,P3` atau `all`). Tidak disetujui = patterns.md tidak berubah.
+   Agent hanya boleh menulis `Status: proposed`; gate menolak `approved/applied`. Validasi: `node .claude/hooks/harness.mjs patterns-check <slug>`. AI **hanya mengusulkan**: pola adalah aturan yang akan diikuti sesi-sesi berikutnya, jadi persetujuannya milik manusia (`/harness:knowledge patterns <slug> P1,P3` atau `all`). Tidak disetujui = patterns.md tidak berubah.
 
 ## Balasan chat (maks 5 baris)
-verdict · N temuan (b blocker) · usulan pola: n (`/harness:patterns <slug> ...`) · path `review.md` · berikutnya: `/harness:build` atau `/harness:ship <slug>`
+verdict · N temuan (b blocker) · usulan pola: n (`/harness:knowledge patterns <slug> ...`) · path `review.md` · berikutnya: `/harness:build` atau `/harness:ship <slug>`
