@@ -2,7 +2,6 @@
 // Installer Harness v1. Ganti penuh (bukan update): yang lama dibuang, yang baru dipasang.
 // Pakai:  node install.mjs [folder-project] [--yes] [--dry-run] [--branch NAMA] [--repo owner/repo]
 //                          [--project-name NAMA] [--root-branch main] [--allow-dirty] [--no-commit]
-//                          [--with-executor]   pasang modul executor opsional (Antigravity CLI), default nonaktif
 //                          [--ignore backup,tmp]  folder/file di root yang diabaikan harness: masuk .gitignore dan TIDAK di-commit
 //                                                 (folder bernama backup/ atau backups/ otomatis diabaikan; matikan: --no-auto-ignore)
 // Tanpa dependency; Node >= 18.
@@ -15,8 +14,8 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const KERNEL = path.join(HERE, 'kernel');
-const EXECUTOR_MODULE = path.join(HERE, 'modules', 'executor');
 const VERSION = fs.readFileSync(path.join(HERE, 'VERSION'), 'utf8').trim();
+const LEGACY_BLOCKS = ['executor', 'plane'];
 
 // ---------- argumen ----------
 const argv = process.argv.slice(2);
@@ -27,7 +26,6 @@ const positional = argv.filter((a, i) => !a.startsWith('--') && !valueFlags.has(
 const target = path.resolve(positional[0] || process.cwd());
 const optAll = (n) => argv.flatMap((a, i) => (a === `--${n}` && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1].split(',') : []));
 const DRY = flag('dry-run');
-const WITH_EXECUTOR = flag('with-executor');
 const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
 
 // ---------- util ----------
@@ -43,7 +41,7 @@ const IGNORE = (() => {
     const n = raw.trim().replace(/\\/g, '/').replace(/^\.?\/+|\/+$/g, '');
     if (!n) continue;
     if (n.includes('..') || n.includes('/') || /[*?\[\]!#]/.test(n)) { console.error(`\nGAGAL: --ignore "${raw}": hanya nama folder/file di root (tanpa "/", "..", atau pola).`); process.exit(1); }
-    if (['.git', '.claude', 'docs', 'source-code', 'scripts', '.agents'].includes(n)) { console.error(`\nGAGAL: --ignore ${n}: itu direktori milik harness/project, tidak boleh diabaikan.`); process.exit(1); }
+    if (['.git', '.claude', 'docs', 'source-code', 'scripts'].includes(n)) { console.error(`\nGAGAL: --ignore ${n}: itu direktori milik harness/project, tidak boleh diabaikan.`); process.exit(1); }
     set.add(n);
   }
   if (!flag('no-auto-ignore')) for (const n of AUTO_IGNORE) if (fs.existsSync(path.join(target, n))) set.add(n);
@@ -70,14 +68,6 @@ function prereq() {
   add('claude >= 2.1.295 (onFailure: block)', !!okv, out(cl) || 'claude tidak ditemukan di PATH');
   const py = sh('python3', ['--version'], HERE);
   add('python3 (opsional, untuk Graphify)', py.status === 0, out(py) || 'opsional');
-  if (WITH_EXECUTOR) {
-    const py3 = sh('python3', ['--version'], HERE); const py = py3.status === 0 ? py3 : sh('python', ['--version'], HERE);
-    add('python3 (wajib untuk modul executor)', py.status === 0, out(py) || 'tidak ditemukan', true);
-    const bs = sh('bash', ['--version'], HERE);
-    add('bash (Windows: Git Bash)', bs.status === 0, bs.status === 0 ? out(bs).split('\n')[0] : 'tidak ditemukan', true);
-    const ag = sh('agy', ['--version'], HERE);
-    add('agy (Antigravity CLI >= 1.1.12)', ag.status === 0, out(ag) || 'belum terpasang; diperlukan sebelum executor.enabled=true');
-  }
   log('## Prasyarat'); table(['cek', 'hasil', 'catatan'], rows.map((r) => [r.n, r.ok ? 'OK' : (r.fatal ? 'GAGAL' : 'PERINGATAN'), r.note]));
   if (rows.some((r) => r.fatal && !r.ok)) die('prasyarat wajib belum terpenuhi.');
 }
@@ -159,15 +149,10 @@ function render(det, mode) {
   cfg.root_branch = opt('root-branch') || 'main';
   cfg.layout = det.layout;
   cfg.services = det.services.map((s) => s.name);
-  // data config user yang dibawa saat pasang ulang di atas v1 (blok milik modul executor)
-  for (const k of ['executor', 'checks', 'baseline', 'knowledge', 'graphify']) if (oldCfg[k] && typeof oldCfg[k] === 'object') cfg[k] = oldCfg[k];
-  if (WITH_EXECUTOR) {
-    const defaults = JSON.parse(fs.readFileSync(path.join(EXECUTOR_MODULE, 'executor.config.json'), 'utf8'));
-    cfg.executor = { ...defaults, ...(cfg.executor || {}) };
-    cfg.checks = cfg.checks || {};
-    for (const sv of det.services) cfg.checks[sv.name] = cfg.checks[sv.name] || { lint: null, test: null, agent_runs: false };
-  }
-  if (exists('.mcp.json') && /plane/i.test(fs.readFileSync(path.join(target, '.mcp.json'), 'utf8'))) cfg.plane.enabled = true;
+  // data config user yang dibawa saat pasang ulang di atas v1
+  for (const k of ['checks', 'baseline', 'knowledge', 'graphify']) if (oldCfg[k] && typeof oldCfg[k] === 'object') cfg[k] = oldCfg[k];
+  // blok milik modul yang sudah dibuang: tidak dipakai lagi, tetapi dibawa apa adanya supaya tidak ada data user yang hilang
+  for (const k of LEGACY_BLOCKS) if (oldCfg[k] && typeof oldCfg[k] === 'object') cfg[k] = oldCfg[k];
   fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n');
   // peta draft
   const mapP = path.join(stage, 'docs', '_map.md');
@@ -192,21 +177,10 @@ function render(det, mode) {
     st.enabledPlugins = { 'harness@harness-marketplace': true };
   }
   fs.writeFileSync(setP, JSON.stringify(st, null, 2) + '\n');
-  if (WITH_EXECUTOR) {
-    for (const d of ['scripts', '.agents']) fs.cpSync(path.join(EXECUTOR_MODULE, d), path.join(stage, d), { recursive: true });
-    st.permissions = st.permissions || {}; st.permissions.allow = st.permissions.allow || [];
-    for (const a of ['Bash(bash scripts/executor/dispatch-executor.sh *)', 'Bash(bash scripts/executor/preflight.sh)', 'Bash(python3 scripts/executor/executor.py checks *)']) if (!st.permissions.allow.includes(a)) st.permissions.allow.push(a);
-    fs.writeFileSync(setP, JSON.stringify(st, null, 2) + '\n');
-  }
   fs.writeFileSync(path.join(stage, '.claude', 'harness.version'), JSON.stringify({ version: VERSION, installed_at: new Date().toISOString(), installer_repo: slug, mode }, null, 2) + '\n');
   // verifikasi staging
   for (const f of ['AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude/settings.json', '.claude/hooks/gate.mjs', '.claude/hooks/lib.mjs', 'docs/_map.md', 'docs/work/_TEMPLATE/plan.md']) {
     if (!fs.existsSync(path.join(stage, f))) die(`staging tidak lengkap: ${f}`);
-  }
-  if (WITH_EXECUTOR) {
-    for (const f of ['scripts/executor/executor.py', 'scripts/executor/dispatch-executor.sh', 'scripts/executor/result.schema.json', 'scripts/executor/templates/brief.md', '.agents/agents/implementer/agent.md']) {
-      if (!fs.existsSync(path.join(stage, f))) die(`staging modul executor tidak lengkap: ${f}`);
-    }
   }
   JSON.parse(fs.readFileSync(setP, 'utf8')); JSON.parse(fs.readFileSync(cfgP, 'utf8'));
   return { stage, slug };
@@ -214,27 +188,15 @@ function render(det, mode) {
 
 // ---------- 4. terapkan ----------
 const GITIGNORE = ['.harness-staging/', '.harness-backup-*/', '.claude/audit/', '.claude/state/', 'docs/knowledge/graph/', '.claude/settings.local.json', 'CLAUDE.local.md'];
-const EXECUTOR_GITIGNORE = ['.agents/hooks.json', '.agents/active-task.json', 'docs/work/*/tasks/*.stdout', 'docs/work/*/tasks/*.stderr', 'docs/work/*/tasks/*.agy.log'];
 function applyGitignore(isGit) {
   const p = path.join(target, '.gitignore');
   const cur = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
   const lines = new Set(cur.split(/\r?\n/).map((l) => l.trim()));
   const add = [...GITIGNORE];
-  if (WITH_EXECUTOR) add.push(...EXECUTOR_GITIGNORE);
   for (const n of IGNORE) add.push(`/${n}${fs.existsSync(path.join(target, n)) && fs.statSync(path.join(target, n)).isFile() ? '' : '/'}`);
   if (exists('source-code') && !(isGit && out(sh('git', ['ls-files', '--', 'source-code']))) ) add.push('/source-code/');
   const missing = add.filter((l) => !lines.has(l));
   if (missing.length) fs.writeFileSync(p, cur.replace(/\n*$/, '\n') + `\n# harness v1\n${missing.join('\n')}\n`);
-}
-
-// Skrip modul wajib LF: git di Windows (core.autocrlf=true) mengubahnya jadi CRLF saat checkout dan bash gagal membacanya.
-const EXECUTOR_GITATTRIBUTES = ['scripts/executor/** text eol=lf', '.agents/** text eol=lf'];
-function applyGitattributes() {
-  const p = path.join(target, '.gitattributes');
-  const cur = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
-  const lines = new Set(cur.split(/\r?\n/).map((l) => l.trim()));
-  const missing = EXECUTOR_GITATTRIBUTES.filter((l) => !lines.has(l));
-  if (missing.length) fs.writeFileSync(p, cur.replace(/\n*$/, cur ? '\n' : '') + `${cur ? '\n' : ''}# harness executor\n${missing.join('\n')}\n`);
 }
 
 async function confirm(q) {
@@ -262,6 +224,8 @@ const PRESERVE_ON_V1 = ['docs/knowledge', 'docs/work'];  // docs/_map.md juga di
 const removable = hadV1 ? existing.filter((p) => !PRESERVE_ON_V1.includes(p)) : existing;
 const oldCfg = hadV1 ? (() => { try { return JSON.parse(fs.readFileSync(path.join(target, 'harness.config.json'), 'utf8')); } catch { return {}; } })() : {};
 const det = detectServices();
+// sisa modul yang sudah dibuang: dideteksi, dilaporkan, TIDAK disentuh
+const LEFTOVER = ['scripts/executor', '.agents'].filter(exists);
 
 log(`\n## Deteksi\n- mode: **${mode}**${mode === 'existing' ? ' (harness lama ditemukan)' : ''}\n- git root project: ${isGit ? 'ya' : 'TIDAK (cadangan berupa salinan folder)'}\n- layout: ${det.layout}`);
 if (det.services.length) { log(''); table(['service', 'stack', 'branch', 'remote'], det.services.map((s) => [s.name, s.stack, s.branch, s.remote])); }
@@ -275,7 +239,7 @@ table(['aksi', 'path'], [
   ...KEEP_PATHS.filter((p) => !p.includes(' ') ? exists(p) : true).map((p) => ['DIPERTAHANKAN', p]),
   ...IGNORE.map((n) => ['DIABAIKAN (.gitignore; tidak di-commit, tidak disentuh)', n]),
   ['DIPASANG', 'AGENTS.md, CLAUDE.md, harness.config.json, .claude/{settings.json,hooks,rules,agents}, docs/{_map.md,knowledge,work/_TEMPLATE}'],
-  ...(WITH_EXECUTOR ? [['DIPASANG (modul opsional)', 'scripts/executor/, .agents/agents/implementer/ — executor.enabled=false sampai Anda mengaktifkannya']] : []),
+  ...LEFTOVER.map((p) => ['DIBIARKAN (sisa modul lama; tidak dipakai lagi sejak 1.4.0, hapus manual bila sudah tidak perlu)', p]),
 ]);
 log(`\nCadangan: ${isGit ? `tag git harness-pre-v1-${stamp} di HEAD, lalu branch ${opt('branch', 'harness-v1')}` : `salinan di .harness-backup-${stamp}/`}`);
 
@@ -310,7 +274,6 @@ try {
   fs.cpSync(stage, target, { recursive: true, force: true });
   for (const d of ['docs/knowledge', 'docs/work']) fs.mkdirSync(path.join(target, d), { recursive: true });
   applyGitignore(isGit);
-  if (WITH_EXECUTOR) applyGitattributes();
   fs.rmSync(path.join(target, '.harness-staging'), { recursive: true, force: true });
 } catch (e) {
   die(`penerapan gagal: ${e.message}. Staging ada di ${stage}; pulihkan dengan ${tag ? `git switch - && git branch -D ${branch}` : 'salinan .harness-backup-*'}.`);
@@ -319,7 +282,7 @@ try {
 let committed = false;
 if (isGit && !flag('no-commit')) {
   // Hanya path milik harness yang di-stage. JANGAN `git add -A`: itu ikut meng-commit file/folder lain yang belum di-track (backup/, catatan, dump).
-  const stagePaths = [...new Set([...removable, 'AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude', 'docs/_map.md', 'docs/knowledge', 'docs/work', '.gitignore', ...(WITH_EXECUTOR ? ['scripts/executor', '.agents', '.gitattributes'] : [])])];
+  const stagePaths = [...new Set([...removable, 'AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude', 'docs/_map.md', 'docs/knowledge', 'docs/work', '.gitignore'])];
   for (const sp of stagePaths) if (exists(sp) || removable.includes(sp)) sh('git', ['add', '-A', '--', sp]);
   const nm = out(sh('git', ['config', 'user.name'])) ? [] : ['-c', 'user.name=harness-installer', '-c', 'user.email=harness@localhost'];
   const c = sh('git', [...nm, 'commit', '-q', '-m', `chore(harness): ganti ke harness v1 (${VERSION})`]);
@@ -340,12 +303,5 @@ if (!slug) log('   Plugin manual:  claude plugin marketplace add <owner>/<repo-i
 log('2. Cek:  node .claude/hooks/harness.mjs doctor      (atau /harness:status)');
 log('3. Isi pengetahuan:  /harness:init   (satu service dulu → lihat /usage → lanjut all) → knowledge-sample → /harness:verify <svc>');
 log('4. Pakai:  /harness:impact feature <permintaan>');
-if (WITH_EXECUTOR) {
-  log('\n## Modul executor (terpasang, NONAKTIF)');
-  log('5. Isi perintah cek per service di harness.config.json → checks.<service>.{lint,test} (edit manual; file itu dilindungi dari agent).');
-  log('   checks.<service>.agent_runs: false (bawaan) = Claude yang menjalankan cek setelah membaca diff; true = agy ikut menjalankannya (kode baru berjalan sebelum ditinjau).');
-  log('6. Uji tanpa agy asli:  bash scripts/executor/test-executor.sh      (Windows: dari Git Bash)');
-  log('7. Pasang di mesin ini:  bash scripts/executor/install.sh           (menulis allowlist ke settings agy GLOBAL dengan backup; trust workspace Anda atur sendiri lewat agy)');
-  log('8. Aktifkan setelah pilot:  "executor": { "enabled": true } di harness.config.json, lalu  /harness:dispatch <slug>   (lihat scripts/executor/README.md)');
-}
+if (LEFTOVER.length || LEGACY_BLOCKS.some((k) => oldCfg[k])) log(`\nCatatan: sisa modul lama (${[...LEFTOVER, ...LEGACY_BLOCKS.filter((k) => oldCfg[k]).map((k) => `config.${k}`)].join(', ')}) dibiarkan apa adanya. Executor, Plane, dan dispatch sudah dibuang di harness ini; hapus sendiri bila tidak diperlukan.`);
 if (tag) log(`\nKembali ke harness lama kapan saja:  git switch -c lama ${tag}`);

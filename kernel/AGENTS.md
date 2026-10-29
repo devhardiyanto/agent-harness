@@ -14,7 +14,6 @@ Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file
 2. `/harness:plan <slug>` — `plan.md` berstatus `draft` (AC bernomor `- AC1: ...`). **Sesi planning berhenti di sini.**
 3. User mengetik `/harness:approve <slug>` → hook menulis `approved`. Agent tidak boleh.
 4. Sesi baru: `/harness:build <slug>` → `in-progress`, catat bukti per AC di `progress.md`.
-   Opsional (modul executor terpasang dan `executor.enabled`): `/harness:dispatch <slug>` menggantikan implementer untuk kode; Claude tetap memverifikasi dan meng-commit.
 5. `/harness:review <slug>` → `review.md` (`verdict: clean|blockers`). Ada blocker → kembali ke build.
 6. `done` hanya bila tiap AC punya bukti + review `clean` (hook memeriksa). 
 7. `/harness:ship <slug>` — branch kerja, commit, push, PR via `gh`. `merged` setelah PR benar-benar MERGED.
@@ -34,8 +33,8 @@ Status: `draft → approved → in-progress → in-review → done → merged`. 
 - Balasan chat maksimal 5 baris: apa yang selesai + path file + langkah user berikutnya.
 - Jangan mengulang isi file ke chat. Jangan menulis esai.
 
-## Minimalis (`/harness:lean`)
-Sebelum menambah kode/dependency: perlu ada? sudah ada di codebase? stdlib/native cukup? dependency terpasang cukup? satu baris cukup? Ambil yang terkecil.
+## Minimalis
+Sebelum menambah kode/dependency: perlu ada? sudah ada di codebase? stdlib/native cukup? dependency terpasang cukup? satu baris cukup? Ambil yang terkecil. Tangga lengkap: `.claude/rules/minimalis.md`.
 
 ## Konteks
 Peringatan di ±400k token: simpan status ke `progress.md`, sarankan sesi baru.

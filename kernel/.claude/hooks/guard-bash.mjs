@@ -64,7 +64,7 @@ export function evaluate(root, cfg, payload) {
   if (WRITE_OP.test(cmd)) {
     if (/docs\/work\/[^\s'"]*plan\.md/.test(flat)) return fail('jangan ubah plan.md lewat shell; pakai Edit/Write (transisi status diperiksa hook) atau harness.mjs set-status.');
     if (/docs\/knowledge\/[^\s'"]*(summary|patterns)\.md|docs\/work\/[^\s'"]*patterns-proposal\.md/.test(flat)) return fail('jangan ubah summary.md/patterns.md/patterns-proposal.md lewat shell; pakai Edit/Write (status verified/approved dijaga hook).');
-    if (!process.env.HARNESS_ADMIN && /(\.claude\/(hooks|agents)\/|\.claude\/settings\.json|harness\.config\.json|\.agents\/|scripts\/executor\/)/.test(flat)) return fail('file harness dilindungi; ubah manual di luar sesi agent.');
+    if (!process.env.HARNESS_ADMIN && /(\.claude\/(hooks|agents)\/|\.claude\/settings\.json|harness\.config\.json)/.test(flat)) return fail('file harness dilindungi; ubah manual di luar sesi agent.');
     // gerbang 1 untuk tulis lewat shell ke services_dir
     if (cfg.layout === 'multi-repo') {
       const dir = posix(cfg.services_dir).replace(/\/$/, '');

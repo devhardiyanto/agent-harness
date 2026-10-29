@@ -254,7 +254,7 @@ switch (cmd) {
     const out = {};
     for (const s of svcArgs(args)) { const r = proposeChecks(root, cfg, s); out[s] = r.ok ? { ...r.checks } : { error: r.note }; if (r.ok && r.basis.length) console.error(`# ${s}: dasar → ${r.basis.join(', ')}`); }
     console.log(JSON.stringify({ checks: out }, null, 2));
-    console.error('# Salin ke harness.config.json (blok "checks") secara manual; periksa dulu tiap perintah. agent_runs tetap false kecuali Anda memutuskan lain.');
+    console.error('# Salin ke harness.config.json (blok "checks") secara manual; periksa dulu tiap perintah.');
     break;
   }
   case 'patterns-check': {

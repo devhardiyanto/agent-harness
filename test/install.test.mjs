@@ -63,7 +63,7 @@ test('existing: ganti penuh, tag cadangan, branch, yang lain dipertahankan', () 
   assert.equal(fs.existsSync(path.join(root, '.harness-staging')), false);
   const cfg = JSON.parse(fs.readFileSync(path.join(root, 'harness.config.json'), 'utf8'));
   assert.deepEqual(cfg.services, ['ce-api', 'ce-web']);
-  assert.equal(cfg.plane.enabled, true);
+  assert.equal(cfg.plane, undefined, 'blok plane tidak dibuat lagi');
   const st = JSON.parse(fs.readFileSync(path.join(root, '.claude/settings.json'), 'utf8'));
   assert.equal(st.enabledPlugins['harness@harness-marketplace'], true);
   assert.equal(hx(root, 'doctor').status, 0, hx(root, 'doctor').stdout);
@@ -140,74 +140,69 @@ test('folder installer sendiri ditolak', () => {
   assert.notEqual(r.status, 0);
 });
 
-// ---------- modul executor & pasang ulang di atas v1 ----------
-const haveBash = sh('bash', ['--version'], os.tmpdir()).status === 0 && (sh('python3', ['--version'], os.tmpdir()).status === 0);
-
-test('tanpa --with-executor: modul tidak terpasang', () => {
+// ---------- sisa modul lama & pasang ulang di atas v1 ----------
+test('tidak ada modul executor/plane yang dipasang; tidak ada .gitattributes baru', () => {
   const root = existingProject();
   assert.equal(install(root, '--yes').status, 0);
   assert.equal(fs.existsSync(path.join(root, '.gitattributes')), false);
   assert.equal(fs.existsSync(path.join(root, 'scripts/executor')), false);
   assert.equal(fs.existsSync(path.join(root, '.agents')), false);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'harness.config.json'), 'utf8')).executor, undefined);
-});
-
-test('--with-executor: modul terpasang NONAKTIF, checks per service, allow terbatas, gitignore, gerbang melindungi modul', () => {
-  const root = existingProject();
-  const r = install(root, '--yes', '--with-executor');
-  assert.equal(r.status, 0, r.stderr + r.stdout);
-  for (const f of ['scripts/executor/executor.py', 'scripts/executor/dispatch-executor.sh', 'scripts/executor/result.schema.json', 'scripts/executor/templates/brief.md', '.agents/agents/implementer/agent.md']) {
-    assert.ok(fs.existsSync(path.join(root, f)), f);
-  }
   const cfg = JSON.parse(fs.readFileSync(path.join(root, 'harness.config.json'), 'utf8'));
-  assert.equal(cfg.executor.enabled, false);
-  assert.deepEqual(cfg.checks['ce-api'], { lint: null, test: null, agent_runs: false });
-  assert.ok(cfg.checks['ce-web']);
-  const st = JSON.parse(fs.readFileSync(path.join(root, '.claude/settings.json'), 'utf8'));
-  assert.ok(st.permissions.allow.includes('Bash(bash scripts/executor/dispatch-executor.sh *)'));
-  assert.ok(st.permissions.allow.includes('Bash(python3 scripts/executor/executor.py checks *)'));
-  assert.ok(!st.permissions.allow.some((a) => /scripts\/executor\/\*\)$/.test(a) && !/dispatch|preflight|checks/.test(a)), 'allow tidak boleh terlalu lebar');
-  const gi = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
-  assert.match(gi, /\.agents\/hooks\.json/); assert.match(gi, /tasks\/\*\.agy\.log/);
-  const ga = fs.readFileSync(path.join(root, '.gitattributes'), 'utf8');
-  assert.match(ga, /scripts\/executor\/\*\* text eol=lf/); assert.match(ga, /\.agents\/\*\* text eol=lf/);
+  assert.equal(cfg.executor, undefined); assert.equal(cfg.plane, undefined);
+});
+
+test('pasang ulang di atas v1: sisa executor/plane dibiarkan, dilaporkan, dan datanya tidak hilang', () => {
+  const root = existingProject();
+  assert.equal(install(root, '--yes').status, 0);
+  // meniru project yang dulu memasang modul executor dan mengisi blok config-nya
+  fs.mkdirSync(path.join(root, 'scripts/executor'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'scripts/executor/executor.py'), 'milik user');
+  fs.mkdirSync(path.join(root, '.agents/agents/implementer'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.agents/agents/implementer/agent.md'), 'milik user');
+  const cp = path.join(root, 'harness.config.json');
+  const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
+  cfg.executor = { enabled: true, sandbox: false }; cfg.plane = { enabled: true, project_id: 'p1', workspace: 'w' };
+  fs.writeFileSync(cp, JSON.stringify(cfg, null, 2));
+  sh('git', ['add', '-A'], root); sh('git', ['commit', '-qm', 'sisa modul lama'], root);
+  const dry = install(root, '--dry-run');
+  assert.match(dry.stdout, /DIBIARKAN[^|]*\| scripts\/executor/);
+  assert.match(dry.stdout, /DIBIARKAN[^|]*\| \.agents/);
+  const r = install(root, '--yes');
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(fs.readFileSync(path.join(root, 'scripts/executor/executor.py'), 'utf8'), 'milik user');
+  assert.equal(fs.readFileSync(path.join(root, '.agents/agents/implementer/agent.md'), 'utf8'), 'milik user');
+  const after = JSON.parse(fs.readFileSync(cp, 'utf8'));
+  assert.deepEqual(after.executor, { enabled: true, sandbox: false });
+  assert.deepEqual(after.plane, { enabled: true, project_id: 'p1', workspace: 'w' });
+  assert.match(r.stdout, /Catatan: sisa modul lama/);
   assert.equal(hx(root, 'doctor').status, 0);
-  assert.equal(hook(root, 'gate.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: path.join(root, 'scripts/executor/executor.py'), old_string: 'a', new_string: 'b' } }).status, 2);
-  assert.equal(sh('git', ['status', '--porcelain'], root).stdout.trim(), '');
 });
 
-test('--with-executor: tes bawaan modul lulus di project terpasang (tanpa agy asli)', { skip: !haveBash && 'butuh bash + python3' }, () => {
+test('pasang ulang di atas v1: work item, knowledge, peta, dan checks dipertahankan', () => {
   const root = existingProject();
-  assert.equal(install(root, '--yes', '--with-executor').status, 0);
-  const r = sh('bash', ['scripts/executor/test-executor.sh'], root);
-  assert.equal(r.status, 0, r.stdout.slice(-1500) + r.stderr.slice(-500));
-  assert.match(r.stdout, /gagal=0/);
-});
-
-test('pasang ulang di atas v1: work item, knowledge, peta, executor & checks dipertahankan', () => {
-  const root = existingProject();
-  assert.equal(install(root, '--yes', '--with-executor').status, 0);
+  assert.equal(install(root, '--yes').status, 0);
   // data user setelah pemasangan pertama
   fs.mkdirSync(path.join(root, 'docs/work/2026-01-01-x'), { recursive: true });
   fs.writeFileSync(path.join(root, 'docs/work/2026-01-01-x/plan.md'), '---\ntitle: x\nstatus: done\nservices: [ce-api]\n---\n');
   fs.mkdirSync(path.join(root, 'docs/knowledge/ce-api'), { recursive: true });
   fs.writeFileSync(path.join(root, 'docs/knowledge/ce-api/summary.md'), 'ringkasan hasil onboard');
+  fs.mkdirSync(path.join(root, 'docs/discussion'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'docs/discussion/catatan.md'), 'diskusi penting');
   fs.writeFileSync(path.join(root, 'docs/_map.md'), '# peta hasil onboard\n');
   const cp = path.join(root, 'harness.config.json');
   const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
-  cfg.executor.enabled = true; cfg.executor.sandbox = false; cfg.checks['ce-api'].test = 'npm test';
+  cfg.checks = { 'ce-api': { lint: null, test: 'npm test' } };
   fs.writeFileSync(cp, JSON.stringify(cfg, null, 2));
   sh('git', ['add', '-A'], root); sh('git', ['commit', '-qm', 'data user'], root);
-  const r = install(root, '--yes', '--with-executor');
+  const r = install(root, '--yes');
   assert.equal(r.status, 0, r.stderr + r.stdout);
   assert.equal(fs.readFileSync(path.join(root, 'docs/work/2026-01-01-x/plan.md'), 'utf8').includes('status: done'), true);
   assert.equal(fs.readFileSync(path.join(root, 'docs/knowledge/ce-api/summary.md'), 'utf8'), 'ringkasan hasil onboard');
+  assert.equal(fs.readFileSync(path.join(root, 'docs/discussion/catatan.md'), 'utf8'), 'diskusi penting');
   assert.equal(fs.readFileSync(path.join(root, 'docs/_map.md'), 'utf8'), '# peta hasil onboard\n');
   const after = JSON.parse(fs.readFileSync(cp, 'utf8'));
-  assert.equal(after.executor.enabled, true); assert.equal(after.executor.sandbox, false);
   assert.equal(after.checks['ce-api'].test, 'npm test');
   assert.ok(fs.existsSync(path.join(root, 'docs/work/_TEMPLATE/plan.md')));
-  assert.equal((fs.readFileSync(path.join(root, '.gitattributes'), 'utf8').match(/scripts\/executor\/\*\* text eol=lf/g) || []).length, 1, '.gitattributes tidak boleh digandakan');
   assert.equal(hx(root, 'doctor').status, 0);
 });
 

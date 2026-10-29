@@ -17,7 +17,7 @@ Masukan: `$ARGUMENTS` (slug work item). Sesi ini adalah sesi **planning**: tidak
    - `## Langkah`: tabel #, service, perubahan, file perkiraan, AC yang dipenuhi. Urut sesuai urutan deploy.
    - `## Verifikasi (rencana)`: cara membuktikan tiap AC.
    - `## Rollback` konkret. `## Di luar lingkup` eksplisit.
-5. Terapkan `/harness:lean`: tolak langkah/dependency yang tak perlu.
+5. Terapkan rule minimalis (`.claude/rules/minimalis.md`): tolak langkah/dependency yang tak perlu.
 6. Tipe `hotfix`: plan ringkas 4 baris (gejala, akar masalah, perubahan minimal, verifikasi) + minimal 1 AC.
 7. Tipe `schema`: sertakan tabel dba (perubahan, pemilik skema, konsumen, kompatibel mundur, urutan deploy, rollback, risiko data).
 8. Tipe `analysis`: AC = pertanyaan yang harus terjawab; keluaran analisa ditulis ke `docs/work/<slug>/` sebagai tabel.

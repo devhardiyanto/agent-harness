@@ -136,7 +136,7 @@ test('inventory dan propose-checks (dari baseline)', () => {
   assert.deepEqual(inv.new_services, ['svc-baru']); assert.deepEqual(inv.skipped, ['dokumen-lepas']);
   assert.match(inv.found.find((f) => f.service === 'svc-a').stack, /node\(vue\)/);
   const pc = cli(p.root, 'propose-checks', 'svc-a'); assert.equal(pc.status, 0);
-  assert.deepEqual(JSON.parse(pc.stdout).checks['svc-a'], { lint: 'npm run lint', test: 'npm run test', agent_runs: false });
+  assert.deepEqual(JSON.parse(pc.stdout).checks['svc-a'], { lint: 'npm run lint', test: 'npm run test' });
 });
 test('gerbang: agent tidak bisa membuat knowledge "verified" atau mengubah isi verified tanpa turun ke draft', () => {
   const p = mkProject(); writeKnowledge(p.root, p.sha());

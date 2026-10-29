@@ -343,7 +343,7 @@ export function proposeChecks(root, cfg, svc) {
   const rd = mkReader(svcDir(root, cfg, svc));
   const read = (f) => rd(b.sha, f);
   const r = proposeChecksFrom(read, (f) => read(f) !== null);
-  return { ok: true, checks: { lint: r.lint, test: r.test, agent_runs: false }, basis: r.basis };
+  return { ok: true, checks: { lint: r.lint, test: r.test }, basis: r.basis };
 }
 
 // ---------- usulan pola (docs/work/<slug>/patterns-proposal.md) ----------

@@ -1,8 +1,0 @@
-{
-  "enabled": false,
-  "print_timeout": "10m",
-  "sandbox": true,
-  "path_prepend": [],
-  "allowed_commands": ["git status", "git diff"],
-  "require_approved_plan": true
-}
