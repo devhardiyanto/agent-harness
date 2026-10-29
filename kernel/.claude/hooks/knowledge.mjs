@@ -64,7 +64,28 @@ export function proposeChecksFrom(read, exists) {
 // ---------- baseline ----------
 // Aturan: config.baseline[svc] → origin/HEAD → production → main → master. Remote-tracking (origin/<b>) didahulukan atas
 // branch lokal (yang bisa berisi WIP atau tertinggal). Tanpa jaringan kecuali --fetch.
-export function baselineOf(root, cfg, svc, { fetch = false } = {}) {
+// light: hanya ref + sha (tanpa checkout/dirty/branch lokal). Cukup untuk cek kedaluwarsa; `git status` adalah panggilan termahal.
+function baselineLight(root, cfg, svc) {
+  const dir = svcDir(root, cfg, svc);
+  if (!SAFE_SVC.test(svc) || !fs.existsSync(dir) || !isRepo(dir)) return null;
+  const out = gout(dir, ['for-each-ref', '--format=%(refname)\t%(objectname)\t%(symref)', 'refs/remotes/origin', 'refs/heads']);
+  if (out === null) return null;
+  const shaOf = new Map(); let originHead = '';
+  for (const line of out.split('\n')) {
+    const [ref, sha, symref] = line.split('\t');
+    if (ref === 'refs/remotes/origin/HEAD') originHead = String(symref || '').replace(/^refs\/remotes\/origin\//, '');
+    else if (ref) shaOf.set(ref, sha);
+  }
+  const override = cfg.baseline && typeof cfg.baseline[svc] === 'string' ? cfg.baseline[svc] : null;
+  const cands = override ? [[override, 'config']] : [[originHead, 'origin/HEAD'], ['production', 'nama'], ['main', 'nama'], ['master', 'nama']].filter((c) => c[0]);
+  for (const [b, why] of cands) for (const ref of [`refs/remotes/origin/${b}`, `refs/heads/${b}`]) {
+    const sha = shaOf.get(ref);
+    if (sha) return { service: svc, ok: true, branch: b, ref: ref.replace(/^refs\/(remotes|heads)\//, ''), sha, via: why, note: '' };
+  }
+  return null; // tidak ketemu di jalur cepat: jatuh ke jalur lengkap (pesan galat rinci)
+}
+export function baselineOf(root, cfg, svc, { fetch = false, light = false } = {}) {
+  if (light && !fetch) { const r = baselineLight(root, cfg, svc); if (r) return r; }
   const dir = svcDir(root, cfg, svc);
   const res = { service: svc, ok: false };
   if (!SAFE_SVC.test(svc)) return { ...res, note: 'nama service tidak valid' };
@@ -78,6 +99,7 @@ export function baselineOf(root, cfg, svc, { fetch = false } = {}) {
     for (const ref of [`refs/remotes/origin/${b}`, `refs/heads/${b}`]) {
       const sha = gout(dir, ['rev-parse', '--verify', '-q', `${ref}^{commit}`]);
       if (!sha) continue;
+      if (light) return { service: svc, ok: true, branch: b, ref: ref.replace(/^refs\/(remotes|heads)\//, ''), sha, via: why, note: '' };
       const local = gout(dir, ['rev-parse', '--verify', '-q', `refs/heads/${b}^{commit}`]);
       const cur = gout(dir, ['symbolic-ref', '--short', '-q', 'HEAD']);
       const dirty = !!gout(dir, ['status', '--porcelain', '--untracked-files=no']);
@@ -301,7 +323,7 @@ export function knowledgeStatus(root, cfg, svc) {
   const k = knowledgeCfg(cfg);
   const row = { service: svc, state: 'missing', status: null, behind: null, files: null, source_commit: null, baseline: null };
   const sp = path.join(knowDir(root, svc), 'summary.md');
-  const b = baselineOf(root, cfg, svc);
+  const b = baselineOf(root, cfg, svc, { light: true });
   if (b.ok) row.baseline = `${b.ref}@${b.sha.slice(0, 8)}`;
   if (!fs.existsSync(sp)) { row.state = b.ok ? 'missing' : 'no-baseline'; return row; }
   const { fm } = splitFrontmatter(fs.readFileSync(sp, 'utf8'));
