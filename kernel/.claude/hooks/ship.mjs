@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { asList, gateProblems, serviceDirOf } from './lib.mjs';
+import { asList, gateProblems, serviceDirOf, ghRun } from './lib.mjs';
 import { baselineOf } from './knowledge.mjs';
 
 const run = (cmd, args, cwd, ms = 60000) => spawnSync(cmd, args, { cwd, encoding: 'utf8', timeout: ms });
@@ -16,12 +16,12 @@ export const ticketPath = (root, slug) => path.join(root, '.claude', 'state', 'm
 
 // ---------- akun dan akses gh ----------
 export function ghAccess(cwd) {
-  const v = run('gh', ['--version'], cwd, 15000);
+  const v = ghRun(['--version'], cwd, 15000);
   if (v.error || v.status !== 0) return { ok: false, note: 'gh (GitHub CLI) tidak ditemukan. Pasang gh lalu "gh auth login".' };
-  const who = run('gh', ['api', 'user', '-q', '.login'], cwd, 20000);
+  const who = ghRun(['api', 'user', '-q', '.login'], cwd, 20000);
   const login = who.status === 0 ? who.stdout.trim() : null;
   if (!login) return { ok: false, note: 'gh belum login. Jalankan "gh auth login".' };
-  const rv = run('gh', ['repo', 'view', '--json', 'nameWithOwner,viewerPermission'], cwd, 30000);
+  const rv = ghRun(['repo', 'view', '--json', 'nameWithOwner,viewerPermission'], cwd, 30000);
   let j = null; try { j = JSON.parse(rv.stdout); } catch { /* abaikan */ }
   if (rv.status !== 0 || !j) return { ok: false, login, note: `akun gh aktif "${login}" tidak dapat mengakses repo di ${cwd}. Ganti akun: "gh auth switch --user <pemilik repo>" (daftar akun: "gh auth status").` };
   if (!['WRITE', 'MAINTAIN', 'ADMIN'].includes(j.viewerPermission)) return { ok: false, login, repo: j.nameWithOwner, note: `akun gh aktif "${login}" hanya ${j.viewerPermission} di ${j.nameWithOwner}; butuh WRITE. Ganti akun: "gh auth switch --user <akun lain>".` };
@@ -69,8 +69,11 @@ function classifyChecks(roll) {
   return { total: list.length, green, pending, red };
 }
 
+const PR_URL = /^https:\/\/[\w.-]+\/[\w.-]+\/[\w.-]+\/pull\/\d+$/;
+const BRANCH = /^[\w./-]+$/;
 export function prView(url, cwd) {
-  const r = run('gh', ['pr', 'view', url, '--json', 'state,isDraft,baseRefName,headRefName,headRefOid,statusCheckRollup'], cwd, 45000);
+  if (!PR_URL.test(String(url))) return { url, error: 'bukan URL PR GitHub yang valid (https://host/owner/repo/pull/N)' };
+  const r = ghRun(['pr', 'view', url, '--json', 'state,isDraft,baseRefName,headRefName,headRefOid,statusCheckRollup'], cwd, 45000);
   if (r.status !== 0) return { url, error: (r.stderr || r.error?.message || 'gh gagal').trim().slice(0, 200) };
   try { const j = JSON.parse(r.stdout); return { url, state: j.state, draft: !!j.isDraft, base: j.baseRefName, head: j.headRefName, sha: j.headRefOid, checks: classifyChecks(j.statusCheckRollup) }; } catch { return { url, error: 'keluaran gh tidak terbaca' }; }
 }
@@ -98,7 +101,8 @@ export function issueTicket(root, cfg, item, by) {
   if (!entries.length && !problems.length) return { ok: true, allMerged: true, problems: [], ticket: null };
   if (problems.length) return { ok: false, problems };
   const ttl = Number(cfg.ship?.ticket_ttl_min) || 30;
-  const ticket = { slug: item.slug, by, issued_at: new Date().toISOString(), expires_at: new Date(Date.now() + ttl * 60000).toISOString(), method: cfg.ship?.merge_method || 'merge', prs: entries };
+  const method = ['merge', 'squash', 'rebase'].includes(cfg.ship?.merge_method) ? cfg.ship.merge_method : 'merge';
+  const ticket = { slug: item.slug, by, issued_at: new Date().toISOString(), expires_at: new Date(Date.now() + ttl * 60000).toISOString(), method, prs: entries };
   const p = ticketPath(root, item.slug);
   fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p, JSON.stringify(ticket, null, 2));
@@ -126,6 +130,7 @@ export function runShip(root, cfg, item, log = console.log) {
   if (!fs.existsSync(p)) return { ok: false, problems: [`tidak ada tiket merge untuk ${item.slug}. Keputusan merge hanya dari ketikan manusia: /harness:ship ${item.slug} (setelah PR terbuka dan check hijau).`] };
   let t = null; try { t = JSON.parse(fs.readFileSync(p, 'utf8')); } catch { /* abaikan */ }
   fs.rmSync(p, { force: true }); // sekali pakai, apa pun hasilnya
+  if (t && !['merge', 'squash', 'rebase'].includes(t.method)) t = null;
   if (!t || t.slug !== item.slug || !Array.isArray(t.prs)) return { ok: false, problems: ['tiket rusak; ketik /harness:ship lagi.'] };
   if (Date.parse(t.expires_at) < Date.now()) return { ok: false, problems: ['tiket kedaluwarsa; ketik /harness:ship lagi.'] };
   const gp = gateProblems(root, cfg, item);
@@ -140,14 +145,16 @@ export function runShip(root, cfg, item, log = console.log) {
     if (v.state === 'MERGED') { merged.push(pr); log(`${pr.url}: sudah MERGED`); continue; }
     if (v.state !== 'OPEN') return { ok: false, merged, problems: [`${pr.url}: berstatus ${v.state}.`] };
     if (v.sha !== pr.sha) return { ok: false, merged, problems: [`${pr.url}: commit PR berubah sejak tiket (${String(pr.sha).slice(0, 7)} → ${String(v.sha).slice(0, 7)}). Tunggu check, lalu ketik /harness:ship lagi.`] };
+    if (!BRANCH.test(String(v.base)) || !/^\w+$/.test(String(pr.sha))) return { ok: false, merged, problems: [`${pr.url}: nama branch/SHA tidak aman.`] };
     const parent = merged.find((m) => m.head === v.base); // PR induk sudah masuk; arahkan ke base induk supaya perubahan sampai ke branch utama
     if (parent) {
-      const e = run('gh', ['pr', 'edit', pr.url, '--base', parent.base], root, 45000);
+      if (!BRANCH.test(String(parent.base))) return { ok: false, merged, problems: [`${pr.url}: nama branch induk tidak aman.`] };
+      const e = ghRun(['pr', 'edit', pr.url, '--base', parent.base], root, 45000);
       if (e.status !== 0) return { ok: false, merged, problems: [`${pr.url}: gagal mengarahkan base ke ${parent.base}: ${(e.stderr || '').trim().slice(0, 200)}`] };
       log(`${pr.url}: base ${v.base} → ${parent.base}`);
       pr.base = parent.base;
     }
-    const r = run('gh', ['pr', 'merge', pr.url, `--${t.method}`, '--match-head-commit', pr.sha], root, 90000);
+    const r = ghRun(['pr', 'merge', pr.url, `--${t.method}`, '--match-head-commit', pr.sha], root, 90000);
     if (r.status !== 0) return { ok: false, merged, problems: [`${pr.url}: merge ditolak gh: ${(r.stderr || r.stdout || '').trim().slice(0, 300)}`] };
     log(`${pr.url}: MERGED (${t.method})`);
     merged.push(pr);
