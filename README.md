@@ -100,6 +100,9 @@ Diuji live dengan Claude Code 2.1.300 di sandbox: gerbang 1, approve via hook, t
 
 ## Belum teruji (jujur)
 
+Uji di mesinmu (Windows, GitHub asli, Claude Code asli): lihat [`PILOT.md`](PILOT.md).
+
+
 - `ship` (commit/push/PR) dan cek `merged` lewat `gh` pada repo GitHub nyata; `init`/`onboard`/`refresh` pada repo besar dan 14 repo (biaya token belum diukur — jalankan satu service dulu; bagian yang dijalankan model, yaitu kualitas ringkasan explorer, hanya diperiksa lint dan manusia); `lint-knowledge` diuji pada repo contoh kecil (heuristik simbol ±3 baris bisa memberi false positive pada bahasa/gaya tertentu).
 - Windows untuk inti harness: hook murni Node; perbaikan gagal-terbuka pada path berspasi diuji otomatis di Linux, belum di Windows.
 - Pendaftaran plugin otomatis lewat `extraKnownMarketplaces` di `.claude/settings.json`: pemasangan lokal terverifikasi; jalur github privat tergantung kredensial git di mesinmu (`gh auth setup-git`). Cadangan manual: `claude plugin marketplace add devhardiyanto/agent-harness && claude plugin install harness@harness-marketplace`.
