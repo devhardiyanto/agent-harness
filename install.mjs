@@ -26,6 +26,10 @@ const positional = argv.filter((a, i) => !a.startsWith('--') && !valueFlags.has(
 const target = path.resolve(positional[0] || process.cwd());
 const optAll = (n) => argv.flatMap((a, i) => (a === `--${n}` && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1].split(',') : []));
 const DRY = flag('dry-run');
+const UPDATE = flag('update');
+const warnings = [];
+const semver = (v) => String(v || '').split('.').map((n) => parseInt(n, 10) || 0);
+const cmpVer = (a, b) => { const x = semver(a), y = semver(b); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0); return 0; };
 const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
 
 // ---------- util ----------
@@ -147,22 +151,24 @@ function render(det, mode) {
   // config
   const cfgP = path.join(stage, 'harness.config.json');
   const cfg = JSON.parse(fs.readFileSync(cfgP, 'utf8'));
+  // Pasang ulang/update di atas v1: nilai config milik user menang atas bawaan kernel (root_branch, protected_branches, gate, checks, baseline, blok modul lama, dst.).
+  // Kunci baru dari kernel tetap masuk lewat penggabungan mendalam; array diganti utuh oleh nilai user.
+  const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
+  const merge = (a, b) => { const o = { ...a }; for (const k of Object.keys(b || {})) o[k] = isObj(a[k]) && isObj(b[k]) ? merge(a[k], b[k]) : b[k]; return o; };
+  const base = hadV1 ? merge(cfg, oldCfg) : cfg;
+  Object.assign(cfg, base);
   cfg.harness_version = VERSION;
-  cfg.project = opt('project-name') || path.basename(target);
-  cfg.root_branch = opt('root-branch') || 'main';
+  cfg.project = opt('project-name') || (hadV1 && oldCfg.project) || path.basename(target);
+  cfg.root_branch = opt('root-branch') || (hadV1 && oldCfg.root_branch) || 'main';
   cfg.layout = det.layout;
   cfg.services = det.services.map((s) => s.name);
-  // data config user yang dibawa saat pasang ulang di atas v1
-  for (const k of ['checks', 'baseline', 'knowledge', 'graphify']) if (oldCfg[k] && typeof oldCfg[k] === 'object') cfg[k] = oldCfg[k];
-  // blok milik modul yang sudah dibuang: tidak dipakai lagi, tetapi dibawa apa adanya supaya tidak ada data user yang hilang
-  for (const k of LEGACY_BLOCKS) if (oldCfg[k] && typeof oldCfg[k] === 'object') cfg[k] = oldCfg[k];
   fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n');
   // peta draft
   const mapP = path.join(stage, 'docs', '_map.md');
   let map = fs.readFileSync(mapP, 'utf8');
   const rows = det.services.map((s) => `| ${s.name} | ${s.stack} | UNKNOWN | UNKNOWN | UNKNOWN | ${s.branch} |`).join('\n');
   map = map.replace('|---|---|---|---|---|---|\n', `|---|---|---|---|---|---|\n${rows}${rows ? '\n' : ''}`).replace('updated: null', `updated: ${new Date().toISOString().slice(0, 10)}`);
-  if (hadV1 && exists('docs/_map.md')) map = fs.readFileSync(path.join(target, 'docs', '_map.md'), 'utf8'); // peta hasil onboard milik user
+  if (exists('docs/_map.md')) map = fs.readFileSync(path.join(target, 'docs', '_map.md'), 'utf8'); // peta hasil onboard milik user
   fs.writeFileSync(mapP, map);
   // rule per service
   for (const s of det.services) {
@@ -179,8 +185,20 @@ function render(det, mode) {
     st.extraKnownMarketplaces = { 'harness-marketplace': { source: { source: 'github', repo: slug } } };
     st.enabledPlugins = { 'harness@harness-marketplace': true };
   }
+  if (hadV1) {
+    // Pengaturan user di settings.json dibawa: kunci lain di luar kernel, dan izin (allow/ask/deny) digabung. Hook kustom tidak dibawa (dilaporkan).
+    let oldSt = {}; try { oldSt = JSON.parse(fs.readFileSync(path.join(target, '.claude', 'settings.json'), 'utf8')); } catch { /* abaikan */ }
+    for (const k of Object.keys(oldSt)) if (!(k in st)) st[k] = oldSt[k];
+    for (const k of ['allow', 'ask', 'deny']) {
+      const u = [...(st.permissions?.[k] || []), ...(oldSt.permissions?.[k] || [])];
+      if (u.length) { st.permissions = st.permissions || {}; st.permissions[k] = [...new Set(u)]; }
+    }
+    const custom = JSON.stringify(oldSt.hooks || {}).match(/"(?:command|args)":\s*"[^"]*"/g) || [];
+    if (custom.some((c) => !/\.claude\/hooks\/|"node"/.test(c))) warnings.push('settings.json lama memuat hook kustom; tidak dibawa. Lihat tag/branch cadangan bila perlu.');
+  }
   fs.writeFileSync(setP, JSON.stringify(st, null, 2) + '\n');
-  fs.writeFileSync(path.join(stage, '.claude', 'harness.version'), JSON.stringify({ version: VERSION, installed_at: new Date().toISOString(), installer_repo: slug, mode }, null, 2) + '\n');
+  fs.writeFileSync(path.join(stage, '.claude', 'harness.manifest.json'), JSON.stringify({ version: VERSION, files: [...ownedNow()].filter((f) => !/harness\.(version|manifest)/.test(f)).sort() }, null, 2) + '\n');
+  fs.writeFileSync(path.join(stage, '.claude', 'harness.version'), JSON.stringify({ version: VERSION, installed_at: new Date().toISOString(), installer_repo: slug, mode: UPDATE ? 'update' : mode, ...(UPDATE && installedVer ? { previous: installedVer } : {}) }, null, 2) + '\n');
   // verifikasi staging
   for (const f of ['AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude/settings.json', '.claude/hooks/gate.mjs', '.claude/hooks/lib.mjs', 'docs/_map.md', 'docs/work/_TEMPLATE/plan.md']) {
     if (!fs.existsSync(path.join(stage, f))) die(`staging tidak lengkap: ${f}`);
@@ -223,10 +241,38 @@ const existing = OLD_PATHS.filter(exists);
 const mode = existing.length ? 'existing' : 'new';
 // Pasang ulang di atas harness v1: pengetahuan (docs/knowledge) dan work item (docs/work) adalah DATA user, bukan perangkat; jangan dibuang.
 const hadV1 = exists('.claude/harness.version');
-const PRESERVE_ON_V1 = ['docs/knowledge', 'docs/work'];  // docs/_map.md juga dibawa (lihat render)
-const removable = hadV1 ? existing.filter((p) => !PRESERVE_ON_V1.includes(p)) : existing;
-const oldCfg = hadV1 ? (() => { try { return JSON.parse(fs.readFileSync(path.join(target, 'harness.config.json'), 'utf8')); } catch { return {}; } })() : {};
+// Dokumentasi/data user TIDAK PERNAH dibuang, juga pada root yang belum ber-harness v1 (docs/discussion bahkan tidak ada di daftar buang).
+const PRESERVE = ['docs/knowledge', 'docs/work', 'docs/_map.md', 'docs/_archive', 'docs/_registry.md'];
+const installedVer = hadV1 ? (() => { try { return JSON.parse(fs.readFileSync(path.join(target, '.claude', 'harness.version'), 'utf8')).version || null; } catch { return null; } })() : null;
+if (UPDATE) {
+  if (!hadV1) die('--update butuh harness terpasang (.claude/harness.version tidak ada). Jalankan tanpa --update untuk memasang.');
+  if (installedVer && cmpVer(installedVer, VERSION) > 0 && !flag('force')) die(`terpasang ${installedVer} lebih baru dari installer ${VERSION}. Perbarui installer dulu (git pull), atau --force untuk menurunkan versi.`);
+  if (installedVer && cmpVer(installedVer, VERSION) === 0 && !flag('force')) { log(`Sudah terbaru (${VERSION}). Tidak ada yang diubah. Pakai --force untuk memasang ulang berkas harness.`); process.exit(0); }
+  log(`Pembaruan: ${installedVer || '(versi tidak terbaca)'} → ${VERSION}\n`);
+}
+const oldCfg = hadV1 ? (() => {
+  const f = path.join(target, 'harness.config.json');
+  if (!fs.existsSync(f)) return {};
+  try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { die(`harness.config.json tidak bisa dibaca (${e.message}). Perbaiki dulu; installer tidak menimpa config yang rusak.`); }
+})() : {};
 const det = detectServices();
+// Root pra-v1: harness lama diganti penuh (ada tag cadangan), kecuali data user (PRESERVE).
+// Root ber-v1 (install ulang/--update): hanya berkas milik harness yang sudah usang yang dibuang; berkas buatan user di .claude/ dan semua dokumen tidak disentuh.
+const ownedNow = () => {
+  const out = new Set(['.claude/harness.version', '.claude/harness.manifest.json']);
+  const walkK = (d) => { for (const e of fs.readdirSync(path.join(KERNEL, d), { withFileTypes: true })) { const r = `${d}/${e.name}`; if (e.isDirectory()) walkK(r); else out.add(r); } };
+  walkK('.claude');
+  for (const sv of det.services) out.add(`.claude/rules/svc-${sv.name}.md`);
+  return out;
+};
+const obsoleteOwned = () => {
+  const now = ownedNow();
+  let old = [];
+  try { old = JSON.parse(fs.readFileSync(path.join(target, '.claude', 'harness.manifest.json'), 'utf8')).files || []; } catch { /* instalasi 1.2.0 belum punya manifest */ }
+  try { for (const f of fs.readdirSync(path.join(target, '.claude', 'rules'))) if (/^svc-.+\.md$/.test(f)) old.push(`.claude/rules/${f}`); } catch { /* abaikan */ }
+  return [...new Set(old)].filter((f) => !now.has(f) && exists(f));
+};
+const removable = hadV1 ? obsoleteOwned() : existing.filter((p) => !PRESERVE.includes(p));
 // sisa modul yang sudah dibuang: dideteksi, dilaporkan, TIDAK disentuh
 const LEFTOVER = ['scripts/executor', '.agents'].filter(exists);
 
@@ -238,13 +284,14 @@ if (!det.services.length) log('\nPeringatan: tidak ada source-code/<repo git>. L
 log('\n## Rencana');
 table(['aksi', 'path'], [
   ...removable.map((p) => ['DIBUANG', p]),
-  ...(hadV1 ? PRESERVE_ON_V1.filter(exists).map((p) => ['DIPERTAHANKAN', `${p} (data user; hanya _TEMPLATE/README bawaan yang diperbarui)`]) : []),
+  ...PRESERVE.filter(exists).map((p) => ['DIPERTAHANKAN', `${p} (data user${hadV1 ? '; hanya _TEMPLATE/README bawaan yang diperbarui' : '; tidak ditimpa'})`]),
+  ...(exists('docs/discussion') ? [['DIPERTAHANKAN', 'docs/discussion (data user)']] : []),
   ...KEEP_PATHS.filter((p) => !p.includes(' ') ? exists(p) : true).map((p) => ['DIPERTAHANKAN', p]),
   ...IGNORE.map((n) => ['DIABAIKAN (.gitignore; tidak di-commit, tidak disentuh)', n]),
   ['DIPASANG', 'AGENTS.md, CLAUDE.md, harness.config.json, .claude/{settings.json,hooks,rules,agents}, docs/{_map.md,knowledge,work/_TEMPLATE}'],
   ...LEFTOVER.map((p) => ['DIBIARKAN (sisa modul lama; tidak dipakai lagi sejak 1.4.0, hapus manual bila sudah tidak perlu)', p]),
 ]);
-log(`\nCadangan: ${isGit ? `tag git harness-pre-v1-${stamp} di HEAD, lalu branch ${opt('branch', 'harness-v1')}` : `salinan di .harness-backup-${stamp}/`}`);
+log(`\nCadangan: ${isGit ? `tag git harness-pre-${UPDATE ? 'update' : 'v1'}-${stamp} di HEAD, lalu branch ${opt('branch', UPDATE ? 'harness-update' : 'harness-v1')}` : `salinan di .harness-backup-${stamp}/`}`);
 
 if (DRY) { log('\nDry run selesai.'); process.exit(0); }
 
@@ -252,7 +299,7 @@ if (isGit && !flag('allow-dirty')) {
   const dirty = out(sh('git', ['status', '--porcelain', '--untracked-files=no']));
   if (dirty) die(`ada perubahan tracked yang belum di-commit:\n${dirty}\nCommit/stash dulu, atau --allow-dirty (perubahan itu TIDAK tercakup tag cadangan).`);
 }
-if (!(await confirm(mode === 'existing' ? '\nHarness lama akan DIBUANG dan diganti. Ketik "ganti" untuk lanjut: ' : '\nPasang harness v1? (y/N): '))) die('dibatalkan oleh user.');
+if (!(await confirm(UPDATE ? `\nPerbarui berkas harness ${installedVer || '?'} → ${VERSION}? Data (docs/work, docs/knowledge, docs/discussion, _map.md, config) dipertahankan. (y/N): ` : mode === 'existing' ? '\nHarness lama akan DIBUANG dan diganti. Ketik "ganti" untuk lanjut: ' : '\nPasang harness v1? (y/N): '))) die('dibatalkan oleh user.');
 
 const { stage, slug } = render(det, mode);
 let branch = null; let tag = null;
@@ -260,11 +307,12 @@ try {
   if (isGit) {
     const hasCommit = sh('git', ['rev-parse', '-q', '--verify', 'HEAD']).status === 0;
     if (hasCommit) {
-      tag = `harness-pre-v1-${stamp}`;
-      for (let n = 2; sh('git', ['rev-parse', '-q', '--verify', `refs/tags/${tag}`]).status === 0; n++) tag = `harness-pre-v1-${stamp}-${n}`;
+      const tagBase = `harness-pre-${UPDATE ? 'update' : 'v1'}-${stamp}`;
+      tag = tagBase;
+      for (let n = 2; sh('git', ['rev-parse', '-q', '--verify', `refs/tags/${tag}`]).status === 0; n++) tag = `${tagBase}-${n}`;
       const r = sh('git', ['tag', tag]); if (r.status !== 0) die(`gagal membuat tag: ${r.stderr}`);
     }
-    branch = opt('branch', 'harness-v1');
+    branch = opt('branch', UPDATE ? 'harness-update' : 'harness-v1');
     if (sh('git', ['rev-parse', '--verify', '-q', branch]).status === 0) branch = `${branch}-${stamp}`;
     const sw = sh('git', ['switch', '-c', branch]);
     if (sw.status !== 0) die(`gagal membuat branch ${branch}: ${sw.stderr}`);
@@ -274,7 +322,11 @@ try {
   }
   for (const p of removable) fs.rmSync(path.join(target, p), { recursive: true, force: true });
   for (const d of ['scripts', 'docs', '.claude']) { const dp = path.join(target, d); try { if (fs.existsSync(dp) && !fs.readdirSync(dp).length) fs.rmdirSync(dp); } catch { /* abaikan */ } }
-  fs.cpSync(stage, target, { recursive: true, force: true });
+  const isUserData = (rel) => PRESERVE.some((d) => rel === d || rel.startsWith(d + '/'));
+  fs.cpSync(stage, target, { recursive: true, force: true, filter: (src, dest) => {
+    if (hadV1 || !fs.existsSync(dest) || !fs.statSync(dest).isFile()) return true;
+    return !isUserData(path.relative(target, dest).split(path.sep).join('/'));
+  } });
   for (const d of ['docs/knowledge', 'docs/work']) fs.mkdirSync(path.join(target, d), { recursive: true });
   applyGitignore(isGit);
   fs.rmSync(path.join(target, '.harness-staging'), { recursive: true, force: true });
@@ -288,7 +340,7 @@ if (isGit && !flag('no-commit')) {
   const stagePaths = [...new Set([...removable, 'AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude', 'docs/_map.md', 'docs/knowledge', 'docs/work', '.gitignore'])];
   for (const sp of stagePaths) if (exists(sp) || removable.includes(sp)) sh('git', ['add', '-A', '--', sp]);
   const nm = out(sh('git', ['config', 'user.name'])) ? [] : ['-c', 'user.name=harness-installer', '-c', 'user.email=harness@localhost'];
-  const c = sh('git', [...nm, 'commit', '-q', '-m', `chore(harness): ganti ke harness v1 (${VERSION})`]);
+  const c = sh('git', [...nm, 'commit', '-q', '-m', UPDATE ? `chore(harness): perbarui ke ${VERSION}` : `chore(harness): ganti ke harness v1 (${VERSION})`]);
   committed = c.status === 0;
   if (!committed) log(`\nPeringatan: commit gagal (${(c.stderr || c.stdout).trim().slice(0, 200)}). Perubahan tetap ada di working tree branch ${branch}.`);
 }
@@ -300,6 +352,7 @@ table(['item', 'nilai'], [
   ['branch', branch || '-'], ['commit', committed ? 'ya' : 'tidak'],
   ['plugin', slug ? `terdaftar via settings (github:${slug})` : 'BELUM: jalankan manual (lihat di bawah)'],
 ]);
+if (warnings.length) log(`\nPeringatan:\n${warnings.map((w) => `- ${w}`).join('\n')}`);
 log('\n## Langkah berikutnya (kamu)');
 log('1. Buka Claude Code di folder ini; setujui prompt kepercayaan marketplace/plugin bila muncul.');
 if (!slug) log('   Plugin manual:  claude plugin marketplace add <owner>/<repo-installer>  &&  claude plugin install harness@harness-marketplace');
