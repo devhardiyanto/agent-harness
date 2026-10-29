@@ -33,7 +33,10 @@ const cmpVer = (a, b) => { const x = semver(a), y = semver(b); for (let i = 0; i
 const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
 
 // ---------- util ----------
-const sh = (cmd, args, cwd = target) => spawnSync(cmd, args, { cwd, encoding: 'utf8', shell: process.platform === 'win32' && cmd === 'claude' });
+// claude di Windows adalah claude.cmd: perlu shell. Satu string perintah (bukan args + shell:true, yang memicu DEP0190 di Node 24).
+const sh = (cmd, args, cwd = target) => (process.platform === 'win32' && cmd === 'claude' && args.every((a) => /^[\w.=-]+$/.test(a))
+  ? spawnSync([cmd, ...args].join(' '), { cwd, encoding: 'utf8', shell: true })
+  : spawnSync(cmd, args, { cwd, encoding: 'utf8' }));
 // Bandingkan path lewat realpath: di Windows, tmp bisa berbentuk 8.3 (RUNNER~1) sedangkan git mengembalikan nama panjang.
 const real = (p) => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
 const samePath = (a, b) => (process.platform === 'win32' ? real(a).toLowerCase() === real(b).toLowerCase() : real(a) === real(b));
@@ -291,11 +294,17 @@ table(['aksi', 'path'], [
 ]);
 log(`\nCadangan: ${isGit ? `tag git harness-pre-${UPDATE ? 'update' : 'v1'}-${stamp} di HEAD, lalu branch ${opt('branch', UPDATE ? 'harness-update' : 'harness-v1')}` : `salinan di .harness-backup-${stamp}/`}`);
 
-if (DRY) { log('\nDry run selesai.'); process.exit(0); }
+const dirtyTracked = () => (isGit ? String(sh('git', ['status', '--porcelain', '--untracked-files=no']).stdout || '').trimEnd() : '');
+const DIRTY_HELP = 'Saran: commit dulu (mis. git add -A && git commit -m "wip: docs"), supaya tag cadangan mencakup semuanya. --allow-dirty juga aman bila berkas itu data yang dipertahankan (docs/work, docs/knowledge): perubahan itu tidak disentuh, hanya tidak tercakup tag cadangan.';
+if (DRY) {
+  const d = flag('allow-dirty') ? '' : dirtyTracked();
+  if (d) log(`\nPERINGATAN: pemasangan nyata akan berhenti, ada perubahan tracked yang belum di-commit:\n${d}\n${DIRTY_HELP}`);
+  log('\nDry run selesai.'); process.exit(0);
+}
 
 if (isGit && !flag('allow-dirty')) {
-  const dirty = out(sh('git', ['status', '--porcelain', '--untracked-files=no']));
-  if (dirty) die(`ada perubahan tracked yang belum di-commit:\n${dirty}\nCommit/stash dulu, atau --allow-dirty (perubahan itu TIDAK tercakup tag cadangan).`);
+  const dirty = dirtyTracked();
+  if (dirty) die(`ada perubahan tracked yang belum di-commit:\n${dirty}\n${DIRTY_HELP}`);
 }
 if (!(await confirm(UPDATE ? `\nPerbarui berkas harness ${installedVer || '?'} → ${VERSION}? Data (docs/work, docs/knowledge, docs/discussion, _map.md, config) dipertahankan. (y/N): ` : mode === 'existing' ? '\nHarness lama akan DIBUANG dan diganti. Ketik "ganti" untuk lanjut: ' : '\nPasang harness v1? (y/N): '))) die('dibatalkan oleh user.');
 

@@ -277,12 +277,14 @@ export function checkDone(root, item, cfg) {
   return problems;
 }
 
-// gh lewat shell di Windows (agar shim/gh.cmd ikut ter-resolve), jadi argumen dijaga: tanpa metakarakter shell.
-export function ghRun(args, cwd, timeout = 45000) {
-  const win = process.platform === 'win32';
-  if (win && args.some((a) => /[&|<>^"%\r\n]/.test(String(a)))) return { status: 1, stdout: '', stderr: 'argumen gh mengandung karakter terlarang', error: new Error('argumen gh tidak aman') };
-  return spawnSync('gh', args, { cwd, encoding: 'utf8', timeout, shell: win });
+// Menjalankan CLI lewat shell di Windows (agar claude.cmd/gh.cmd ikut ter-resolve). Argumen dijaga ketat dan
+// digabung menjadi satu string perintah: `spawn(cmd, args, {shell:true})` memicu DEP0190 di Node 24.
+export function runCli(cmd, args, opts = {}) {
+  if (process.platform !== 'win32') return spawnSync(cmd, args, { encoding: 'utf8', ...opts });
+  if (args.some((a) => /[\s&|<>^"%'`;()]/.test(String(a)))) return { status: 1, stdout: '', stderr: 'argumen mengandung karakter terlarang', error: new Error('argumen tidak aman') };
+  return spawnSync([cmd, ...args].join(' '), { encoding: 'utf8', ...opts, shell: true });
 }
+export const ghRun = (args, cwd, timeout = 45000) => runCli('gh', args, { cwd, timeout });
 export function checkMerged(item) {
   const prs = asList(item.fm.pr);
   if (!prs.length) return ['frontmatter plan.md belum punya "pr:" (URL PR).'];

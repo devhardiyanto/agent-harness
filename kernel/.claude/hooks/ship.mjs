@@ -15,15 +15,24 @@ const isProtected = (cfg, b) => [cfg.root_branch, ...(cfg.protected_branches || 
 export const ticketPath = (root, slug) => path.join(root, '.claude', 'state', 'merge-tickets', `${slug}.json`);
 
 // ---------- akun dan akses gh ----------
+// owner/repo dari remote origin. Alias SSH (git@github-pribadi:owner/repo.git) tidak dikenali gh sebagai host GitHub,
+// jadi repo selalu diberikan eksplisit (gh ... -R owner/repo / gh repo view owner/repo).
+export function repoSlug(dir) {
+  const url = git(dir, ['remote', 'get-url', 'origin']) || '';
+  const m = /^(?:[\w.-]+@[^:/\s]+:|ssh:\/\/[^/\s]+\/|https?:\/\/[^/\s]+\/)([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/.exec(url.trim());
+  return m ? `${m[1]}/${m[2]}` : null;
+}
+
 export function ghAccess(cwd) {
   const v = ghRun(['--version'], cwd, 15000);
   if (v.error || v.status !== 0) return { ok: false, note: 'gh (GitHub CLI) tidak ditemukan. Pasang gh lalu "gh auth login".' };
   const who = ghRun(['api', 'user', '-q', '.login'], cwd, 20000);
   const login = who.status === 0 ? who.stdout.trim() : null;
   if (!login) return { ok: false, note: 'gh belum login. Jalankan "gh auth login".' };
-  const rv = ghRun(['repo', 'view', '--json', 'nameWithOwner,viewerPermission'], cwd, 30000);
+  const slug = repoSlug(cwd);
+  const rv = ghRun(['repo', 'view', ...(slug ? [slug] : []), '--json', 'nameWithOwner,viewerPermission'], cwd, 30000);
   let j = null; try { j = JSON.parse(rv.stdout); } catch { /* abaikan */ }
-  if (rv.status !== 0 || !j) return { ok: false, login, note: `akun gh aktif "${login}" tidak dapat mengakses repo di ${cwd}. Ganti akun: "gh auth switch --user <pemilik repo>" (daftar akun: "gh auth status").` };
+  if (rv.status !== 0 || !j) return { ok: false, login, note: `akun gh aktif "${login}" tidak dapat mengakses ${slug || 'repo di ' + cwd}. Ganti akun: "gh auth switch --user <pemilik repo>" (daftar akun: "gh auth status").` };
   if (!['WRITE', 'MAINTAIN', 'ADMIN'].includes(j.viewerPermission)) return { ok: false, login, repo: j.nameWithOwner, note: `akun gh aktif "${login}" hanya ${j.viewerPermission} di ${j.nameWithOwner}; butuh WRITE. Ganti akun: "gh auth switch --user <akun lain>".` };
   return { ok: true, login, repo: j.nameWithOwner, permission: j.viewerPermission };
 }
@@ -50,7 +59,7 @@ export function shipPlan(root, cfg, item) {
     else if (isProtected(cfg, branch)) problems.push(`sedang di branch ${branch} (dilindungi); buat branch kerja <feat|fix|chore>/<slug>.`);
     if (branch && branch === base) problems.push(`branch kerja sama dengan base (${base}).`);
     if (!acc.ok) problems.push(acc.note);
-    rows.push({ service: svc, dir, branch, base, base_via: via, stacked: !isProtected(cfg, base), dirty, gh: acc.ok ? `${acc.login} (${acc.permission})` : (acc.login || '-'), problems });
+    rows.push({ service: svc, repo: repoSlug(dir), dir, branch, base, base_via: via, stacked: !isProtected(cfg, base), dirty, gh: acc.ok ? `${acc.login} (${acc.permission})` : (acc.login || '-'), problems });
   }
   return rows;
 }
