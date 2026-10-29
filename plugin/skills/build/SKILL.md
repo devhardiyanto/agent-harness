@@ -11,7 +11,7 @@ Masukan: `$ARGUMENTS` (slug). Sesi ini adalah sesi **eksekusi**.
 ## Langkah
 1. `node .claude/hooks/harness.mjs show <slug>`. Status harus `approved` atau `in-progress`. Jika `draft`: berhenti, minta user approve.
 2. `node .claude/hooks/harness.mjs start <slug>` (→ `in-progress`).
-3. Baca `plan.md`, `impact.md`, dan `progress.md` (lanjutkan dari "Status terkini" bila ada).
+3. Baca `plan.md`, `impact.md`, dan `progress.md` (lanjutkan dari "Status terkini" bila ada). `TaskCreate` satu tugas per AC (subjek = `AC<n>: ...`, tandai yang sudah punya bukti sebagai selesai); `TaskUpdate` ke `in_progress` saat dikerjakan dan `completed` hanya setelah buktinya tertulis di `progress.md`. Daftar tugas hanya tampilan; sumber kebenaran tetap `progress.md`.
 4. Siapkan branch kerja di tiap service tercakup (bukan `root_branch`): `git -C source-code/<svc> switch -c <feat|fix|chore>/<slug-pendek>` (atau `switch` bila sudah ada).
 5. Kerjakan sesuai urutan di `plan.md`:
    - kode → agent `implementer`, satu service pada satu waktu;
@@ -23,6 +23,7 @@ Masukan: `$ARGUMENTS` (slug). Sesi ini adalah sesi **eksekusi**.
 ## Aturan
 - Hanya yang ada di plan. Temuan lain → `progress.md` bagian "Di luar lingkup".
 - Hook memblokir sesuatu → jangan memutar; catat di `progress.md` dan laporkan.
+- Perlu keputusan user di tengah jalan (bukan perubahan plan) → `AskUserQuestion`, catat jawabannya di `progress.md`.
 - Perlu mengubah plan → berhenti dan minta user (`reopen` + approve ulang).
 
 ## Balasan chat (maks 5 baris)

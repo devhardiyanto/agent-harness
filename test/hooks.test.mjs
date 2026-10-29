@@ -244,8 +244,27 @@ test('settings: Read/Grep/Glob tidak punya hook; gate hanya pada tool penulis', 
   const pre = settings.hooks.PreToolUse.map((h) => h.matcher);
   const post = settings.hooks.PostToolUse.map((h) => h.matcher);
   for (const m of [...pre, ...post]) for (const t of ['Read', 'Grep', 'Glob']) assert.doesNotMatch(m, new RegExp(`\\b${t}\\b`), `${t} tidak boleh ada di matcher "${m}"`);
-  assert.match(pre[0], /Edit/); assert.match(pre[0], /Write/); assert.equal(pre[1], 'Bash');
+  assert.match(pre[0], /Edit/); assert.match(pre[0], /Write/); assert.equal(pre[1], 'Bash|PowerShell');
   assert.notEqual(post[0], '.*');
+});
+test('settings: tool PowerShell (Windows) melewati guard dan audit yang sama dengan Bash', () => {
+  assert.match(settings.hooks.PostToolUse[0].matcher, /\bPowerShell\b/);
+  const root = mkProject();
+  const svc = path.join(root, 'source-code/svc-a');
+  const r = run(root, 'guard-bash.mjs', { hook_event_name: 'PreToolUse', tool_name: 'PowerShell', tool_input: { command: 'git push origin main' }, cwd: svc });
+  assert.equal(r.status, 2);
+  const ok = run(root, 'guard-bash.mjs', { hook_event_name: 'PreToolUse', tool_name: 'PowerShell', tool_input: { command: 'git status' }, cwd: svc });
+  assert.equal(ok.status, 0);
+});
+test('agent: subagent punya batas giliran; explorer/reviewer tanpa tool tulis', () => {
+  for (const a of ['explorer', 'reviewer', 'implementer', 'dba']) {
+    const f = fs.readFileSync(path.join(here, '..', 'kernel/.claude/agents', a + '.md'), 'utf8');
+    assert.match(f, /^maxTurns: \d+$/m, a);
+  }
+  for (const a of ['explorer', 'reviewer']) {
+    const t = /^tools:\s*(.+)$/m.exec(fs.readFileSync(path.join(here, '..', 'kernel/.claude/agents', a + '.md'), 'utf8'))[1];
+    assert.doesNotMatch(t, /\b(Edit|Write|MultiEdit|NotebookEdit)\b/, a);
+  }
 });
 test('settings: file rahasia dijaga permissions.deny menggantikan hook Read', () => {
   const deny = settings.permissions.deny.join('\n');

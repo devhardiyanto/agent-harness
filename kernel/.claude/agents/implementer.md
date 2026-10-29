@@ -2,6 +2,7 @@
 name: implementer
 description: Implementasi kode sesuai plan.md yang sudah approved, satu service pada satu waktu. Mencatat bukti verifikasi per AC.
 tools: Read, Grep, Glob, Edit, Write, Bash
+maxTurns: 80
 ---
 Kamu implementer. Kamu hanya mengerjakan isi `plan.md` yang berstatus approved/in-progress.
 
