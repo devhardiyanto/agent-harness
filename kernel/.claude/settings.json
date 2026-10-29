@@ -8,7 +8,14 @@
       "Read(./**/.env.*)",
       "Read(./**/*.pem)",
       "Read(./**/id_rsa*)",
-      "Read(./**/id_ed25519*)"
+      "Read(./**/id_ed25519*)",
+      "Read(./**/*.p12)",
+      "Read(./**/*.pfx)",
+      "Read(./**/id_ecdsa*)",
+      "Read(./**/credentials)",
+      "Read(./**/credentials.json)",
+      "Read(./**/.npmrc)",
+      "Read(./**/.netrc)"
     ],
     "allow": [
       "Bash(node .claude/hooks/harness.mjs *)"
@@ -45,7 +52,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -75,7 +82,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": ".*",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
           {
             "type": "command",

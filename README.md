@@ -54,13 +54,16 @@ Status: `draft → approved → in-progress → in-review → done → merged`. 
 | `merged` = semua PR `MERGED` menurut `gh` | idem |
 | plan beku setelah approved | revisi: `harness.mjs reopen <slug>` + approve ulang |
 | tanpa push/commit ke branch utama, force push, `gh pr merge`, `reset --hard`, perintah destruktif | `PreToolUse` Bash |
-| tanpa baca/tulis `.env`/kunci, tanpa secret literal | `PreToolUse` + `permissions.deny` |
+| tanpa baca `.env`/kunci | `permissions.deny` (Read tidak lagi melewati hook, jadi tanpa latensi); Bash lewat `guard-bash` |
+| tanpa tulis `.env`/kunci, tanpa secret literal | `PreToolUse` (Edit/Write) |
 | `.claude/hooks`, `settings.json`, `harness.config.json` dilindungi | `PreToolUse` (buka: `HARNESS_ADMIN=1` saat menjalankan `claude`) |
 | migrasi/skema hanya di item bertipe `schema` | `PreToolUse` |
 | knowledge `verified` hanya manusia; mengedit file `verified` = turun ke `draft` | `PreToolUse` (gate) + hook `UserPromptSubmit` (`/harness:verify`, hanya bila lint bersih) |
 | pola baru/berubah hanya diusulkan agent (`Status: proposed`); `applied` hanya setelah manusia mengetik `/harness:patterns` | `PreToolUse` + `UserPromptSubmit` |
-| audit JSONL tanpa secret (`.claude/audit/`), laporan diff manifest dependency, peringatan konteks ±400k | `PostToolUse`, `InstructionsLoaded` |
+| audit JSONL tanpa secret (`.claude/audit/`) untuk perubahan (Edit/Write/Bash), laporan diff manifest dependency, peringatan konteks ±400k | `PostToolUse` (hanya tool penulis dan Bash), `UserPromptSubmit` (peringatan konteks), `InstructionsLoaded` |
 | hook rusak/timeout = aksi diblokir | `onFailure: "block"` |
+
+Read, Grep, dan Glob **tidak** melewati hook sama sekali. Ukur beban hook di mesinmu: `node .claude/hooks/harness.mjs bench` (p50/p95 per hook dan per tindakan). Catatan jujur: Claude Code menerapkan `permissions.deny` pada Read; apakah aturan itu juga menutup Grep/Glob terhadap file rahasia belum terbukti (Grep memang tidak pernah dijaga hook). Uji di mesinmu: minta agent `Grep` string di `.env`.
 
 Hook adalah guardrail berbasis pola, **bukan sandbox**: agent yang sengaja mencari celah lewat shell bisa saja menemukannya. Ia menutup jalan yang lazim dan membuat pelanggaran terlihat di audit.
 

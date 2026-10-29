@@ -235,3 +235,47 @@ test('gerbang tetap menegakkan aturan pada path project berspasi (regresi gagal-
   const b = bash(root, 'git push origin main', path.join(root, 'source-code', 'svc-a'));
   assert.equal(b.status, 2, 'push ke branch utama harus diblokir walau path berspasi');
 });
+
+// ---------- S3: hook ramping ----------
+const settings = JSON.parse(fs.readFileSync(path.join(kernel, '.claude', 'settings.json'), 'utf8'));
+test('settings: Read/Grep/Glob tidak punya hook; gate hanya pada tool penulis', () => {
+  const pre = settings.hooks.PreToolUse.map((h) => h.matcher);
+  const post = settings.hooks.PostToolUse.map((h) => h.matcher);
+  for (const m of [...pre, ...post]) for (const t of ['Read', 'Grep', 'Glob']) assert.doesNotMatch(m, new RegExp(`\\b${t}\\b`), `${t} tidak boleh ada di matcher "${m}"`);
+  assert.match(pre[0], /Edit/); assert.match(pre[0], /Write/); assert.equal(pre[1], 'Bash');
+  assert.notEqual(post[0], '.*');
+});
+test('settings: file rahasia dijaga permissions.deny menggantikan hook Read', () => {
+  const deny = settings.permissions.deny.join('\n');
+  for (const f of ['.env', '.env.*', '.pem', 'id_rsa', 'id_ed25519', 'id_ecdsa', '.p12', '.pfx', 'credentials', '.npmrc', '.netrc']) assert.ok(deny.includes(f), `deny memuat ${f}`);
+});
+test('gate: Read rahasia tetap ditolak bila matcher Read dipasang pengguna (pertahanan berlapis)', () => {
+  const root = mkProject();
+  const r = run(root, 'gate.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: path.join(root, '.env') } });
+  assert.equal(r.status, 2);
+});
+test('prompt: peringatan ambang konteks muncul pada prompt biasa, sekali', () => {
+  const root = mkProject();
+  const tp = path.join(root, 'transcript.jsonl');
+  fs.writeFileSync(tp, JSON.stringify({ message: { usage: { input_tokens: 10, cache_read_input_tokens: 450000, cache_creation_input_tokens: 0 } } }) + '\n');
+  const p = { hook_event_name: 'UserPromptSubmit', prompt: 'lanjut kerjakan', transcript_path: tp };
+  const r = run(root, 'prompt.mjs', p);
+  assert.equal(r.status, 0);
+  assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /450k|sesi baru/);
+  assert.equal(run(root, 'prompt.mjs', p).stdout, '', 'tidak diulang');
+});
+test('prompt: prompt biasa tanpa transcript tidak menghasilkan keluaran', () => {
+  const root = mkProject();
+  const r = run(root, 'prompt.mjs', { hook_event_name: 'UserPromptSubmit', prompt: 'halo' });
+  assert.equal(r.status, 0); assert.equal(r.stdout, '');
+});
+test('bench: mencetak tabel latensi tanpa menulis audit; --json valid', () => {
+  const root = mkProject();
+  const t = cli(root, 'bench', '--n', '3');
+  assert.equal(t.status, 0, t.stderr);
+  assert.match(t.stdout, /\| gate\.mjs \(Edit\) \| \d+ \|/);
+  assert.match(t.stdout, /Read\/Grep\/Glob \(tanpa hook\) ≈ 0 ms/);
+  assert.equal(fs.existsSync(path.join(root, '.claude', 'audit')), false, 'bench tidak mencemari audit');
+  const j = JSON.parse(cli(root, 'bench', '--n', '3', '--json').stdout);
+  assert.equal(j.rows.length, 6); assert.ok(j.rows.every((x) => x.error === 0));
+});
