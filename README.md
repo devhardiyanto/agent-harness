@@ -43,6 +43,8 @@ Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge); ops
 
 Awal setiap sesi, hook melaporkan (tanpa token, git lokal saja): service tanpa knowledge, knowledge tertinggal dari baseline (ambang `knowledge.stale_warn_commits`, bawaan 15), dan yang masih `draft`.
 
+**Gerbang pengiriman (`gate.md`):** `harness.mjs gate <slug>` (otomatis saat `set-status done`) menjalankan `checks.<svc>` di `harness.config.json` (`lint`, `test`, `build`, atau kunci lain; contoh `"checks": {"api": {"lint": "npm run lint", "test": "npm test"}}`), memeriksa bukti AC, review (lajur standard), dan secret di diff terhadap baseline. Hasil per item: PASS / FAIL / TIDAK DIPERIKSA (service tanpa checks tetap boleh dikirim, tetapi tercatat). Satu FAIL menolak `done`; `gate.md` yang usang (kode/bukti berubah) juga menolak. Usulan checks: `harness.mjs propose-checks <svc>` (kamu yang menyalin ke config). `gate.require_checks: true` menjadikan checks kosong sebagai FAIL.
+
 Tambahan kecil setelah approve: `harness.mjs amend <slug> --ac "..."` (maks `amend.max`, bawaan 3; hanya menambah AC). Perubahan besar: `reopen` + approve ulang. Skill ada 11: `init impact plan approve build review ship status knowledge next quick`.
 
 Tipe: `feature`, `improvement`, `hotfix` (plan 4 baris, gerbang tetap), `analysis`, `cross-repo`, `schema`, `onboard`.

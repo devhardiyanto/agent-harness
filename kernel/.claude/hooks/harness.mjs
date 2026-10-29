@@ -7,7 +7,8 @@
 //   board [--out f] [--open] papan HTML lokal (lajur per service) dengan snapshot tertanam; default .claude/state/board.html
 //   set-status <slug> <to>  ubah status (dengan pemeriksaan transisi/gerbang)
 //   start <slug>            = set-status in-progress
-//   check <slug>            dry-run gerbang 2
+//   gate <slug> [--json]    Delivery Gate: jalankan checks per service + cek bukti/review/secret → docs/work/<slug>/gate.md (exit 2 bila FAIL)
+//   check <slug>            dry-run gerbang 2 (menjalankan gate lebih dulu)
 //   reopen <slug>           kembali ke draft (butuh approve ulang)
 //   approve <slug>          HANYA manusia (jalankan dengan awalan "!")
 //   quick <permintaan>      HANYA manusia ("!" atau /harness:quick): item lajur quick berstatus approved
@@ -30,6 +31,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { runGate } from './delivery.mjs';
 import {
   inventory, baselineOf, worktreeAdd, worktreeRm, lintService, formatLint, sampleService, knowledgeStatus, proposeChecks,
   verifyService, checkProposal, approveProposal, isRepo, svcDir,
@@ -122,14 +124,24 @@ switch (cmd) {
     const i = need(args[0]);
     const to = cmd === 'start' ? 'in-progress' : args[1];
     if (to === 'approved') die('approve hanya oleh manusia.');
+    if (to === 'done' && ['approved', 'in-progress', 'in-review'].includes(i.status)) runGate(root, cfg, i, { log: (m) => console.error(m) }); // Delivery Gate: checks + gate.md
     const p = checkTransition(root, cfg, i, to, { actor: 'agent' });
     if (p.length) die(`DITOLAK ${i.status} → ${to}:\n- ${p.join('\n- ')}`, 2);
     write(i, to);
     console.log(`${i.slug}: ${i.status} → ${to}`);
     break;
   }
+  case 'gate': {
+    const i = need(args.find((a) => !a.startsWith('--')));
+    const r = runGate(root, cfg, i, { log: (m) => console.error(m) });
+    if (args.includes('--json')) console.log(JSON.stringify(r, null, 2));
+    else console.log(`| item | hasil | catatan |\n|---|---|---|\n${r.rows.map((x) => `| ${x[0]} | ${x[1]} | ${String(x[2]).slice(0, 160)} |`).join('\n')}\n\ngate: ${r.verdict.toUpperCase()}${r.skipped ? ` (${r.skipped} item TIDAK DIPERIKSA)` : ''} → docs/work/${i.slug}/gate.md`);
+    if (r.verdict !== 'pass') process.exit(2);
+    break;
+  }
   case 'check': {
     const i = need(args[0]);
+    runGate(root, cfg, i, { log: (m) => console.error(m) });
     const p = checkDone(root, i, cfg);
     if (p.length) { console.log(`BELUM LULUS gerbang 2:\n- ${p.join('\n- ')}`); process.exit(2); }
     console.log('LULUS gerbang 2: siap diset done.');
@@ -361,5 +373,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('perintah: new | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
+    die('perintah: new | gate | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
 }

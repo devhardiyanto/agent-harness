@@ -107,6 +107,8 @@ test('gerbang 2: done butuh bukti per AC + review clean', () => {
   fs.writeFileSync(path.join(dir, 'review.md'), '---\nverdict: blockers\n---\n- [ ] [BLOCKER] x\n');
   assert.equal(cli(root, 'check', slug).status, 2);
   fs.writeFileSync(path.join(dir, 'review.md'), '---\nverdict: clean\n---\n- [x] [BLOCKER] x\n');
+  assert.equal(viaHookOk(root, slug), false, 'tanpa gate.md terbaru, done lewat Edit ditolak');
+  assert.equal(cli(root, 'gate', slug).status, 0);
   assert.equal(viaHookOk(root, slug), true);
 });
 function viaHookOk(root, slug) {
