@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -16,7 +17,7 @@ export const DEFAULT_CONFIG = {
   services: [],
   // 'single': semua path di luar allow_paths dianggap kode dan di-gate
   allow_paths: ['docs/**', '.claude/rules/**', '.claude/audit/**', 'AGENTS.md', 'CLAUDE.md', '.gitignore'],
-  protected_paths: ['.claude/hooks/**', '.claude/settings.json', '.claude/agents/**', 'harness.config.json'],
+  protected_paths: ['.claude/hooks/**', '.claude/settings.json', '.claude/agents/**', 'harness.config.json', '.claude/state/merge-tickets/**'],
   schema_paths: ['**/migrations/**', '**/migration/**', '**/*.sql', '**/schema.prisma'],
   protected_branches: ['main', 'master', 'develop', 'release/*'],
   deny_commands: [
@@ -27,6 +28,8 @@ export const DEFAULT_CONFIG = {
   checks: {},                // per service: { "api": { "lint": "npm run lint", "test": "npm test", "build": null } }; kosong = TIDAK DIPERIKSA
   quick: { max_files: 5 },   // lajur cepat: 1 service, bukan skema, maksimal N file
   amend: { max: 3 },         // tambahan AC kecil per work item tanpa approve ulang
+  // pengiriman: base PR per service ({"api": "feat/s2"} = PR bertumpuk), metode merge, umur tiket merge. Data project, bukan bagian repo harness.
+  ship: { base: {}, merge_method: 'merge', ticket_ttl_min: 30 },
   context: { window_tokens: 1000000, warn_tokens: 400000 },
   graphify: { enabled: false, version: null }, // opsional; aktif hanya setelah uji terukur (lihat plugin/skills/init)
   knowledge: { summary_max_lines: 80, patterns_max_lines: 150, stale_warn_commits: 15 },
@@ -58,7 +61,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'graphify', 'knowledge', 'quick', 'amend']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'graphify', 'knowledge', 'quick', 'amend', 'ship']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   return cfg;
 }
 
@@ -198,6 +201,20 @@ export function summarizeItem(item) {
 
 // ---------- gerbang pengiriman (gate.md) ----------
 export const serviceDirOf = (root, cfg, svc) => (cfg.layout === 'multi-repo' ? path.join(root, cfg.services_dir, svc) : root);
+// Hash isi pohon kerja (termasuk file baru, menghormati .gitignore) lewat index sementara: tidak mengubah index asli,
+// dan SAMA sebelum maupun sesudah commit. Gate yang lulus tetap berlaku setelah ship meng-commit hasilnya.
+function worktreeHash(d) {
+  const g = (a, env) => spawnSync('git', a, { cwd: d, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: env ? { ...process.env, ...env } : process.env });
+  const tmp = path.join(os.tmpdir(), `harness-idx-${process.pid}-${Date.now()}`);
+  try {
+    const idx = g(['rev-parse', '--git-path', 'index']).stdout.trim();
+    const abs = idx ? path.resolve(d, idx) : '';
+    if (abs && fs.existsSync(abs)) fs.copyFileSync(abs, tmp);
+    const env = { GIT_INDEX_FILE: tmp };
+    if (g(['add', '-A'], env).status === 0) { const w = g(['write-tree'], env); if (w.status === 0) return w.stdout.trim(); }
+  } catch { /* jatuh ke cara lama */ } finally { fs.rmSync(tmp, { force: true }); }
+  return `${g(['rev-parse', 'HEAD']).stdout}${g(['diff', 'HEAD']).stdout}${g(['status', '--porcelain']).stdout}`;
+}
 // Sidik jari masukan gerbang: bukti, review, daftar service, checks, dan keadaan kode tiap service. Berubah = gate.md usang.
 export function gateFingerprint(root, cfg, item) {
   const h = crypto.createHash('sha1');
@@ -206,12 +223,7 @@ export function gateFingerprint(root, cfg, item) {
   for (const sv of item.services) {
     const d = serviceDirOf(root, cfg, sv === '*' ? '' : sv);
     if (!fs.existsSync(path.join(d, '.git'))) { h.update(`${sv}:nogit`); continue; }
-    const g = (a) => spawnSync('git', a, { cwd: d, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).stdout || '';
-    h.update(g(['rev-parse', 'HEAD'])); h.update(g(['diff', 'HEAD'])); h.update(g(['status', '--porcelain']));
-    // file baru yang belum di-track tidak muncul di diff: hash isinya juga (batas 200 file, 1 MB per file)
-    for (const f of g(['ls-files', '--others', '--exclude-standard']).split('\n').filter(Boolean).slice(0, 200)) {
-      try { const fp = path.join(d, f); if (fs.statSync(fp).size <= 1_000_000) { h.update(f); h.update(fs.readFileSync(fp)); } } catch { /* abaikan */ }
-    }
+    h.update(worktreeHash(d));
   }
   return h.digest('hex').slice(0, 16);
 }
@@ -266,12 +278,18 @@ export function checkDone(root, item, cfg) {
   return problems;
 }
 
+// gh lewat shell di Windows (agar shim/gh.cmd ikut ter-resolve), jadi argumen dijaga: tanpa metakarakter shell.
+export function ghRun(args, cwd, timeout = 45000) {
+  const win = process.platform === 'win32';
+  if (win && args.some((a) => /[&|<>^"%\r\n]/.test(String(a)))) return { status: 1, stdout: '', stderr: 'argumen gh mengandung karakter terlarang', error: new Error('argumen gh tidak aman') };
+  return spawnSync('gh', args, { cwd, encoding: 'utf8', timeout, shell: win });
+}
 export function checkMerged(item) {
   const prs = asList(item.fm.pr);
   if (!prs.length) return ['frontmatter plan.md belum punya "pr:" (URL PR).'];
   const problems = [];
   for (const pr of prs) {
-    const r = spawnSync('gh', ['pr', 'view', pr, '--json', 'state', '-q', '.state'], { encoding: 'utf8', timeout: 30000 });
+    const r = ghRun(['pr', 'view', pr, '--json', 'state', '-q', '.state'], undefined, 30000);
     if (r.error || r.status !== 0) problems.push(`tidak bisa memeriksa ${pr} lewat gh (${(r.stderr || r.error?.message || '').trim().slice(0, 200)}).`);
     else if (r.stdout.trim() !== 'MERGED') problems.push(`${pr} berstatus ${r.stdout.trim()}, belum MERGED.`);
   }
@@ -431,7 +449,7 @@ export function nextStep(item) {
     approved: q ? ['agent', `kerjakan di sesi ini; bukti per AC di progress.md; lalu set-status ${sl} done`] : ['kamu', `buka sesi baru, ketik /harness:build ${sl}`],
     'in-progress': q ? ['agent', `lengkapi bukti AC di progress.md; set-status ${sl} done`] : ['agent', `lanjut /harness:build ${sl}; semua AC berbukti → set-status ${sl} in-review`],
     'in-review': ['agent', `/harness:review ${sl}`],
-    done: asList(item.fm.pr).length ? ['kamu', `merge PR; lalu /harness:ship ${sl} untuk menutup item`] : ['kamu', `ketik /harness:ship ${sl}`],
+    done: asList(item.fm.pr).length ? ['kamu', `tunggu check PR hijau, lalu ketik /harness:ship ${sl} (= keputusan merge)`] : ['kamu', `ketik /harness:ship ${sl} (buka PR)`],
     merged: ['-', 'selesai'],
   };
   const [who, cmd] = rows[item.status] || ['?', `status "${item.status}" tidak dikenal`];

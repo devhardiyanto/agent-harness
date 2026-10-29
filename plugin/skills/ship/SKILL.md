@@ -1,24 +1,28 @@
 ---
 name: ship
-description: Commit, push branch kerja, dan buka PR via gh untuk work item berstatus done; pada panggilan berikutnya memeriksa lewat gh apakah PR sudah merged lalu menutup work item.
+description: Kirim work item berstatus done. Panggilan pertama: commit, push, buka PR (mendukung PR bertumpuk). Panggilan berikutnya setelah check hijau: ketikanmu menjadi keputusan merge, dan hook menerbitkan tiket sekali pakai.
 argument-hint: "<slug>"
 disable-model-invocation: true
 ---
 # /harness:ship
 
-Masukan: `$ARGUMENTS` (slug). Merge adalah keputusan manusia; kamu tidak pernah merge.
+Masukan: `$ARGUMENTS` (slug). Agent tidak pernah menjalankan `gh pr merge`. Merge terjadi hanya lewat `harness.mjs ship`, dan itu butuh tiket dari ketikan manusia.
 
 ## Fase A — status `done`, `pr:` kosong
-0. Baca `docs/work/<slug>/gate.md`: `verdict` harus `pass` dan masih berlaku (`node .claude/hooks/harness.mjs gate <slug>` menjalankannya ulang). Baris `TIDAK DIPERIKSA` (service tanpa checks) dicantumkan apa adanya di body PR.
-1. Tiap service di `services:`: pastikan di branch kerja (bukan `root_branch`), `git -C source-code/<svc> status --short`; commit perubahan terkait saja dengan pesan mengikuti konvensi repo (ringkas, rujuk slug).
-2. `git -C source-code/<svc> push -u origin <branch>`.
-3. `gh pr create --base <root_branch> --title "<judul>" --body-file <file sementara>`; body berupa tabel: ringkasan, AC + bukti (dari `progress.md`), risiko, rollback, dependency baru, tautan work item. Satu PR per service; sebutkan urutan merge bila lintas service.
-4. Tulis `pr: [url1, url2]` ke frontmatter `plan.md` (Edit biasa; hook mengizinkan field `pr`).
+1. `node .claude/hooks/harness.mjs ship-plan <slug>`: tabel branch kerja, base, akun gh, masalah. Ada masalah (di branch utama, akun gh tanpa akses, dst.) → laporkan persis dan berhenti; jangan memutar. Akun salah → user menjalankan `gh auth switch --user <akun>`.
+2. Baca `docs/work/<slug>/gate.md`: `verdict` harus `pass`; baris `TIDAK DIPERIKSA` dicantumkan apa adanya di body PR. Kode yang di-commit tidak membuat gate usang; kode yang berubah setelah gate, ya (jalankan `harness.mjs gate <slug>` lagi).
+3. Tiap service: `git -C source-code/<svc> status --short`; commit hanya perubahan terkait (pesan ringkas, rujuk slug). Nama branch `<feat|fix|chore>/<slug-pendek>`.
+4. `git -C source-code/<svc> push -u origin <branch>`.
+5. `gh pr create --base <base dari ship-plan> --title "<judul>" --body-file <file sementara>`. Body = tabel: ringkasan, AC + bukti (dari `progress.md`), risiko, rollback, dependency baru, `TIDAK DIPERIKSA` dari gate, tautan work item. Satu PR per service. Base yang bukan branch utama = PR bertumpuk: sebut urutan merge di body.
+6. Tulis `pr: [url1, url2]` ke frontmatter `plan.md` (Edit biasa).
+7. Menunggu CI: `Monitor` dengan `gh pr checks <url> --watch` (satu per PR). Begitu semua selesai, kirim `PushNotification` ("check PR <slug>: hijau/merah") agar user tahu tanpa memantau sesi.
 
-## Fase B — `pr:` terisi, user menyatakan PR sudah merged
-1. `node .claude/hooks/harness.mjs set-status <slug> merged` — hook memeriksa lewat `gh pr view` bahwa semua PR `MERGED`.
-2. Ditolak → sampaikan PR mana yang belum merged. Jangan memaksa.
-3. Berhasil → work item selesai.
+## Fase B — `pr:` terisi
+User mengetik `/harness:ship <slug>` lagi setelah check hijau. Hook memeriksa gate, check tiap PR (merah atau berjalan = ditolak), draft, dan akun gh, lalu menerbitkan tiket. Bila konteksmu memuat "memutuskan MERGE":
+1. `node .claude/hooks/harness.mjs ship <slug>`: merge berurutan (PR yang basenya bukan PR lain lebih dulu; PR bertumpuk diarahkan ke base induknya setelah induk masuk), lalu `merged`.
+2. Ditolak → sampaikan alasannya; jangan memaksa, jangan merge manual. Sebagian sudah merged → user mengetik `/harness:ship <slug>` lagi untuk sisanya.
+3. Tanpa pesan "memutuskan MERGE" di konteksmu, hook menolak sendiri (alasan sudah tampil ke user): jangan mengulang, jangan mencari jalan lain.
 
 ## Balasan chat (maks 5 baris)
-URL PR (satu per baris) · urutan merge · berikutnya: "merge manual, lalu `/harness:ship <slug>` lagi"
+Fase A: URL PR (satu per baris) · urutan merge · "tunggu check hijau, lalu ketik `/harness:ship <slug>` untuk merge".
+Fase B: hasil tiap PR · status akhir.

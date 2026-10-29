@@ -36,7 +36,7 @@ Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge); ops
 | 3. setuju (kamu) | `/harness:approve <slug>` | hook menulis `approved` |
 | 4. eksekusi (sesi baru) | `/harness:build <slug>` | kode + bukti per AC di `progress.md` → `in-review` |
 | 5. review / feedback | `/harness:review <slug> [feedback]` | `review.md`; blocker → balik ke build; clean → `done` |
-| 6. kirim | `/harness:ship <slug>` | branch, commit, push, PR (`gh`); panggil lagi setelah merge → `merged` |
+| 6. kirim | `/harness:ship <slug>` | panggilan 1: branch, commit, push, PR (`gh`). Setelah check PR hijau, ketik lagi: **ketikanmu = keputusan merge** → `merged` (lihat "Pengiriman berantai") |
 | usulan pola (kamu) | `/harness:knowledge patterns <slug> P1,P3\|all` | hook menerapkan usulan dari review ke `patterns.md` |
 | bingung langkah berikutnya | `/harness:next` | tabel: item, status, siapa yang bertindak, perintah persisnya |
 | lain | `/harness:status`, `/harness:status board`, `/harness:knowledge refresh <svc>` | tabel item + cek instalasi; papan HTML lokal per service (`.claude/state/board.html`); perbarui knowledge yang tertinggal dari baseline |
@@ -74,6 +74,15 @@ Read, Grep, dan Glob **tidak** melewati hook sama sekali. Ukur beban hook di mes
 Hook adalah guardrail berbasis pola, **bukan sandbox**: agent yang sengaja mencari celah lewat shell bisa saja menemukannya. Ia menutup jalan yang lazim dan membuat pelanggaran terlihat di audit.
 
 Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_command`, ambang konteks, `graphify` (nonaktif bawaan), `knowledge` (batas baris, ambang kedaluwarsa), `baseline` (override branch baseline per service)).
+
+## Pengiriman berantai (PR bertumpuk, merge oleh keputusanmu)
+- **Base per service adalah data project**, bukan bagian repo ini: `harness.config.json` → `ship.base` (`{"api": "feat/dasar"}` = PR bertumpuk di atas branch itu). Bawaan: branch baseline service. `harness.mjs ship-plan <slug>` menampilkan branch kerja, base, akun `gh` aktif, dan masalah (di branch utama, akun tanpa akses tulis) sebelum apa pun di-push.
+- **Akun gh**: bila akun aktif tidak punya akses ke repo service, pesannya menyebut akun aktif dan perintah `gh auth switch --user <akun>`. `harness.mjs doctor` memeriksanya juga (service tanpa remote `origin` dilewati).
+- **Keputusan merge = ketikan manusia.** `/harness:ship <slug>` kedua (saat `pr:` terisi) diproses hook: gate harus `pass` dan masih berlaku, tiap PR OPEN, bukan draft, check **hijau** (merah atau masih berjalan = ditolak; PR tanpa check dicatat `TIDAK ADA CHECK`), akun gh punya akses. Lolos → tiket sekali pakai di `.claude/state/merge-tickets/` (berlaku `ship.ticket_ttl_min`, 30 menit; mengikat SHA tiap PR).
+- **Agent tetap tidak bisa `gh pr merge`** (diblokir). Ia hanya menjalankan `harness.mjs ship <slug>`, yang tidak berbuat apa pun tanpa tiket, menghapus tiket sebelum bertindak, dan memakai `--match-head-commit` (push baru setelah tiket = ditolak). Berkas tiket dilindungi dari Edit/Write dan penulisan lewat shell.
+- **Rantai**: PR yang basenya bukan head PR lain di-merge lebih dulu; setelah induk masuk, PR anak diarahkan (`gh pr edit --base`) ke base induk, lalu di-merge. Metode `ship.merge_method` (bawaan `merge`, aman untuk rantai). Branch tidak dihapus (penghapusan = keputusanmu).
+- Gate tetap berlaku setelah hasil di-commit: sidik jari memakai hash isi pohon kerja, bukan SHA commit.
+- Batas jujur: tiket adalah guardrail, bukan sandbox; agent yang sengaja menulis tiket lewat jalur yang tidak terpantau tidak dapat dicegah sepenuhnya (jejaknya ada di audit). `gh` tiruan di tes membuktikan logikanya, bukan perilaku GitHub; uji nyata ada di paket pilot S8.
 
 ## Knowledge: baseline, lint, kedaluwarsa
 
