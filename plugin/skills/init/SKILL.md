@@ -10,11 +10,11 @@ Masukan: `$ARGUMENTS` (kosong = lanjutkan tahap berikutnya yang belum selesai; `
 
 ## Tahap 1 — inventaris dan baseline (nol token)
 1. `node .claude/hooks/harness.mjs inventory` dan `node .claude/hooks/harness.mjs baseline all`. Tampilkan tabelnya apa adanya.
-2. Hentikan dan tanyakan user (satu pesan) bila: ada service baru yang belum di `harness.config.json` → `services` (user menambahkan manual; file itu dilindungi), baseline tidak ketemu (user mengisi `baseline: { "<svc>": "<branch>" }`), atau catatan "branch lokal berbeda dari origin" (tawarkan `baseline --fetch`; itu hanya `git fetch`).
+2. Hentikan dan tanyakan user lewat `AskUserQuestion` (satu panggilan, opsi konkret) bila: ada service baru yang belum di `harness.config.json` → `services` (user menambahkan manual; file itu dilindungi), baseline tidak ketemu (user mengisi `baseline: { "<svc>": "<branch>" }`), atau catatan "branch lokal berbeda dari origin" (tawarkan `baseline --fetch`; itu hanya `git fetch`).
 3. Baseline otomatis = `origin/HEAD` → `production` → `main` → `master`. Checkout user (branch fitur, perubahan belum commit) **tidak disentuh**; analisa memakai worktree sementara.
 
 ## Tahap 2 — ukur dulu
-4. Pilih satu service (kecil atau yang paling sering disentuh; bila ragu, yang pertama). Kerjakan Tahap 3 untuk service itu saja, lalu **berhenti**: minta user melihat `/usage` (biaya satu service) dan menjawab apakah lanjut `all`.
+4. Pilih satu service (kecil atau yang paling sering disentuh; bila ragu, yang pertama). Kerjakan Tahap 3 untuk service itu saja, lalu **berhenti**: minta user melihat `/usage` (biaya satu service) dan menjawab apakah lanjut `all` (`AskUserQuestion`: lanjut `all` / satu service lagi / berhenti).
 
 ## Tahap 3 — knowledge per service (L2, L3)
 Ikuti `/harness:knowledge onboard <svc>` (langkah 1–6: worktree baseline → explorer → tulis `summary.md` + `patterns.md` dengan `source_commit` = SHA baseline → lint → lepas worktree). Satu service selesai hanya bila `lint-knowledge` bersih.

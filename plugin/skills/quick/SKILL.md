@@ -19,7 +19,7 @@ Perintah ini diproses hook sebelum sampai ke kamu. Hook membuat `docs/work/<slug
 2. Kerjakan perubahan minimal (`.claude/rules/minimalis.md`). Perlu AC tambahan yang kecil: `node .claude/hooks/harness.mjs amend <slug> --ac "<kalimat yang bisa diverifikasi>"`.
 3. Tulis bukti nyata per AC di `progress.md` bagian `## Verifikasi` (`- AC1: <output/hasil>`).
 4. `node .claude/hooks/harness.mjs set-status <slug> done` (menjalankan gerbang pengiriman: bukti AC, checks service yang terkonfigurasi, secret di diff → `gate.md`; FAIL menolak done).
-5. Hook menolak karena melebihi batas (service kedua, file ke-6, skema): berhenti. `node .claude/hooks/harness.mjs promote <slug>` mengubahnya ke lajur standard (`draft`), lalu minta user menjalankan `/harness:plan <slug>` dan `/harness:approve <slug>`.
+5. Hook menolak karena melebihi batas (service kedua, file ke-6, skema): berhenti dan tanyakan lewat `AskUserQuestion` apakah di-`promote` ke standard atau lingkupnya dipangkas. `node .claude/hooks/harness.mjs promote <slug>` mengubahnya ke lajur standard (`draft`), lalu minta user menjalankan `/harness:plan <slug>` dan `/harness:approve <slug>`.
 
 ## Balasan chat (maks 3 baris)
 Selesai: apa yang berubah · file n · berikutnya: `/harness:ship <slug>`

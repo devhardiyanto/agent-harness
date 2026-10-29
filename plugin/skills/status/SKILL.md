@@ -3,6 +3,7 @@ name: status
 description: Tabel work item dan status instalasi (doctor). Dengan argumen "board": papan HTML lokal per service dan kesegaran knowledge.
 argument-hint: "[board]"
 disable-model-invocation: true
+allowed-tools: Bash(node .claude/hooks/harness.mjs *)
 ---
 # /harness:status
 

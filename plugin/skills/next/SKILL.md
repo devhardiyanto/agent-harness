@@ -3,6 +3,7 @@ name: next
 description: Menampilkan langkah berikutnya untuk tiap work item terbuka: siapa yang bertindak dan perintah persisnya.
 argument-hint: "[slug]"
 disable-model-invocation: true
+allowed-tools: Bash(node .claude/hooks/harness.mjs *)
 ---
 # /harness:next
 

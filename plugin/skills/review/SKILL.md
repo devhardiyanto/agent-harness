@@ -10,7 +10,7 @@ Masukan: `$ARGUMENTS` (slug, opsional feedback). Item lajur quick tidak di-revie
 
 ## Langkah
 1. `node .claude/hooks/harness.mjs show <slug>`; status harus `in-review` (atau `in-progress` bila user ingin review awal).
-2. Panggil agent `reviewer` (subagent) dengan path `docs/work/<slug>/` dan daftar service. Reviewer tidak menulis file; ia mengembalikan tabel temuan, blok `POLA` (pola baru/menyimpang), dan `VERDICT`.
+2. Panggil agent `reviewer` (subagent) dengan path `docs/work/<slug>/` dan daftar service. Reviewer memakai `LSP` (referensi/definisi) untuk memeriksa dampak perubahan simbol bila tersedia. Reviewer tidak menulis file; ia mengembalikan tabel temuan, blok `POLA` (pola baru/menyimpang), dan `VERDICT`.
 3. Tulis `review.md`: tabel temuan; setiap BLOCKER juga sebagai `- [ ] [BLOCKER] ...`; frontmatter `verdict: clean|blockers`, `reviewed: <tanggal>`. Tambahkan tabel "Dependency baru" dari `deps-report.md` bila ada.
 4. Feedback user (bila ada di argumen): catat di `review.md` bagian "Feedback user" sebagai checklist `- [ ]`. Feedback yang mengubah lingkup → butuh `reopen` + plan baru; feedback yang tidak → perbaikan di build.
 5. **Ada blocker/feedback terbuka** → `node .claude/hooks/harness.mjs set-status <slug> in-progress`. Balas: jumlah item + `/harness:build <slug>`. Siklus ini berulang tanpa batas sampai user puas.

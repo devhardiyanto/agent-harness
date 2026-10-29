@@ -18,7 +18,7 @@ Masukan: `$ARGUMENTS`; kata pertama = subperintah. Daftar service: `harness.conf
 `verify` dan `patterns` diproses hook sebelum sampai ke kamu; agent tidak boleh menulis status `verified`/`applied`.
 
 ## onboard `<svc|all>`
-1. **Ukur dulu.** Bila `all` dan belum ada satu pun `docs/knowledge/<svc>/summary.md`: kerjakan HANYA service pertama, lalu berhenti dan minta user melihat `/usage` dan memutuskan lanjut.
+1. **Ukur dulu.** Bila `all` dan belum ada satu pun `docs/knowledge/<svc>/summary.md`: kerjakan HANYA service pertama, lalu berhenti dan minta user melihat `/usage` dan memutuskan lanjut (`AskUserQuestion`: lanjut `all` / satu lagi / berhenti).
 2. `node .claude/hooks/harness.mjs baseline <svc> --json` → catat `sha`, `ref`. Gagal → hentikan, sampaikan alasan.
 3. `node .claude/hooks/harness.mjs worktree add <svc>` → `.claude/state/worktrees/<svc>` (isi = commit baseline; checkout user tidak tersentuh).
 4. Agent `explorer` (paralel maks 4 antar-service) membaca dari worktree dan mengisi:
