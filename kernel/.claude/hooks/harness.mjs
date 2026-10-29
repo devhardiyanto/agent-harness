@@ -287,6 +287,41 @@ switch (cmd) {
     console.log(`diterapkan ke patterns.md oleh ${who}: ${r.applied.join(', ')}`);
     break;
   }
+  case 'bench': {
+    // Ukur latensi tiap hook (spawn node sungguhan, payload sintetis). Jalankan di mesin target: node .claude/hooks/harness.mjs bench [--n 20] [--json]
+    const ni = args.indexOf('--n');
+    const n = Math.max(3, Number(ni >= 0 ? args[ni + 1] : 15) || 15);
+    const hooksDir = path.dirname(fileURLToPath(import.meta.url));
+    const pj = (o) => JSON.stringify({ session_id: 'bench', cwd: root, ...o });
+    const specs = [
+      ['node kosong (dasar)', ['-e', '0'], ''],
+      ['session.mjs (SessionStart)', [path.join(hooksDir, 'session.mjs')], pj({ hook_event_name: 'SessionStart', source: 'startup' })],
+      ['prompt.mjs (UserPromptSubmit)', [path.join(hooksDir, 'prompt.mjs')], pj({ hook_event_name: 'UserPromptSubmit', prompt: 'halo' })],
+      ['gate.mjs (Edit)', [path.join(hooksDir, 'gate.mjs')], pj({ hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: path.join(root, 'docs', 'bench.md'), old_string: 'a', new_string: 'b' } })],
+      ['guard-bash.mjs (Bash)', [path.join(hooksDir, 'guard-bash.mjs')], pj({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'ls' } })],
+      ['post.mjs (PostToolUse)', [path.join(hooksDir, 'post.mjs')], pj({ hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: 'ls' } })],
+    ];
+    const rows = [];
+    for (const [name, a, input] of specs) {
+      const t = []; let bad = 0;
+      for (let i = 0; i < n + 2; i++) {
+        const t0 = process.hrtime.bigint();
+        const r = spawnSync(process.execPath, a, { input, encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root, HARNESS_BENCH: '1' } });
+        const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+        if (r.status !== 0) bad++;
+        if (i >= 2) t.push(ms);
+      }
+      t.sort((x, y) => x - y);
+      const q = (p) => t[Math.min(t.length - 1, Math.floor(p * t.length))];
+      rows.push({ hook: name, p50: Math.round(q(0.5)), p95: Math.round(q(0.95)), max: Math.round(t[t.length - 1]), error: bad });
+    }
+    const med = (k) => rows.find((r) => r.hook.startsWith(k))?.p50 ?? 0;
+    const perAction = { 'Read/Grep/Glob (tanpa hook)': 0, 'Edit/Write': med('gate') + med('post'), 'Bash': med('guard') + med('post') };
+    if (args.includes('--json')) { console.log(JSON.stringify({ os: process.platform, node: process.versions.node, n, rows, per_action_ms: perAction }, null, 2)); break; }
+    console.log(`os: ${process.platform} | node: ${process.versions.node} | ulangan: ${n} (+2 pemanasan)\n\n| hook | p50 ms | p95 ms | max ms | gagal |\n|---|---|---|---|---|\n${rows.map((r) => `| ${r.hook} | ${r.p50} | ${r.p95} | ${r.max} | ${r.error} |`).join('\n')}`);
+    console.log(`\nBeban hook per tindakan (p50, hook sebelum + sesudah): ${Object.entries(perAction).map(([k, v]) => `${k} ≈ ${v} ms`).join('; ')}`);
+    break;
+  }
   default:
-    die('perintah: new | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | patterns-check | verify-knowledge | patterns-approve');
+    die('perintah: new | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
 }

@@ -2,7 +2,7 @@
 // agent tidak bisa memalsukannya. Hook inilah yang menulis status: approved.
 import fs from 'node:fs';
 import {
-  readStdinJson, projectRoot, loadConfig, resolveSlug, readItem, checkTransition, setFmKey, context, audit,
+  readStdinJson, projectRoot, loadConfig, resolveSlug, readItem, checkTransition, setFmKey, context, audit, contextWarning,
 } from './lib.mjs';
 import { spawnSync } from 'node:child_process';
 import { verifyService, approveProposal, formatLint } from './knowledge.mjs';
@@ -14,7 +14,11 @@ const prompt = String(payload.prompt || '');
 const m = /^\s*\/(?:harness:)?approve\s+([\w.\-]+)/i.exec(prompt);
 const mv = /^\s*\/(?:harness:)?verify\s+([\w.\-]+)\s*$/i.exec(prompt);
 const mp = /^\s*\/(?:harness:)?patterns\s+([\w.\-]+)\s+(all|P\d+(?:\s*,\s*P\d+)*)\s*$/i.exec(prompt);
-if (!m && !mv && !mp) process.exit(0);
+if (!m && !mv && !mp) {
+  // Peringatan ambang konteks juga di sini (bukan hanya setelah tool): murah, sekali per prompt.
+  try { const w = contextWarning(root, cfg, payload); if (w) context('UserPromptSubmit', w); } catch { /* abaikan */ }
+  process.exit(0);
+}
 
 const block = (reason) => {
   process.stdout.write(JSON.stringify({ decision: 'block', reason: `[harness] ${mv ? 'verify' : mp ? 'patterns' : 'approve'} ditolak: ${reason}` }));

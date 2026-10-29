@@ -317,6 +317,7 @@ export const SECRET_FILE = /(^|\/)(\.env(\.(?!example$|sample$|template$)[^/]*)?
 
 // ---------- audit ----------
 export function audit(root, entry) {
+  if (process.env.HARNESS_BENCH) return;
   try {
     const dir = path.join(root, '.claude', 'audit');
     fs.mkdirSync(dir, { recursive: true });
@@ -336,4 +337,34 @@ export function deny(root, payload, reason, extra = {}) {
 }
 export function context(event, text) {
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } }));
+}
+
+// ---------- peringatan ambang konteks (dipakai post.mjs dan prompt.mjs) ----------
+export function contextWarning(root, cfg, payload) {
+  const tp = payload.transcript_path;
+  if (!tp || !fs.existsSync(tp)) return null;
+  const stateDir = path.join(root, '.claude', 'state');
+  const mark = path.join(stateDir, `ctx-${String(payload.session_id || 'x').replace(/\W/g, '')}.json`);
+  const size = fs.statSync(tp).size;
+  const fd = fs.openSync(tp, 'r');
+  const len = Math.min(size, 262144);
+  const buf = Buffer.alloc(len);
+  fs.readSync(fd, buf, 0, len, size - len);
+  fs.closeSync(fd);
+  const lines = buf.toString('utf8').split('\n').reverse();
+  let tokens = 0;
+  for (const l of lines) {
+    if (!l.includes('"usage"')) continue;
+    try {
+      const u = JSON.parse(l)?.message?.usage;
+      if (u) { tokens = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0); break; }
+    } catch { /* baris terpotong */ }
+  }
+  if (tokens < cfg.context.warn_tokens) return null;
+  const prev = (() => { try { return JSON.parse(fs.readFileSync(mark, 'utf8')); } catch { return {}; } })();
+  if (prev.warned && tokens - prev.warned < 100000) return null;
+  fs.mkdirSync(stateDir, { recursive: true });
+  fs.writeFileSync(mark, JSON.stringify({ warned: tokens }));
+  return `[harness] Konteks sesi ±${Math.round(tokens / 1000)}k token (ambang ${Math.round(cfg.context.warn_tokens / 1000)}k dari ${Math.round(cfg.context.window_tokens / 1000)}k). ` +
+    'Segera: tulis status terkini ke progress.md (apa selesai, apa berikutnya, keputusan), selesaikan langkah yang sedang jalan, lalu sarankan user membuka sesi baru dan melanjutkan dengan /harness:build <slug>.';
 }
