@@ -11,5 +11,5 @@ created: {{date}}
 | permintaan asli (kutipan) | |
 | tujuan bisnis | |
 | di luar lingkup | |
-| pemohon / tautan tiket (Plane) | |
+| pemohon / tautan tiket | |
 | pertanyaan terbuka | |

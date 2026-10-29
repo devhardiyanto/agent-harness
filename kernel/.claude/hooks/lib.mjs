@@ -15,8 +15,7 @@ export const DEFAULT_CONFIG = {
   services: [],
   // 'single': semua path di luar allow_paths dianggap kode dan di-gate
   allow_paths: ['docs/**', '.claude/rules/**', '.claude/audit/**', 'AGENTS.md', 'CLAUDE.md', '.gitignore'],
-  // .agents/** dan scripts/executor/** = modul executor opsional (aman bila tidak terpasang)
-  protected_paths: ['.claude/hooks/**', '.claude/settings.json', '.claude/agents/**', 'harness.config.json', '.agents/**', 'scripts/executor/**'],
+  protected_paths: ['.claude/hooks/**', '.claude/settings.json', '.claude/agents/**', 'harness.config.json'],
   schema_paths: ['**/migrations/**', '**/migration/**', '**/*.sql', '**/schema.prisma'],
   protected_branches: ['main', 'master', 'develop', 'release/*'],
   deny_commands: [
@@ -25,7 +24,6 @@ export const DEFAULT_CONFIG = {
   ],
   gate: { test_command: null, test_required: false, test_timeout_sec: 300 },
   context: { window_tokens: 1000000, warn_tokens: 400000 },
-  plane: { enabled: false, project_id: null, workspace: null },
   graphify: { enabled: false, version: null }, // opsional; aktif hanya setelah uji terukur (lihat plugin/skills/init)
   knowledge: { summary_max_lines: 80, patterns_max_lines: 150, stale_warn_commits: 15 },
   baseline: {}, // override per service: { "ce-api": "production" } (bawaan: origin/HEAD → production → main → master)
@@ -56,7 +54,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'plane', 'graphify', 'knowledge']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'graphify', 'knowledge']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   return cfg;
 }
 

@@ -2,7 +2,7 @@
   "name": "harness",
   "displayName": "Harness v1",
   "version": "1.2.0",
-  "description": "Skill per fase untuk alur kerja agentic: init (knowledge dari baseline), impact, plan, build, dispatch (executor opsional), review (usulan pola), ship, onboard, refresh, verify, patterns, status, board.",
+  "description": "Skill per fase untuk alur kerja agentic: init (knowledge dari baseline), impact, plan, build, review (usulan pola), ship, onboard, refresh, verify, patterns, status, board.",
   "author": { "name": "devhardiyanto" },
   "license": "MIT",
   "keywords": ["harness", "workflow", "plan", "review"]

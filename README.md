@@ -13,12 +13,12 @@ node "$d/install.mjs" --dry-run           # tinjau rencana: apa yang dibuang / d
 node "$d/install.mjs"                     # interaktif; project existing: ketik "ganti"
 # non-interaktif: node "$d/install.mjs" --yes
 ```
-Opsi: `--branch NAMA` (default `harness-v1`), `--root-branch main`, `--project-name`, `--repo owner/repo`, `--allow-dirty`, `--no-commit`, `--with-executor` (modul opsional, lihat bawah), `--ignore backup,tmp` (entri root yang diabaikan: masuk `.gitignore`, tidak disentuh, tidak di-commit; folder `backup/` dan `backups/` otomatis, matikan dengan `--no-auto-ignore`).
+Opsi: `--branch NAMA` (default `harness-v1`), `--root-branch main`, `--project-name`, `--repo owner/repo`, `--allow-dirty`, `--no-commit`, `--ignore backup,tmp` (entri root yang diabaikan: masuk `.gitignore`, tidak disentuh, tidak di-commit; folder `backup/` dan `backups/` otomatis, matikan dengan `--no-auto-ignore`).
 
 Yang dilakukan installer: cek prasyarat (tidak memasang apa pun) → deteksi mode & service → tag cadangan `harness-pre-v1-<waktu>` → branch `harness-v1` → buang harness lama → pasang kernel → commit **hanya path milik harness** (bukan `git add -A`: file/folder lain yang belum di-track tidak ikut ter-commit). Mundur kapan saja: `git switch -c lama harness-pre-v1-<waktu>`. Project tanpa git: salinan `.harness-backup-<waktu>/`.
-Dipertahankan: `source-code/`, `.mcp.json`, `.claude/settings.local.json`, `docs/` selain yang dibuang, `scripts/` selain skrip harness lama. Memasang ulang = ganti penuh perangkat (hook, rule, agent, skill), tetapi **data user dipertahankan** bila harness v1 sudah ada: `docs/work/` (kecuali `_TEMPLATE`), `docs/knowledge/`, `docs/_map.md`, dan blok `executor`/`checks`/`baseline`/`knowledge`/`graphify` di `harness.config.json`.
+Dipertahankan: `source-code/`, `.mcp.json`, `.claude/settings.local.json`, `docs/` selain yang dibuang, `scripts/` selain skrip harness lama. Memasang ulang = ganti penuh perangkat (hook, rule, agent, skill), tetapi **data user dipertahankan** bila harness v1 sudah ada: `docs/work/` (kecuali `_TEMPLATE`), `docs/knowledge/`, `docs/_map.md`, dan blok `checks`/`baseline`/`knowledge`/`graphify` di `harness.config.json`. Sisa modul yang sudah dibuang (`scripts/executor/`, `.agents/`, blok config `executor` dan `plane`) tidak disentuh: dilaporkan di rencana, tidak dipakai lagi, dan boleh kamu hapus sendiri.
 
-Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge); opsional (nonaktif bawaan) `pip install graphifyy==0.9.90` untuk graph L1 setelah uji terukur, MCP Plane.
+Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge); opsional (nonaktif bawaan) `pip install graphifyy==0.9.90` untuk graph L1 setelah uji terukur.
 
 ## Alur pakai
 
@@ -40,10 +40,6 @@ Awal setiap sesi, hook melaporkan (tanpa token, git lokal saja): service tanpa k
 Tipe: `feature`, `improvement`, `hotfix` (plan 4 baris, gerbang tetap), `analysis`, `cross-repo`, `schema`, `onboard`.
 Status: `draft → approved → in-progress → in-review → done → merged`. Selesai = PR merged.
 
-## Modul opsional: executor (Claude Code + Antigravity CLI)
-
-`node install.mjs --with-executor` memasang `scripts/executor/` dan `.agents/`, **nonaktif** secara bawaan. Claude tetap merencanakan, memverifikasi, dan meng-commit; `agy` mengeksekusi satu task dari brief tertulis (`/harness:dispatch <slug>`), dibatasi Scope, allowlist perintah, hook gate, dan audit diff. Prasyarat tambahan: python3, bash (Windows: Git Bash), `agy` ≥ 1.1.12. Detail, exit code, dan batas yang diketahui: `modules/executor/scripts/executor/README.md`.
-
 ## Yang ditegakkan hook (bukan sekadar anjuran)
 
 | aturan | mekanisme |
@@ -64,7 +60,7 @@ Status: `draft → approved → in-progress → in-review → done → merged`. 
 
 Hook adalah guardrail berbasis pola, **bukan sandbox**: agent yang sengaja mencari celah lewat shell bisa saja menemukannya. Ia menutup jalan yang lazim dan membuat pelanggaran terlihat di audit.
 
-Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_command`, ambang konteks, Plane, `graphify` (nonaktif bawaan), `knowledge` (batas baris, ambang kedaluwarsa), `baseline` (override branch baseline per service)).
+Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_command`, ambang konteks, `graphify` (nonaktif bawaan), `knowledge` (batas baris, ambang kedaluwarsa), `baseline` (override branch baseline per service)).
 
 ## Knowledge: baseline, lint, kedaluwarsa
 
@@ -76,14 +72,13 @@ Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_comma
 
 ## Pengujian
 
-`npm test` (hook + installer di project contoh, termasuk existing, baru, tanpa git, layout single, pasang ulang, `--ignore`/`backup/`, modul executor; knowledge: baseline, worktree, lint, kedaluwarsa, verifikasi, usulan pola). `npm run test:executor` (50 uji modul executor dengan agy tiruan; butuh bash + python3). `claude plugin validate .` lolos.
+`npm test` (hook + installer di project contoh, termasuk existing, baru, tanpa git, layout single, pasang ulang, `--ignore`/`backup/`, sisa modul lama dipertahankan; knowledge: baseline, worktree, lint, kedaluwarsa, verifikasi, usulan pola). `node scripts/check-repo.mjs` (konsistensi repo). CI menjalankan keduanya di Linux dan Windows. `claude plugin validate .` lolos.
 Diuji live dengan Claude Code 2.1.300 di sandbox: gerbang 1, approve via hook, transisi ilegal, rule per service (`paths`) termuat, `onFailure: block`, dan alur `impact → plan → approve → build → review → done` pada project mini.
 
 ## Belum teruji (jujur)
 
-- `ship` (commit/push/PR) dan cek `merged` lewat `gh` pada repo GitHub nyata; Plane MCP; `init`/`onboard`/`refresh` pada repo besar dan 14 repo (biaya token belum diukur — jalankan satu service dulu; bagian yang dijalankan model, yaitu kualitas ringkasan explorer, hanya diperiksa lint dan manusia); `lint-knowledge` diuji pada repo contoh kecil (heuristik simbol ±3 baris bisa memberi false positive pada bahasa/gaya tertentu); Graphify hanya diuji pada sampel kecil dan nonaktif.
+- `ship` (commit/push/PR) dan cek `merged` lewat `gh` pada repo GitHub nyata; `init`/`onboard`/`refresh` pada repo besar dan 14 repo (biaya token belum diukur — jalankan satu service dulu; bagian yang dijalankan model, yaitu kualitas ringkasan explorer, hanya diperiksa lint dan manusia); `lint-knowledge` diuji pada repo contoh kecil (heuristik simbol ±3 baris bisa memberi false positive pada bahasa/gaya tertentu); Graphify hanya diuji pada sampel kecil dan nonaktif.
 - Windows untuk inti harness: hook murni Node; perbaikan gagal-terbuka pada path berspasi diuji otomatis di Linux, belum di Windows.
-- Modul executor: diuji manual di Windows 11 + Git Bash dengan agy 1.4.3 (penulisan dalam Scope, gate, audit). Belum teruji: skill `/harness:dispatch` end-to-end dengan Claude Code, `sandbox: false` dengan agy asli, dan alur pada repo nyata. Codex CLI belum didukung (adapter dari `AGENTS.md` ditunda sampai inti stabil).
 - Pendaftaran plugin otomatis lewat `extraKnownMarketplaces` di `.claude/settings.json`: pemasangan lokal terverifikasi; jalur github privat tergantung kredensial git di mesinmu (`gh auth setup-git`). Cadangan manual: `claude plugin marketplace add devhardiyanto/agent-harness && claude plugin install harness@harness-marketplace`.
 - Mode `-p`/headless: entri `permissions.allow` diabaikan sampai workspace dipercaya (dialog trust).
 

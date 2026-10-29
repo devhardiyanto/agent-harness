@@ -22,7 +22,7 @@ Ikuti `/harness:onboard <svc>` (langkah 1–6: worktree baseline → explorer �
 ## Tahap 4 — peta, aturan, checks
 5. `docs/_map.md` (L0): isi tabel service (stack, peran, aktif?, pemilik skema?, **branch baseline**), relasi antar-service, data bersama. Relasi dari bukti (env var base URL, klien HTTP, queue/topic, tabel bersama), bukan dari graph saja; dugaan diberi `?`; sitasi `service:path:baris` diperiksa manusia saat verifikasi.
 6. Perbarui `.claude/rules/svc-<svc>.md`: stack, branch baseline, perintah yang **terbukti** di `summary.md` (bukan tebakan installer).
-7. `node .claude/hooks/harness.mjs propose-checks all` → tampilkan blok `checks` hasilnya dan minta user menyalinnya ke `harness.config.json` secara manual (file itu dilindungi dari agent). `agent_runs` tetap `false`; keputusan memberi agy hak menjalankan test ada pada user, per service.
+7. `node .claude/hooks/harness.mjs propose-checks all` → tampilkan blok `checks` hasilnya dan minta user menyalinnya ke `harness.config.json` secara manual (file itu dilindungi dari agent).
 
 ## Tahap 5 — verifikasi manusia (draft → verified)
 8. Per service: `node .claude/hooks/harness.mjs knowledge-sample <svc>` menampilkan 6 klaim acak + potongan kodenya. User memeriksa; bila cocok ia mengetik `/harness:verify <svc>`. Hanya itu yang menaikkan status; lint yang bersih saja tidak cukup (lint membuktikan sitasi ada, bukan bahwa penjelasannya benar).

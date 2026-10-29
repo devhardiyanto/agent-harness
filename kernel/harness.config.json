@@ -9,7 +9,6 @@
   "schema_paths": ["**/migrations/**", "**/migration/**", "**/*.sql", "**/schema.prisma"],
   "gate": { "test_command": null, "test_required": false, "test_timeout_sec": 300 },
   "context": { "window_tokens": 1000000, "warn_tokens": 400000 },
-  "plane": { "enabled": false, "project_id": null, "workspace": null },
   "graphify": { "enabled": false, "version": "0.9.90" },
   "knowledge": { "summary_max_lines": 80, "patterns_max_lines": 150, "stale_warn_commits": 15 },
   "baseline": {}

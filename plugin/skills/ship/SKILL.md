@@ -13,12 +13,11 @@ Masukan: `$ARGUMENTS` (slug). Merge adalah keputusan manusia; kamu tidak pernah 
 2. `git -C source-code/<svc> push -u origin <branch>`.
 3. `gh pr create --base <root_branch> --title "<judul>" --body-file <file sementara>`; body berupa tabel: ringkasan, AC + bukti (dari `progress.md`), risiko, rollback, dependency baru, tautan work item. Satu PR per service; sebutkan urutan merge bila lintas service.
 4. Tulis `pr: [url1, url2]` ke frontmatter `plan.md` (Edit biasa; hook mengizinkan field `pr`).
-5. Sinkronkan Plane (skill `plane`): status Review.
 
 ## Fase B — `pr:` terisi, user menyatakan PR sudah merged
 1. `node .claude/hooks/harness.mjs set-status <slug> merged` — hook memeriksa lewat `gh pr view` bahwa semua PR `MERGED`.
 2. Ditolak → sampaikan PR mana yang belum merged. Jangan memaksa.
-3. Berhasil → sinkronkan Plane: Done.
+3. Berhasil → work item selesai.
 
 ## Balasan chat (maks 5 baris)
 URL PR (satu per baris) · urutan merge · berikutnya: "merge manual, lalu `/harness:ship <slug>` lagi"
