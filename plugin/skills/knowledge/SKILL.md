@@ -27,7 +27,6 @@ Masukan: `$ARGUMENTS`; kata pertama = subperintah. Daftar service: `harness.conf
    Sitasi `path:baris` relatif ke root service (`src/x.ts:42` atau `src/x.ts:42-50`), simbol yang diklaim di backtick pada baris yang sama. Tidak ketemu: `UNKNOWN`; dugaan: `?`. Dilarang mengarang.
 5. Tulis (kamu, bukan explorer) kedua file dengan frontmatter `service`, `source_commit: <sha baseline>`, `status: draft`, `updated`. Lalu `node .claude/hooks/harness.mjs lint-knowledge <svc>`; perbaiki ERROR (hapus klaim tak terbukti atau tulis `UNKNOWN`; jangan memutus sitasi hanya agar lint lolos). Maksimal dua putaran; sisanya laporkan.
 6. `worktree rm <svc>`. Perbarui `docs/_map.md` (baris service, relasi yang terbukti).
-7. **Graph (L1), hanya bila `graphify.enabled`:** `graphify update .claude/state/worktrees/<svc>` sebelum langkah 6; pindahkan `graphify-out` ke `docs/knowledge/graph/<svc>` (di-gitignore). Graph hanya menambah daftar dampak.
 
 Balasan (≤5 baris): service ter-onboard · baseline ref@sha · lint bersih/n ERROR · UNKNOWN n · berikutnya `knowledge-sample <svc>` lalu `/harness:knowledge verify <svc>`.
 

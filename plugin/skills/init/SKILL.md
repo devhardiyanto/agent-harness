@@ -14,7 +14,7 @@ Masukan: `$ARGUMENTS` (kosong = lanjutkan tahap berikutnya yang belum selesai; `
 3. Baseline otomatis = `origin/HEAD` → `production` → `main` → `master`. Checkout user (branch fitur, perubahan belum commit) **tidak disentuh**; analisa memakai worktree sementara.
 
 ## Tahap 2 — ukur dulu
-4. Pilih satu service (kecil atau yang paling sering disentuh; bila ragu, yang pertama). Kerjakan Tahap 3 untuk service itu saja, lalu **berhenti**: minta user melihat `/usage` (biaya satu service) dan menjawab apakah lanjut `all` (`AskUserQuestion`: lanjut `all` / satu service lagi / berhenti).
+4. Pilih satu service (kecil atau yang paling sering disentuh; bila ragu, yang pertama). Kerjakan Tahap 3 untuk service itu saja, lalu **berhenti**: minta user melihat `/usage` (biaya satu service) dan menjawab apakah lanjut `all` (`AskUserQuestion`: lanjut `all` / satu service lagi / berhenti). Tanyakan juga angka biaya dari `/usage` (opsi "Other" untuk mengetik angkanya) dan catat satu baris di `docs/knowledge/_init.md`: tanggal, service, baseline@sha, lint ERROR, jumlah UNKNOWN, baris summary/patterns, biaya token yang dilaporkan user. Tanpa angka dari user, tulis `belum dilaporkan`; jangan mengarang.
 
 ## Tahap 3 — knowledge per service (L2, L3)
 Ikuti `/harness:knowledge onboard <svc>` (langkah 1–6: worktree baseline → explorer → tulis `summary.md` + `patterns.md` dengan `source_commit` = SHA baseline → lint → lepas worktree). Satu service selesai hanya bila `lint-knowledge` bersih.
@@ -26,9 +26,6 @@ Ikuti `/harness:knowledge onboard <svc>` (langkah 1–6: worktree baseline → e
 
 ## Tahap 5 — verifikasi manusia (draft → verified)
 8. Per service: `node .claude/hooks/harness.mjs knowledge-sample <svc>` menampilkan 6 klaim acak + potongan kodenya. User memeriksa; bila cocok ia mengetik `/harness:knowledge verify <svc>`. Hanya itu yang menaikkan status; lint yang bersih saja tidak cukup (lint membuktikan sitasi ada, bukan bahwa penjelasannya benar).
-
-## Graph (L1) — opsional, nonaktif
-Hanya bila `graphify.enabled: true` (user menyalakannya **setelah** uji terukur: lihat `GRAPHIFY-TRIAL.md` di folder skill ini). Graph hanya MENAMBAH daftar dampak; ketiadaan hasil di graph tidak membuktikan apa pun (wiring implisit Laravel/Nuxt/Go dan panggilan HTTP antar-service tidak tertangkap). Cara membangun: `/harness:knowledge onboard` langkah 7.
 
 ## Balasan chat (maks 5 baris)
 Service ter-init: n/total · baseline: ... · UNKNOWN: n (di `_map.md`) · checks diusulkan: path/blok · berikutnya: `knowledge-sample` lalu `/harness:knowledge verify <svc>`

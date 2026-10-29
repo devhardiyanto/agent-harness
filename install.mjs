@@ -73,8 +73,6 @@ function prereq() {
   const v = /(\d+)\.(\d+)\.(\d+)/.exec(out(cl));
   const okv = v && (+v[1] > 2 || (+v[1] === 2 && (+v[2] > 1 || (+v[2] === 1 && +v[3] >= 295))));
   add('claude >= 2.1.295 (onFailure: block)', !!okv, out(cl) || 'claude tidak ditemukan di PATH');
-  const py = sh('python3', ['--version'], HERE);
-  add('python3 (opsional, untuk Graphify)', py.status === 0, out(py) || 'opsional');
   log('## Prasyarat'); table(['cek', 'hasil', 'catatan'], rows.map((r) => [r.n, r.ok ? 'OK' : (r.fatal ? 'GAGAL' : 'PERINGATAN'), r.note]));
   if (rows.some((r) => r.fatal && !r.ok)) die('prasyarat wajib belum terpenuhi.');
 }
@@ -208,7 +206,7 @@ function render(det, mode) {
 }
 
 // ---------- 4. terapkan ----------
-const GITIGNORE = ['.harness-staging/', '.harness-backup-*/', '.claude/audit/', '.claude/state/', 'docs/knowledge/graph/', '.claude/settings.local.json', 'CLAUDE.local.md'];
+const GITIGNORE = ['.harness-staging/', '.harness-backup-*/', '.claude/audit/', '.claude/state/', '.claude/settings.local.json', 'CLAUDE.local.md'];
 function applyGitignore(isGit) {
   const p = path.join(target, '.gitignore');
   const cur = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';

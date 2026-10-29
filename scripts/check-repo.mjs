@@ -73,8 +73,8 @@ check('rujukan /harness:<perintah> menunjuk skill yang ada', (bad) => {
 });
 
 // 5. modul yang sudah dibuang tidak boleh dirujuk lagi di kernel dan plugin
-check('tidak ada rujukan ke modul yang dibuang (executor, dispatch, plane, lean, agy)', (bad) => {
-  const banned = /\/harness:(dispatch|plane|lean)\b|executor\.enabled|scripts\/executor|\.agents\/|--with-executor|Antigravity|\bagy\b/i;
+check('tidak ada rujukan ke modul yang dibuang (executor, dispatch, plane, lean, agy, graphify)', (bad) => {
+  const banned = /\/harness:(dispatch|plane|lean)\b|executor\.enabled|scripts\/executor|\.agents\/|--with-executor|Antigravity|\bagy\b|graphify|knowledge\/graph/i;
   for (const f of [...walk('kernel'), ...walk('plugin')].filter((x) => /\.(md|mjs|json)$/.test(x))) {
     const m = banned.exec(read(f));
     if (m) bad(`${f}: memuat "${m[0]}"`);
