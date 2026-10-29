@@ -278,12 +278,18 @@ export function checkDone(root, item, cfg) {
   return problems;
 }
 
+// gh lewat shell di Windows (agar shim/gh.cmd ikut ter-resolve), jadi argumen dijaga: tanpa metakarakter shell.
+export function ghRun(args, cwd, timeout = 45000) {
+  const win = process.platform === 'win32';
+  if (win && args.some((a) => /[&|<>^"%\r\n]/.test(String(a)))) return { status: 1, stdout: '', stderr: 'argumen gh mengandung karakter terlarang', error: new Error('argumen gh tidak aman') };
+  return spawnSync('gh', args, { cwd, encoding: 'utf8', timeout, shell: win });
+}
 export function checkMerged(item) {
   const prs = asList(item.fm.pr);
   if (!prs.length) return ['frontmatter plan.md belum punya "pr:" (URL PR).'];
   const problems = [];
   for (const pr of prs) {
-    const r = spawnSync('gh', ['pr', 'view', pr, '--json', 'state', '-q', '.state'], { encoding: 'utf8', timeout: 30000 });
+    const r = ghRun(['pr', 'view', pr, '--json', 'state', '-q', '.state'], undefined, 30000);
     if (r.error || r.status !== 0) problems.push(`tidak bisa memeriksa ${pr} lewat gh (${(r.stderr || r.error?.message || '').trim().slice(0, 200)}).`);
     else if (r.stdout.trim() !== 'MERGED') problems.push(`${pr} berstatus ${r.stdout.trim()}, belum MERGED.`);
   }
