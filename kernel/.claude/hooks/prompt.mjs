@@ -6,6 +6,7 @@ import {
 } from './lib.mjs';
 import { spawnSync } from 'node:child_process';
 import { verifyService, approveProposal, formatLint } from './knowledge.mjs';
+import { issueTicket } from './ship.mjs';
 
 const payload = await readStdinJson();
 const root = projectRoot(payload);
@@ -16,18 +17,33 @@ const m = /^\s*\/(?:harness:)?approve\s+([\w.\-]+)/i.exec(prompt);
 const mv = /^\s*\/(?:harness:)?(?:knowledge\s+)?verify\s+([\w.\-]+)\s*$/i.exec(prompt);
 const mp = /^\s*\/(?:harness:)?(?:knowledge\s+)?patterns\s+([\w.\-]+)\s+(all|P\d+(?:\s*,\s*P\d+)*)\s*$/i.exec(prompt);
 const mq = /^\s*\/(?:harness:)?quick(?:\s+([\s\S]*))?$/i.exec(prompt);
-if (!m && !mv && !mp && !mq) {
+const ms = /^\s*\/(?:harness:)?ship\s+([\w.\-]+)\s*$/i.exec(prompt);
+if (!m && !mv && !mp && !mq && !ms) {
   // Peringatan ambang konteks juga di sini (bukan hanya setelah tool): murah, sekali per prompt.
   try { const w = contextWarning(root, cfg, payload); if (w) context('UserPromptSubmit', w); } catch { /* abaikan */ }
   process.exit(0);
 }
 
 const block = (reason) => {
-  process.stdout.write(JSON.stringify({ decision: 'block', reason: `[harness] ${mv ? 'verify' : mp ? 'patterns' : mq ? 'quick' : 'approve'} ditolak: ${reason}` }));
+  process.stdout.write(JSON.stringify({ decision: 'block', reason: `[harness] ${mv ? 'verify' : mp ? 'patterns' : mq ? 'quick' : ms ? 'merge' : 'approve'} ditolak: ${reason}` }));
   process.exit(0);
 };
 const who0 = () => spawnSync('git', ['config', 'user.email'], { cwd: root, encoding: 'utf8' }).stdout.trim() || 'unknown';
 
+// /harness:ship <slug>: bila PR sudah terbuka, ketikan ini = keputusan merge. Hook memeriksa gate + check PR + akun gh,
+// lalu menerbitkan tiket sekali pakai yang dipakai `harness.mjs ship`. Tanpa PR (fase A), perintah diteruskan ke skill.
+if (ms) {
+  const ss = resolveSlug(root, ms[1]);
+  const it = ss ? readItem(root, ss) : null;
+  if (it && it.status === 'done' && String(it.fm.pr || '').replace(/null|\[\]/g, '').trim()) {
+    const r = issueTicket(root, cfg, it, who0());
+    if (!r.ok) block(`\n- ${r.problems.join('\n- ')}`);
+    if (r.allMerged) { context('UserPromptSubmit', `[harness] Semua PR ${ss} sudah MERGED. Jalankan "node .claude/hooks/harness.mjs set-status ${ss} merged" lalu balas satu baris.`); process.exit(0); }
+    audit(root, { event: 'merge-ticket', session: payload.session_id, slug: ss, by: who0(), prs: r.ticket.prs.map((x) => x.url).join(' ') });
+    context('UserPromptSubmit', `[harness] ${who0()} memutuskan MERGE ${ss}. Tiket sekali pakai terbit (berlaku ${cfg.ship.ticket_ttl_min} menit) untuk: ${r.ticket.prs.map((x) => `${x.url} [${x.checks}]`).join('; ')}. Jalankan HANYA "node .claude/hooks/harness.mjs ship ${ss}"; jangan gh pr merge. Balas ≤3 baris: hasil tiap PR dan status akhir.`);
+  }
+  process.exit(0);
+}
 // /harness:quick <permintaan>: ketikan manusia = persetujuan. Hook membuat item lajur quick berstatus approved (satu service, batas file di config).
 if (mq) {
   const r = createQuick(root, mq[1], who0());

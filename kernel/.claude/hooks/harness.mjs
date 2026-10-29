@@ -15,6 +15,8 @@
 //   amend <slug> --ac ".."  tambah AC kecil setelah approve (batas config.amend.max); tanpa mengubah service/skema/AC lama
 //   promote <slug>          quick → standard (draft; perlu plan + approve)
 //   next [slug]             langkah berikutnya per item: siapa dan perintah persisnya
+//   ship-plan <slug>        rencana pengiriman per service: branch kerja, base (config ship.base), akun gh, masalah
+//   ship <slug>             merge PR berurutan; HANYA berjalan dengan tiket sekali pakai dari ketikan manusia /harness:ship <slug>
 //   doctor                  periksa instalasi
 // Pengetahuan (tanpa token, deterministik):
 //   inventory [--json]                  service di source-code/, stack, baseline, status checkout
@@ -32,6 +34,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runGate } from './delivery.mjs';
+import { shipPlan, runShip, ghAccess } from './ship.mjs';
 import {
   inventory, baselineOf, worktreeAdd, worktreeRm, lintService, formatLint, sampleService, knowledgeStatus, proposeChecks,
   verifyService, checkProposal, approveProposal, isRepo, svcDir,
@@ -196,6 +199,26 @@ switch (cmd) {
     for (const i of items) { const n = nextStep(i); console.log(`| ${i.slug} | ${isQuick(i) ? 'quick' : 'standard'} | ${i.status} | ${n.who} | ${n.cmd} |`); }
     break;
   }
+  case 'ship-plan': {
+    const i = need(args[0]);
+    const rows = shipPlan(root, cfg, i);
+    console.log('| service | branch kerja | base | PR bertumpuk | gh akun | belum commit | masalah |\n|---|---|---|---|---|---|---|');
+    for (const r of rows) console.log(`| ${r.service} | ${r.branch || '-'} | ${r.base} (${r.base_via}) | ${r.stacked ? 'ya' : 'tidak'} | ${r.gh} | ${r.dirty} | ${r.problems.join(' ') || '-'} |`);
+    if (rows.some((r) => r.problems.length)) process.exit(2);
+    break;
+  }
+  case 'ship': {
+    const i = need(args[0]);
+    if (i.status !== 'done') die(`status ${i.status}; ship hanya untuk item "done".`, 2);
+    const r = runShip(root, cfg, i, (m) => console.log(m));
+    if (!r.ok) die(`DITOLAK:\n- ${r.problems.join('\n- ')}${r.merged?.length ? `\n(sudah merged: ${r.merged.map((x) => x.url).join(', ')}; ketik /harness:ship lagi untuk sisanya)` : ''}`, 2);
+    audit(root, { event: 'ship-merge', slug: i.slug, prs: r.merged.map((x) => x.url).join(' ') });
+    const p = checkTransition(root, cfg, readItem(root, i.slug), 'merged', { actor: 'agent' });
+    if (p.length) die(`PR sudah merged tetapi item belum ditutup:\n- ${p.join('\n- ')}`, 2);
+    write(readItem(root, i.slug), 'merged');
+    console.log(`${i.slug}: done → merged`);
+    break;
+  }
   case 'doctor': {
     const rows = [];
     const ok = (name, pass, hint = '') => rows.push(`| ${name} | ${pass ? 'OK' : 'GAGAL'} | ${pass ? '' : hint} |`);
@@ -203,7 +226,12 @@ switch (cmd) {
     ok('node >= 18', nodeMajor >= 18, `terpasang ${process.versions.node}`);
     const sh = (c, a) => spawnSync(c, a, { encoding: 'utf8' });
     const git = sh('git', ['--version']); ok('git', git.status === 0, 'pasang git');
-    const gh = sh('gh', ['--version']); ok('gh (untuk cek PR merged)', gh.status === 0, 'pasang GitHub CLI + gh auth login');
+    const gh = sh('gh', ['--version']); ok('gh (untuk PR dan merge)', gh.status === 0, 'pasang GitHub CLI + gh auth login');
+    if (gh.status === 0) {
+      const dirs = (cfg.services || []).map((s) => path.join(root, cfg.services_dir, s)).filter((d) => fs.existsSync(d) && spawnSync('git', ['remote', 'get-url', 'origin'], { cwd: d }).status === 0); // service tanpa remote origin dilewati
+      const bad = dirs.map((d) => ({ d, a: ghAccess(d) })).filter((x) => !x.a.ok);
+      ok('akun gh aktif punya akses tulis ke repo service', !bad.length, bad.map((x) => path.basename(x.d) + ': ' + x.a.note).join(' | ').slice(0, 300));
+    }
     const cl = spawnSync('claude', ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' });
     const clv = /(\d+)\.(\d+)\.(\d+)/.exec(cl.stdout || '');
     const verOk = clv && (Number(clv[1]) > 2 || (Number(clv[1]) === 2 && (Number(clv[2]) > 1 || (Number(clv[2]) === 1 && Number(clv[3]) >= 295))));

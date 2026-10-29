@@ -43,5 +43,10 @@
   "amend": {
     "max": 3
   },
-  "checks": {}
+  "checks": {},
+  "ship": {
+    "base": {},
+    "merge_method": "merge",
+    "ticket_ttl_min": 30
+  }
 }

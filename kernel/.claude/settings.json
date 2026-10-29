@@ -45,7 +45,7 @@
             "args": [
               "${CLAUDE_PROJECT_DIR}/.claude/hooks/prompt.mjs"
             ],
-            "timeout": 15
+            "timeout": 90
           }
         ]
       }
