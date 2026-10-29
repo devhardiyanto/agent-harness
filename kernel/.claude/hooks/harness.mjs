@@ -155,9 +155,12 @@ switch (cmd) {
     const git = sh('git', ['--version']); ok('git', git.status === 0, 'pasang git');
     const gh = sh('gh', ['--version']); ok('gh (untuk cek PR merged)', gh.status === 0, 'pasang GitHub CLI + gh auth login');
     const cl = spawnSync('claude', ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' });
-    const ver = /(\d+)\.(\d+)\.(\d+)/.exec(cl.stdout || '');
-    const verOk = ver && (Number(ver[1]) > 2 || (Number(ver[1]) === 2 && (Number(ver[2]) > 1 || (Number(ver[2]) === 1 && Number(ver[3]) >= 295))));
+    const clv = /(\d+)\.(\d+)\.(\d+)/.exec(cl.stdout || '');
+    const verOk = clv && (Number(clv[1]) > 2 || (Number(clv[1]) === 2 && (Number(clv[2]) > 1 || (Number(clv[2]) === 1 && Number(clv[3]) >= 295))));
     ok('claude >= 2.1.295 (onFailure: block)', !!verOk, cl.stdout ? `terpasang ${cl.stdout.trim()}` : 'claude tidak ditemukan di PATH');
+    const ver = readJson(path.join(root, '.claude', 'harness.version'));
+    ok('.claude/harness.version terbaca', !!(ver && ver.version), 'jalankan: node <installer>/install.mjs . --update');
+    ok('versi config sama dengan versi terpasang', !ver || cfg.harness_version === ver.version, `config ${cfg.harness_version} ≠ terpasang ${ver && ver.version}; jalankan install --update`);
     const settings = readJson(path.join(root, '.claude', 'settings.json'));
     ok('.claude/settings.json', !!settings, 'hilang');
     const refs = JSON.stringify(settings || {}).match(/\.claude\/hooks\/[\w.-]+\.mjs/g) || [];
