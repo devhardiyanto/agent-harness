@@ -21,4 +21,14 @@ jobs:
         with:
           node-version: 22
       - run: node scripts/check-repo.mjs
-      - run: npm test
+      - name: npm test
+        run: |
+          set +e
+          npm test > test.log 2>&1
+          code=$?
+          cat test.log
+          if [ $code -ne 0 ]; then
+            msg=$(grep -E -B1 -A12 "^\s*not ok" test.log | head -60 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=npm test gagal::${msg}"
+          fi
+          exit $code
