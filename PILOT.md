@@ -1,4 +1,4 @@
-# Paket pilot 1.4.0
+# Paket pilot (1.4.x)
 
 Tujuan: membuktikan di mesinmu apa yang di CI hanya diuji dengan tiruan (GitHub asli, Windows, Claude Code asli). Kerjakan berurutan pada **satu project** dulu. Catat hasil di tabel akhir lalu kirim ke saya; yang GAGAL jadi perbaikan, bukan alasan berhenti.
 
