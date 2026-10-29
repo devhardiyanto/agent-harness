@@ -8,6 +8,13 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+
+// CLI `claude` palsu agar tes tidak bergantung pada mesin (runner CI tidak punya claude).
+const shim = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-shim-'));
+fs.writeFileSync(path.join(shim, 'claude'), '#!/bin/sh\necho "2.1.300 (Claude Code)"\n', { mode: 0o755 });
+fs.writeFileSync(path.join(shim, 'claude.cmd'), '@echo 2.1.300 (Claude Code)\r\n');
+process.env.PATH = shim + path.delimiter + process.env.PATH;
+
 const installer = path.join(here, '..', 'install.mjs');
 const sh = (cmd, args, cwd) => spawnSync(cmd, args, { cwd, encoding: 'utf8' });
 const install = (dir, ...a) => sh('node', [installer, dir, '--repo', 'devhardiyanto/agent-harness', ...a], dir);

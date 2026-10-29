@@ -154,7 +154,7 @@ switch (cmd) {
     const sh = (c, a) => spawnSync(c, a, { encoding: 'utf8' });
     const git = sh('git', ['--version']); ok('git', git.status === 0, 'pasang git');
     const gh = sh('gh', ['--version']); ok('gh (untuk cek PR merged)', gh.status === 0, 'pasang GitHub CLI + gh auth login');
-    const cl = sh('claude', ['--version']);
+    const cl = spawnSync('claude', ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' });
     const ver = /(\d+)\.(\d+)\.(\d+)/.exec(cl.stdout || '');
     const verOk = ver && (Number(ver[1]) > 2 || (Number(ver[1]) === 2 && (Number(ver[2]) > 1 || (Number(ver[2]) === 1 && Number(ver[3]) >= 295))));
     ok('claude >= 2.1.295 (onFailure: block)', !!verOk, cl.stdout ? `terpasang ${cl.stdout.trim()}` : 'claude tidak ditemukan di PATH');

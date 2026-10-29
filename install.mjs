@@ -29,7 +29,10 @@ const DRY = flag('dry-run');
 const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
 
 // ---------- util ----------
-const sh = (cmd, args, cwd = target) => spawnSync(cmd, args, { cwd, encoding: 'utf8' });
+const sh = (cmd, args, cwd = target) => spawnSync(cmd, args, { cwd, encoding: 'utf8', shell: process.platform === 'win32' && cmd === 'claude' });
+// Bandingkan path lewat realpath: di Windows, tmp bisa berbentuk 8.3 (RUNNER~1) sedangkan git mengembalikan nama panjang.
+const real = (p) => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
+const samePath = (a, b) => (process.platform === 'win32' ? real(a).toLowerCase() === real(b).toLowerCase() : real(a) === real(b));
 const out = (r) => (r.stdout || '').trim();
 const exists = (p) => fs.existsSync(path.join(target, p));
 const log = (s = '') => console.log(s);
@@ -214,7 +217,7 @@ if (path.resolve(target) === path.resolve(HERE)) die('jangan jalankan di folder 
 prereq();
 
 const top = out(sh('git', ['rev-parse', '--show-toplevel']));
-const isGit = !!top && path.resolve(top) === target;
+const isGit = !!top && samePath(top, target);
 if (top && !isGit) die(`${target} berada di dalam repo git lain (${top}). Jalankan di root project itu.`);
 const existing = OLD_PATHS.filter(exists);
 const mode = existing.length ? 'existing' : 'new';
