@@ -18,7 +18,7 @@ Masukan: `$ARGUMENTS` (slug). Sesi ini adalah sesi **eksekusi**.
    - migrasi/skema → agent `dba` lebih dulu.
 6. Setiap AC selesai → tulis bukti nyata di `progress.md` bagian `## Verifikasi`: `- AC1: <output/respons/langkah+hasil>`. Perbarui "Status terkini".
 7. Bila hook memperingatkan konteks ±400k token: simpan status ke `progress.md`, berhenti, minta user lanjut di sesi baru dengan `/harness:build <slug>`.
-8. Semua AC punya bukti → `node .claude/hooks/harness.mjs set-status <slug> in-review`.
+8. Semua AC punya bukti → `node .claude/hooks/harness.mjs set-status <slug> in-review`. Checks service (lint/test/build) dijalankan oleh gerbang pengiriman saat `done`; boleh dicoba lebih awal: `node .claude/hooks/harness.mjs gate <slug>`.
 
 ## Aturan
 - Hanya yang ada di plan. Temuan lain → `progress.md` bagian "Di luar lingkup".

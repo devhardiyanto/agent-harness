@@ -1,6 +1,7 @@
 // Harness v1 — pustaka bersama untuk hook dan CLI. Tanpa dependency; Node >= 18.
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -22,7 +23,8 @@ export const DEFAULT_CONFIG = {
     'npm\\s+publish', 'terraform\\s+(apply|destroy)', 'kubectl\\s+(delete|drain)', 'docker\\s+push',
     '\\bDROP\\s+(TABLE|DATABASE|SCHEMA)\\b', '\\bTRUNCATE\\s+TABLE\\b', 'gh\\s+pr\\s+merge', 'gh\\s+repo\\s+delete',
   ],
-  gate: { test_command: null, test_required: false, test_timeout_sec: 300 },
+  gate: { test_command: null, test_required: false, test_timeout_sec: 300, require_checks: false },
+  checks: {},                // per service: { "api": { "lint": "npm run lint", "test": "npm test", "build": null } }; kosong = TIDAK DIPERIKSA
   quick: { max_files: 5 },   // lajur cepat: 1 service, bukan skema, maksimal N file
   amend: { max: 3 },         // tambahan AC kecil per work item tanpa approve ulang
   context: { window_tokens: 1000000, warn_tokens: 400000 },
@@ -194,6 +196,40 @@ export function summarizeItem(item) {
   };
 }
 
+// ---------- gerbang pengiriman (gate.md) ----------
+export const serviceDirOf = (root, cfg, svc) => (cfg.layout === 'multi-repo' ? path.join(root, cfg.services_dir, svc) : root);
+// Sidik jari masukan gerbang: bukti, review, daftar service, checks, dan keadaan kode tiap service. Berubah = gate.md usang.
+export function gateFingerprint(root, cfg, item) {
+  const h = crypto.createHash('sha1');
+  for (const f of ['progress.md', 'review.md']) { const p = path.join(item.dir, f); h.update(fs.existsSync(p) ? fs.readFileSync(p) : ''); }
+  h.update(JSON.stringify(item.services)); h.update(JSON.stringify(cfg.checks || {})); h.update(String(item.fm.lane || ''));
+  for (const sv of item.services) {
+    const d = serviceDirOf(root, cfg, sv === '*' ? '' : sv);
+    if (!fs.existsSync(path.join(d, '.git'))) { h.update(`${sv}:nogit`); continue; }
+    const g = (a) => spawnSync('git', a, { cwd: d, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).stdout || '';
+    h.update(g(['rev-parse', 'HEAD'])); h.update(g(['diff', 'HEAD'])); h.update(g(['status', '--porcelain']));
+    // file baru yang belum di-track tidak muncul di diff: hash isinya juga (batas 200 file, 1 MB per file)
+    for (const f of g(['ls-files', '--others', '--exclude-standard']).split('\n').filter(Boolean).slice(0, 200)) {
+      try { const fp = path.join(d, f); if (fs.statSync(fp).size <= 1_000_000) { h.update(f); h.update(fs.readFileSync(fp)); } } catch { /* abaikan */ }
+    }
+  }
+  return h.digest('hex').slice(0, 16);
+}
+export function readGate(item) {
+  const p = path.join(item.dir, 'gate.md');
+  if (!fs.existsSync(p)) return null;
+  const { fm, body } = splitFrontmatter(fs.readFileSync(p, 'utf8'));
+  return { fm, body, failing: body.split(/\r?\n/).filter((l) => /\|\s*FAIL\s*\|/.test(l)).map((l) => l.replace(/^\|\s*/, '').replace(/\s*\|\s*$/, '').replace(/\s*\|\s*/g, ' · ')) };
+}
+// Dipakai transisi done (dan ship): gate.md harus ada, pass, dan masih berlaku.
+export function gateProblems(root, cfg, item) {
+  const g = readGate(item);
+  if (!g) return [`gate.md belum ada: jalankan "node .claude/hooks/harness.mjs gate ${item.slug}" ("set-status ${item.slug} done" menjalankannya otomatis).`];
+  if (String(g.fm.verdict) !== 'pass') return [`gate.md verdict ${g.fm.verdict || '?'}:\n  ${g.failing.join('\n  ') || '(lihat gate.md)'}`];
+  if (String(g.fm.fingerprint) !== gateFingerprint(root, cfg, item)) return [`gate.md usang (kode atau bukti berubah sejak gate dijalankan): jalankan "node .claude/hooks/harness.mjs gate ${item.slug}" lagi.`];
+  return [];
+}
+
 // ---------- gerbang 2 ----------
 export function checkDone(root, item, cfg) {
   const problems = [];
@@ -226,6 +262,7 @@ export function checkDone(root, item, cfg) {
     const r = spawnSync(testCmd, { shell: true, cwd: root, encoding: 'utf8', timeout: (cfg.gate.test_timeout_sec || 300) * 1000 });
     if (r.status !== 0) problems.push(`test_command gagal (exit ${r.status}): ${testCmd}\n${(r.stdout + r.stderr).slice(-600)}`);
   } else if (cfg.gate.test_required) problems.push('test_command wajib tetapi belum diset.');
+  problems.push(...gateProblems(root, cfg, item));
   return problems;
 }
 
