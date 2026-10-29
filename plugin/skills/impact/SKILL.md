@@ -8,6 +8,8 @@ disable-model-invocation: true
 
 Masukan: `$ARGUMENTS`. Keluaran: file, bukan narasi.
 
+Perubahan kecil (satu service, ≤5 file, bukan skema)? Sarankan user mengetik `/harness:quick <permintaan>` dan berhenti; jangan membuat item standard.
+
 ## Langkah
 1. Tentukan `type` dari kata pertama (feature, improvement, hotfix, analysis, cross-repo, schema, onboard). Bila tidak ada, simpulkan dan sebut asumsimu di `brief.md`.
 2. Buat item: `node .claude/hooks/harness.mjs new <type> "<judul singkat>"` → dapat `docs/work/<slug>`.

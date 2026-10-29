@@ -48,6 +48,7 @@ check('versi konsisten (VERSION, package.json, config kernel, plugin.json)', (ba
 const skillDirs = fs.existsSync(path.join(ROOT, 'plugin/skills')) ? fs.readdirSync(path.join(ROOT, 'plugin/skills'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name) : [];
 check('skill: SKILL.md valid dan namanya sama dengan folder', (bad) => {
   if (!skillDirs.length) bad('plugin/skills kosong');
+  if (skillDirs.length > 12) bad(`terlalu banyak skill (${skillDirs.length}); target 1.4.0 = 11, batas 12`);
   for (const d of skillDirs) {
     const f = `plugin/skills/${d}/SKILL.md`;
     if (!has(f)) { bad(`${f} tidak ada`); continue; }
@@ -61,14 +62,12 @@ check('skill: SKILL.md valid dan namanya sama dengan folder', (bad) => {
 });
 
 // 4. setiap /harness:<x> yang dirujuk adalah skill atau perintah hook yang dikenal
-check('rujukan /harness:<perintah> menunjuk skill atau perintah hook yang ada', (bad) => {
-  const known = new Set(skillDirs);
-  const prompt = has('kernel/.claude/hooks/prompt.mjs') ? read('kernel/.claude/hooks/prompt.mjs') : '';
-  for (const m of prompt.matchAll(/harness:([a-z][a-z-]*)/g)) known.add(m[1]);
+check('rujukan /harness:<perintah> menunjuk skill yang ada', (bad) => {
+  const known = new Set(skillDirs); // perintah /harness:<x> = skill; tidak ada perintah lain (hook hanya memproses ketikan skill yang sama)
   const files = [...walk('kernel'), ...walk('plugin'), 'README.md', 'install.mjs'].filter((f) => /\.(md|mjs|json)$/.test(f));
   for (const f of files) {
     for (const m of read(f).matchAll(/(?<=^|[\s`"'])\/harness:([a-z][a-z-]*)/gm)) {
-      if (!known.has(m[1])) bad(`${f}: /harness:${m[1]} tidak ada sebagai skill atau perintah hook`);
+      if (!known.has(m[1])) bad(`${f}: /harness:${m[1]} tidak ada sebagai skill`);
     }
   }
 });
