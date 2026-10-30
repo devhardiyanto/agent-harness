@@ -21,8 +21,9 @@ Masukan: `$ARGUMENTS` (slug). Agent tidak pernah menjalankan `gh pr merge`. Merg
 User mengetik `/harness:ship <slug>` lagi setelah check hijau. Hook memeriksa gate, check tiap PR (merah atau berjalan = ditolak), draft, dan akun gh, lalu menerbitkan tiket. Bila konteksmu memuat "memutuskan MERGE":
 1. `node .claude/hooks/harness.mjs ship <slug>`: merge berurutan (PR yang basenya bukan PR lain lebih dulu; PR bertumpuk diarahkan ke base induknya setelah induk masuk), lalu `merged`.
 2. Ditolak → sampaikan alasannya; jangan memaksa, jangan merge manual. Sebagian sudah merged → user mengetik `/harness:ship <slug>` lagi untuk sisanya.
-3. Tanpa pesan "memutuskan MERGE" di konteksmu, hook menolak sendiri (alasan sudah tampil ke user): jangan mengulang, jangan mencari jalan lain.
+3. Setelah status `merged` (semua PR masuk), jalankan skill `summarize <slug>` supaya sesi bisa dilanjutkan tanpa kehilangan konteks.
+4. Tanpa pesan "memutuskan MERGE" di konteksmu, hook menolak sendiri (alasan sudah tampil ke user): jangan mengulang, jangan mencari jalan lain.
 
 ## Balasan chat (maks 5 baris)
 Fase A: URL PR (satu per baris) · urutan merge · "tunggu check hijau, lalu ketik `/harness:ship <slug>` untuk merge".
-Fase B: hasil tiap PR · status akhir.
+Fase B: hasil tiap PR · status akhir · path ringkasan sesi.

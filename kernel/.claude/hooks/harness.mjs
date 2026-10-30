@@ -216,7 +216,7 @@ switch (cmd) {
     const p = checkTransition(root, cfg, readItem(root, i.slug), 'merged', { actor: 'agent' });
     if (p.length) die(`PR sudah merged tetapi item belum ditutup:\n- ${p.join('\n- ')}`, 2);
     write(readItem(root, i.slug), 'merged');
-    console.log(`${i.slug}: done → merged`);
+    console.log(`${i.slug}: done → merged\nBerikutnya: ringkasan sesi (skill summarize ${i.slug}) → docs/sessions/`);
     break;
   }
   case 'doctor': {

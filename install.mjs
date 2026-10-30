@@ -243,7 +243,7 @@ const mode = existing.length ? 'existing' : 'new';
 // Pasang ulang di atas harness v1: pengetahuan (docs/knowledge) dan work item (docs/work) adalah DATA user, bukan perangkat; jangan dibuang.
 const hadV1 = exists('.claude/harness.version');
 // Dokumentasi/data user TIDAK PERNAH dibuang, juga pada root yang belum ber-harness v1 (docs/discussion bahkan tidak ada di daftar buang).
-const PRESERVE = ['docs/knowledge', 'docs/work', 'docs/_map.md', 'docs/_archive', 'docs/_registry.md'];
+const PRESERVE = ['docs/knowledge', 'docs/work', 'docs/sessions', 'docs/_map.md', 'docs/_archive', 'docs/_registry.md'];
 const installedVer = hadV1 ? (() => { try { return JSON.parse(fs.readFileSync(path.join(target, '.claude', 'harness.version'), 'utf8')).version || null; } catch { return null; } })() : null;
 if (UPDATE) {
   if (!hadV1) die('--update butuh harness terpasang (.claude/harness.version tidak ada). Jalankan tanpa --update untuk memasang.');
@@ -306,7 +306,7 @@ if (isGit && !flag('allow-dirty')) {
   const dirty = dirtyTracked();
   if (dirty) die(`ada perubahan tracked yang belum di-commit:\n${dirty}\n${DIRTY_HELP}`);
 }
-if (!(await confirm(UPDATE ? `\nPerbarui berkas harness ${installedVer || '?'} → ${VERSION}? Data (docs/work, docs/knowledge, docs/discussion, _map.md, config) dipertahankan. (y/N): ` : mode === 'existing' ? '\nHarness lama akan DIBUANG dan diganti. Ketik "ganti" untuk lanjut: ' : '\nPasang harness v1? (y/N): '))) die('dibatalkan oleh user.');
+if (!(await confirm(UPDATE ? `\nPerbarui berkas harness ${installedVer || '?'} → ${VERSION}? Data (docs/work, docs/knowledge, docs/sessions, docs/discussion, _map.md, config) dipertahankan. (y/N): ` : mode === 'existing' ? `\nHarness lama ${removable.length ? `akan diganti; ${removable.length} berkas lama DIBUANG (lihat Rencana)` : 'akan diganti di tempat; tidak ada berkas yang dibuang'}. Data user dipertahankan. Ketik "ganti" untuk lanjut: ` : '\nPasang harness v1? (y/N): '))) die('dibatalkan oleh user.');
 
 const { stage, slug } = render(det, mode);
 let branch = null; let tag = null;

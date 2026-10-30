@@ -38,9 +38,9 @@ if (ms) {
   if (it && it.status === 'done' && String(it.fm.pr || '').replace(/null|\[\]/g, '').trim()) {
     const r = issueTicket(root, cfg, it, who0());
     if (!r.ok) block(`\n- ${r.problems.join('\n- ')}`);
-    if (r.allMerged) { context('UserPromptSubmit', `[harness] Semua PR ${ss} sudah MERGED. Jalankan "node .claude/hooks/harness.mjs set-status ${ss} merged" lalu balas satu baris.`); process.exit(0); }
+    if (r.allMerged) { context('UserPromptSubmit', `[harness] Semua PR ${ss} sudah MERGED. Jalankan "node .claude/hooks/harness.mjs set-status ${ss} merged" lalu jalankan skill summarize untuk ${ss} (ringkasan sesi ke docs/sessions/) dan balas ≤3 baris.`); process.exit(0); }
     audit(root, { event: 'merge-ticket', session: payload.session_id, slug: ss, by: who0(), prs: r.ticket.prs.map((x) => x.url).join(' ') });
-    context('UserPromptSubmit', `[harness] ${who0()} memutuskan MERGE ${ss}. Tiket sekali pakai terbit (berlaku ${cfg.ship.ticket_ttl_min} menit) untuk: ${r.ticket.prs.map((x) => `${x.url} [${x.checks}]`).join('; ')}. Jalankan HANYA "node .claude/hooks/harness.mjs ship ${ss}"; jangan gh pr merge. Balas ≤3 baris: hasil tiap PR dan status akhir.`);
+    context('UserPromptSubmit', `[harness] ${who0()} memutuskan MERGE ${ss}. Tiket sekali pakai terbit (berlaku ${cfg.ship.ticket_ttl_min} menit) untuk: ${r.ticket.prs.map((x) => `${x.url} [${x.checks}]`).join('; ')}. Jalankan HANYA "node .claude/hooks/harness.mjs ship ${ss}"; jangan gh pr merge. Bila semua PR merged dan status menjadi merged, jalankan skill summarize untuk ${ss} (ringkasan sesi ke docs/sessions/). Balas ≤3 baris: hasil tiap PR, status akhir, path ringkasan.`);
   }
   process.exit(0);
 }
