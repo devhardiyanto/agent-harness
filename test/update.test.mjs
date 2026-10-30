@@ -185,3 +185,18 @@ test('--update --dry-run memperingatkan perubahan tracked yang belum di-commit; 
   assert.equal(ok.status, 0, ok.stderr);
   assert.doesNotMatch(ok.stderr, /DEP0190/, 'tanpa peringatan args+shell di Node 24');
 });
+
+test('doctor: branch baseline yang belum dilindungi dilaporkan GAGAL; default baru melindungi production dan staging', () => {
+  const root = project({ v1: true });
+  const cfg0 = jr(root, 'harness.config.json');
+  assert.ok(cfg0.protected_branches.includes('production') && cfg0.protected_branches.includes('staging'), 'bawaan baru');
+  const api = path.join(root, 'source-code/api'); commitAll(api, 'init'); sh('git', ['branch', 'production'], api); // service contoh belum punya commit
+  const cfg = { ...cfg0, protected_branches: ['main'], baseline: { api: 'production' } };
+  wr(root, 'harness.config.json', JSON.stringify(cfg));
+  const bad = hx(root, 'doctor');
+  assert.equal(bad.status, 2, bad.stdout + bad.stderr);
+  assert.match(bad.stdout, /branch baseline tiap service dilindungi \(protected_branches\) \| GAGAL \| api: production/);
+  wr(root, 'harness.config.json', JSON.stringify({ ...cfg, protected_branches: ['main', 'production'] }));
+  const ok = hx(root, 'doctor');
+  assert.match(ok.stdout, /branch baseline tiap service dilindungi \(protected_branches\) \| OK/);
+});
