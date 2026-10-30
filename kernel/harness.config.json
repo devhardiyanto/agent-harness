@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.4.1",
+  "harness_version": "1.4.2",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -9,6 +9,8 @@
     "main",
     "master",
     "develop",
+    "production",
+    "staging",
     "release/*"
   ],
   "schema_paths": [

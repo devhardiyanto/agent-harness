@@ -59,7 +59,7 @@ Status: `draft → approved → in-progress → in-review → done → merged`. 
 | `done` = tiap AC punya bukti di `progress.md` + `review.md` `verdict: clean` tanpa blocker (+ `test_command` bila ada) | pemeriksaan transisi saat `plan.md` diubah |
 | `merged` = semua PR `MERGED` menurut `gh` | idem |
 | plan beku setelah approved | revisi: `harness.mjs reopen <slug>` + approve ulang |
-| tanpa push/commit ke branch utama, force push, `gh pr merge`, `reset --hard`, perintah destruktif | `PreToolUse` Bash |
+| tanpa push/commit ke branch utama (`main`, `master`, `develop`, `production`, `staging`, `release/*`), force push, `gh pr merge`, `reset --hard`, perintah destruktif | `PreToolUse` Bash. `doctor` memeriksa bahwa branch baseline tiap service termasuk yang dilindungi |
 | tanpa baca `.env`/kunci | `permissions.deny` (Read tidak lagi melewati hook, jadi tanpa latensi); Bash lewat `guard-bash` |
 | tanpa tulis `.env`/kunci, tanpa secret literal | `PreToolUse` (Edit/Write) |
 | `.claude/hooks`, `settings.json`, `harness.config.json` dilindungi | `PreToolUse` (buka: `HARNESS_ADMIN=1` saat menjalankan `claude`) |

@@ -41,7 +41,7 @@ import {
 } from './knowledge.mjs';
 import {
   projectRoot, loadConfig, listItems, readItem, resolveSlug, checkTransition, checkDone, setFmKey, STATUSES,
-  splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli,
+  splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli, globToRegex,
 } from './lib.mjs';
 
 const root = projectRoot();
@@ -249,6 +249,10 @@ switch (cmd) {
     ok('docs/work/_TEMPLATE', fs.existsSync(path.join(root, 'docs', 'work', '_TEMPLATE', 'plan.md')), 'hilang');
     const bad = (cfg.services || []).filter((s) => !fs.existsSync(path.join(root, cfg.services_dir, s)));
     ok('service di config ada di disk', !bad.length, bad.join(', '));
+    // Branch baseline (tempat deploy) tiap service harus dilindungi; kalau tidak, commit/push langsung ke sana tidak diblokir.
+    const prot = [cfg.root_branch, ...(cfg.protected_branches || [])].map((g) => globToRegex(g));
+    const open = (cfg.services || []).map((s) => ({ s, b: baselineOf(root, cfg, s, { light: true }) })).filter((x) => x.b.ok && !prot.some((re) => re.test(x.b.branch)));
+    ok('branch baseline tiap service dilindungi (protected_branches)', !open.length, `${open.map((x) => `${x.s}: ${x.b.branch}`).join(', ')} → tambahkan ke "protected_branches" di harness.config.json`.slice(0, 300));
     console.log(`| cek | hasil | catatan |\n|---|---|---|\n${rows.join('\n')}`);
     if (rows.some((r) => r.includes('GAGAL'))) process.exit(2);
     break;

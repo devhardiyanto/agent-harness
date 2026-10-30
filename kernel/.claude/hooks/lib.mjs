@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.4.1',
+  harness_version: '1.4.2',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -19,7 +19,7 @@ export const DEFAULT_CONFIG = {
   allow_paths: ['docs/**', '.claude/rules/**', '.claude/audit/**', 'AGENTS.md', 'CLAUDE.md', '.gitignore'],
   protected_paths: ['.claude/hooks/**', '.claude/settings.json', '.claude/agents/**', 'harness.config.json', '.claude/state/merge-tickets/**'],
   schema_paths: ['**/migrations/**', '**/migration/**', '**/*.sql', '**/schema.prisma'],
-  protected_branches: ['main', 'master', 'develop', 'release/*'],
+  protected_branches: ['main', 'master', 'develop', 'production', 'staging', 'release/*'],
   deny_commands: [
     'npm\\s+publish', 'terraform\\s+(apply|destroy)', 'kubectl\\s+(delete|drain)', 'docker\\s+push',
     '\\bDROP\\s+(TABLE|DATABASE|SCHEMA)\\b', '\\bTRUNCATE\\s+TABLE\\b', 'gh\\s+pr\\s+merge', 'gh\\s+repo\\s+delete',
