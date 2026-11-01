@@ -48,7 +48,7 @@ check('versi konsisten (VERSION, package.json, config kernel, plugin.json)', (ba
 const skillDirs = fs.existsSync(path.join(ROOT, 'plugin/skills')) ? fs.readdirSync(path.join(ROOT, 'plugin/skills'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name) : [];
 check('skill: SKILL.md valid dan namanya sama dengan folder', (bad) => {
   if (!skillDirs.length) bad('plugin/skills kosong');
-  if (skillDirs.length > 12) bad(`terlalu banyak skill (${skillDirs.length}); target 1.4.0 = 11, batas 12`);
+  if (skillDirs.length > 12) bad(`terlalu banyak skill (${skillDirs.length}); target 1.5.0 = 12, batas 12`);
   for (const d of skillDirs) {
     const f = `plugin/skills/${d}/SKILL.md`;
     if (!has(f)) { bad(`${f} tidak ada`); continue; }

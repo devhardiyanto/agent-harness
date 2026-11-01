@@ -114,10 +114,10 @@ test('ketikan ship dengan PR hijau menerbitkan tiket; ship merge lalu menutup it
   fake(root, { 'https://github.com/o/r/pull/1': mkPr() });
   const r = prompt(root, `/harness:ship ${slug}`);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /memutuskan MERGE/); assert.ok(fs.existsSync(ticket(root, slug)));
+  assert.match(r.stdout, /memutuskan MERGE/); assert.match(r.stdout, /skill summarize/); assert.ok(fs.existsSync(ticket(root, slug)));
   const s = cli(root, 'ship', slug);
   assert.equal(s.status, 0, s.stderr + s.stdout);
-  assert.match(s.stdout, /pull\/1: MERGED \(merge\)/); assert.match(s.stdout, /done → merged/);
+  assert.match(s.stdout, /pull\/1: MERGED \(merge\)/); assert.match(s.stdout, /done → merged/); assert.match(s.stdout, /Berikutnya: ringkasan sesi .*docs\/sessions/);
   assert.deepEqual(merges(root), ['pr merge https://github.com/o/r/pull/1 --merge --match-head-commit aaaaaaa1']);
   assert.match(fs.readFileSync(path.join(root, 'docs/work', slug, 'plan.md'), 'utf8'), /status: merged/);
   assert.equal(fs.existsSync(ticket(root, slug)), false);

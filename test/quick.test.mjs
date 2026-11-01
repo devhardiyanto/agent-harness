@@ -179,7 +179,7 @@ test('knowledge: bentuk /harness:knowledge verify dan patterns diterima hook (be
   assert.match(r.stdout, /patterns ditolak/);
 });
 
-test('skill: tepat 11, pintu knowledge/quick/next ada, skill yang dilebur sudah hilang', () => {
+test('skill: tepat 12, pintu knowledge/quick/next ada, skill yang dilebur sudah hilang', () => {
   const dirs = fs.readdirSync(path.join(here, '..', 'plugin', 'skills')).sort();
-  assert.deepEqual(dirs, ['approve', 'build', 'impact', 'init', 'knowledge', 'next', 'plan', 'quick', 'review', 'ship', 'status']);
+  assert.deepEqual(dirs, ['approve', 'build', 'impact', 'init', 'knowledge', 'next', 'plan', 'quick', 'review', 'ship', 'status', 'summarize']);
 });
