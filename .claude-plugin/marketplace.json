@@ -6,7 +6,7 @@
     {
       "name": "harness",
       "source": "./plugin",
-      "description": "Skill per fase: impact, plan, build, review, ship, onboard, refresh, status."
+      "description": "Skill per fase: init, impact, plan, approve, build, review, ship, summarize, status, knowledge, next, quick."
     }
   ]
 }

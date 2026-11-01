@@ -75,6 +75,18 @@ Hook adalah guardrail berbasis pola, **bukan sandbox**: agent yang sengaja menca
 
 Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_command`, ambang konteks, `knowledge` (batas baris, ambang kedaluwarsa), `baseline` (override branch baseline per service)).
 
+## Memperbarui semua project
+Ada dua jalur, dan keduanya berasal dari repo-mu sendiri: **kernel** (hook, config, rules) ditulis `install.mjs --update` ke tiap project, **plugin** (skill) diambil Claude Code dari marketplace `harness-marketplace` (repo GitHub installer) dan hanya berganti bila `version` di `plugin/.claude-plugin/plugin.json` naik (naikkan tiap rilis).
+
+```
+alias harness-update-all='node ~/agent-harness/scripts/update-all.mjs'   # ~/.bashrc
+harness-update-all --scan /d/dev      # sekali: daftarkan project yang sudah ber-harness
+harness-update-all --list             # project + versi terpasang
+harness-update-all --dry-run          # rencana installer saja
+harness-update-all                    # git pull installer → marketplace update → tiap project: install --update → claude plugin update
+```
+Project terdaftar otomatis di `~/.harness/projects.json` saat `install.mjs` berhasil; `--add`/`--remove` mengatur manual. Tiap project diperbarui di branch `harness-update` (satu commit): review lalu merge sendiri. Pohon kotor atau versi lebih baru dari installer ditolak dan dilaporkan; exit 1 bila ada yang gagal. Opsi: `--no-pull`, `--no-plugin`, `--force`. Plugin baru termuat di sesi berikutnya (atau `/reload-plugins`). Belum teruji di mesin nyata: perilaku `claude plugin update` per project (lihat PILOT bagian 8).
+
 ## Pengiriman berantai (PR bertumpuk, merge oleh keputusanmu)
 - **Base per service adalah data project**, bukan bagian repo ini: `harness.config.json` → `ship.base` (`{"api": "feat/dasar"}` = PR bertumpuk di atas branch itu). Bawaan: branch baseline service. `harness.mjs ship-plan <slug>` menampilkan branch kerja, base, akun `gh` aktif, dan masalah (di branch utama, akun tanpa akses tulis) sebelum apa pun di-push.
 - **Remote beralias SSH** (`git@github-pribadi:owner/repo.git`) tidak dikenali `gh` sebagai host GitHub; harness mengurai `owner/repo` dari remote `origin` dan selalu memberikannya eksplisit (`ship-plan` menampilkan kolom `repo`; PR dibuat dengan `gh pr create -R owner/repo`).
