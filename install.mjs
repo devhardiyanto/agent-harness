@@ -11,6 +11,7 @@ import path from 'node:path';
 import readline from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { addProject } from './scripts/projects.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const KERNEL = path.join(HERE, 'kernel');
@@ -352,6 +353,7 @@ if (isGit && !flag('no-commit')) {
   if (!committed) log(`\nPeringatan: commit gagal (${(c.stderr || c.stdout).trim().slice(0, 200)}). Perubahan tetap ada di working tree branch ${branch}.`);
 }
 
+try { addProject(target); } catch (e) { warnings.push(`gagal mendaftarkan project di ~/.harness: ${e.message}`); }
 log('\n## Selesai');
 table(['item', 'nilai'], [
   ['mode', mode], ['service terdeteksi', det.services.map((s) => s.name).join(', ') || '-'],

@@ -52,6 +52,11 @@ Di sesi `claude`, minta agent menjalankan (satu per satu) lewat tool **PowerShel
 ## 7. Pembersihan
 `/harness:status board` hanya bila ingin papan; hapus branch percobaan dengan skrip yang sudah kamu punya.
 
+## 8. Update semua project
+1. `node ~/agent-harness/scripts/update-all.mjs --scan /d/dev` lalu `--list`: `event` dan `astra` harus muncul dengan versi terpasang.
+2. `--dry-run`: tabel menampilkan rencana tanpa mengubah apa pun.
+3. Jalankan tanpa opsi: tiap project pindah ke branch `harness-update` dengan satu commit; kolom plugin `OK`. Buka Claude Code di satu project: `claude plugin list` harus menampilkan versi plugin yang baru (catat bila masih lama; itu tanda `claude plugin update` perlu `--scope`).
+
 ## Tabel hasil (isi dan kirim)
 | # | uji | hasil (LULUS/GAGAL) | catatan (versi claude, OS, angka) |
 |---|---|---|---|
@@ -62,3 +67,4 @@ Di sesi `claude`, minta agent menjalankan (satu per satu) lewat tool **PowerShel
 | 4 | quick end-to-end + batas | | |
 | 5 | ship: tolak saat berjalan, merge saat hijau, akun salah, rantai | | |
 | 6 | init satu service + biaya + verify + alur standard | | |
+| 7 | update-all: scan, dry-run, update, plugin list | | |

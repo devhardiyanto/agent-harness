@@ -11,6 +11,7 @@ export const installer = path.join(here, '..', 'install.mjs');
 const shim = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-shim-'));
 fs.writeFileSync(path.join(shim, 'claude'), '#!/bin/sh\necho "2.1.300 (Claude Code)"\n', { mode: 0o755 });
 fs.writeFileSync(path.join(shim, 'claude.cmd'), '@echo 2.1.300 (Claude Code)\r\n');
+process.env.HARNESS_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-home-'));
 process.env.PATH = shim + path.delimiter + process.env.PATH;
 
 export const sh = (cmd, args, cwd, input) => spawnSync(cmd, args, { cwd, encoding: 'utf8', input });
