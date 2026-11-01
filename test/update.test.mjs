@@ -200,3 +200,16 @@ test('doctor: branch baseline yang belum dilindungi dilaporkan GAGAL; default ba
   const ok = hx(root, 'doctor');
   assert.match(ok.stdout, /branch baseline tiap service dilindungi \(protected_branches\) \| OK/);
 });
+
+test('--update tidak menimpa svc-*.md buatan user; service baru tetap dibuatkan templat', () => {
+  const root = project({ v1: true });
+  const mine = '---\npaths:\n  - "source-code/api/**"\n---\n# Service: api\n\n- Stack: Node 20 (verifikasi manual)\n- Migrasi: keputusan manusia\n';
+  wr(root, '.claude/rules/svc-api.md', mine);
+  const v = jr(root, '.claude/harness.version'); v.version = '1.0.0'; wr(root, '.claude/harness.version', JSON.stringify(v));
+  fs.rmSync(path.join(root, '.claude/rules/svc-web.md'));
+  commitAll(root, 'svc rules milik user');
+  const r = install(root, '--update', '--yes');
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(rd(root, '.claude/rules/svc-api.md'), mine, 'svc-api.md buatan user dipertahankan');
+  assert.match(rd(root, '.claude/rules/svc-web.md'), /terdeteksi installer/, 'service tanpa rule dibuatkan templat');
+});
