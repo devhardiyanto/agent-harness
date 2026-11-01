@@ -46,6 +46,8 @@ test('update-all: pohon kotor ditolak installer dan dilaporkan, exit 1', () => {
   const r = run(home);
   assert.equal(r.status, 1);
   assert.match(r.stdout, /GAGAL/);
+  assert.match(r.stdout, /perubahan tracked/, 'catatan memuat alasan dari stderr installer');
+  assert.doesNotMatch(r.stdout, /DIBIARKAN|Cadangan:/, 'tidak menampilkan rencana stdout');
 });
 
 test('update-all: folder hilang dan non-harness dilaporkan; --remove membersihkan', () => {

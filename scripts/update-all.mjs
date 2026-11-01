@@ -20,7 +20,9 @@ const MARKET = 'harness-marketplace', PLUGIN = `harness@${MARKET}`;
 const readVer = () => fs.readFileSync(path.join(ROOT, 'VERSION'), 'utf8').trim();
 const cmp = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0); return 0; };
 const installedOf = (p) => { try { return JSON.parse(fs.readFileSync(path.join(p, '.claude', 'harness.version'), 'utf8')).version || null; } catch { return null; } };
-const lastLine = (r) => (String(r.stderr || '') + String(r.stdout || '')).trim().split(/\r?\n/).filter(Boolean).slice(-2).join(' | ').slice(0, 200);
+// Alasan kegagalan ada di stderr (installer: "GAGAL: …"); stdout hanya rencana. Tanda | diganti agar tabel tidak pecah.
+const lines = (s) => String(s || '').trim().split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+const lastLine = (r) => { const e = lines(r.stderr); return (e.length ? e.slice(0, 3) : lines(r.stdout).slice(-2)).join(' ; ').replace(/\|/g, '/').slice(0, 200); };
 const table = (head, rows) => { console.log(`| ${head.join(' | ')} |\n|${head.map(() => '---').join('|')}|`); for (const r of rows) console.log(`| ${r.join(' | ')} |`); };
 // Argumen claude konstan (bukan input user), jadi satu string lewat shell di Windows (claude.cmd) aman.
 const claude = (args, cwd) => (process.platform === 'win32'
