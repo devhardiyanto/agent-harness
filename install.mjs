@@ -177,7 +177,9 @@ function render(det, mode) {
     const body = `---\npaths:\n  - "source-code/${s.name}/**"\n---\n# Service: ${s.name}\n\n- Stack (terdeteksi installer, belum diverifikasi): ${s.stack}\n- Branch default: ${s.branch}\n` +
       `- Sebelum mengedit: baca \`docs/knowledge/${s.name}/summary.md\` dan \`patterns.md\` bila ada; bila belum ada, jalankan \`/harness:init\`.\n` +
       `- Perintah terdeteksi: ${s.commands.length ? s.commands.map((c) => `\`${c}\``).join(', ') : 'UNKNOWN'}\n- Edit hanya lewat work item approved yang mencakup service ini (hook menegakkan).\n`;
-    fs.writeFileSync(path.join(stage, '.claude', 'rules', `svc-${s.name}.md`), body);
+    // svc-*.md hasil verifikasi/penyuntingan user (stack sebenarnya, baseline, perintah terbukti, aturan migrasi) tidak boleh kembali ke templat deteksi.
+    const mine = path.join(target, '.claude', 'rules', `svc-${s.name}.md`);
+    fs.writeFileSync(path.join(stage, '.claude', 'rules', `svc-${s.name}.md`), hadV1 && fs.existsSync(mine) ? fs.readFileSync(mine) : body);
   }
   // pendaftaran plugin
   const slug = installerRepoSlug();
