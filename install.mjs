@@ -185,14 +185,15 @@ function render(det, mode) {
   const slug = installerRepoSlug();
   const setP = path.join(stage, '.claude', 'settings.json');
   const st = JSON.parse(fs.readFileSync(setP, 'utf8'));
-  if (slug) {
-    st.extraKnownMarketplaces = { 'harness-marketplace': { source: { source: 'github', repo: slug } } };
-    st.enabledPlugins = { 'harness@harness-marketplace': true };
-  }
+  // Plugin dipasang global (scope user) sekali per mesin, bukan per project: tidak ada pendaftaran plugin di settings.json project.
   if (hadV1) {
     // Pengaturan user di settings.json dibawa: kunci lain di luar kernel, dan izin (allow/ask/deny) digabung. Hook kustom tidak dibawa (dilaporkan).
     let oldSt = {}; try { oldSt = JSON.parse(fs.readFileSync(path.join(target, '.claude', 'settings.json'), 'utf8')); } catch { /* abaikan */ }
     for (const k of Object.keys(oldSt)) if (!(k in st)) st[k] = oldSt[k];
+    // Pendaftaran plugin tingkat project dari versi lama dibuang agar tidak ada salinan project yang tertinggal versinya.
+    for (const [k, id] of [['enabledPlugins', 'harness@harness-marketplace'], ['extraKnownMarketplaces', 'harness-marketplace']]) {
+      if (st[k] && id in st[k]) { delete st[k][id]; if (!Object.keys(st[k]).length) delete st[k]; }
+    }
     for (const k of ['allow', 'ask', 'deny']) {
       const u = [...(st.permissions?.[k] || []), ...(oldSt.permissions?.[k] || [])];
       if (u.length) { st.permissions = st.permissions || {}; st.permissions[k] = [...new Set(u)]; }
@@ -361,12 +362,11 @@ table(['item', 'nilai'], [
   ['mode', mode], ['service terdeteksi', det.services.map((s) => s.name).join(', ') || '-'],
   ['cadangan', tag ? `tag ${tag}` : isGit ? '(repo tanpa commit)' : `.harness-backup-${stamp}/`],
   ['branch', branch || '-'], ['commit', committed ? 'ya' : 'tidak'],
-  ['plugin', slug ? `terdaftar via settings (github:${slug})` : 'BELUM: jalankan manual (lihat di bawah)'],
+  ['plugin', 'global (scope user): dipasang sekali per mesin, bukan per project'],
 ]);
 if (warnings.length) log(`\nPeringatan:\n${warnings.map((w) => `- ${w}`).join('\n')}`);
 log('\n## Langkah berikutnya (kamu)');
-log('1. Buka Claude Code di folder ini; setujui prompt kepercayaan marketplace/plugin bila muncul.');
-if (!slug) log('   Plugin manual:  claude plugin marketplace add <owner>/<repo-installer>  &&  claude plugin install harness@harness-marketplace');
+log('1. Plugin (skill /harness:*) dipasang global sekali per mesin:  node scripts/update-all.mjs --setup-plugin   (atau: claude plugin install harness --marketplace <owner>/<repo-installer> --scope user). Lewati bila sudah.');
 log('2. Cek:  node .claude/hooks/harness.mjs doctor      (atau /harness:status)');
 log('3. Isi pengetahuan:  /harness:init   (satu service dulu → lihat /usage → lanjut all) → knowledge-sample → /harness:knowledge verify <svc>');
 log('4. Pakai:  /harness:impact feature <permintaan>');

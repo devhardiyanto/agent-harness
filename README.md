@@ -76,16 +76,18 @@ Hook adalah guardrail berbasis pola, **bukan sandbox**: agent yang sengaja menca
 Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_command`, ambang konteks, `knowledge` (batas baris, ambang kedaluwarsa), `baseline` (override branch baseline per service)).
 
 ## Memperbarui semua project
-Ada dua jalur, dan keduanya berasal dari repo-mu sendiri: **kernel** (hook, config, rules) ditulis `install.mjs --update` ke tiap project, **plugin** (skill) diambil Claude Code dari marketplace `harness-marketplace` (repo GitHub installer) dan hanya berganti bila `version` di `plugin/.claude-plugin/plugin.json` naik (naikkan tiap rilis).
+Ada dua jalur, dan keduanya berasal dari repo-mu sendiri: **kernel** (hook, config, rules) ditulis `install.mjs --update` ke tiap project, **plugin** (skill) dipasang **global** (scope user, satu kali per mesin) dari marketplace `harness-marketplace` (repo GitHub installer) dan hanya berganti bila `version` di `plugin/.claude-plugin/plugin.json` naik (naikkan tiap rilis; `scripts/bump.mjs`). Installer tidak lagi mendaftarkan plugin di `.claude/settings.json` project.
 
 ```
 alias harness-update-all='node ~/agent-harness/scripts/update-all.mjs'   # ~/.bashrc
+harness-update-all --setup-plugin     # sekali per mesin: pasang plugin global (claude plugin install harness --marketplace <repo> --scope user)
 harness-update-all --scan /d/dev      # sekali: daftarkan project yang sudah ber-harness
 harness-update-all --list             # project + versi terpasang
 harness-update-all --dry-run          # rencana installer saja
-harness-update-all                    # git pull installer → marketplace update → tiap project: install --update → claude plugin update
+harness-update-all                    # git pull installer → plugin global (marketplace update + plugin update --scope user) → tiap project: install --update
+harness-update-all --cleanup-project  # sekaligus hapus pemasangan plugin tingkat project lama setelah kernelnya diperbarui
 ```
-Project terdaftar otomatis di `~/.harness/projects.json` saat `install.mjs` berhasil; `--add`/`--remove` mengatur manual. Tiap project diperbarui di branch `harness-update` (satu commit): review lalu merge sendiri. Pohon kotor atau versi lebih baru dari installer ditolak dan dilaporkan; exit 1 bila ada yang gagal. Opsi: `--no-pull`, `--no-plugin`, `--force`. Plugin baru termuat di sesi berikutnya (atau `/reload-plugins`). Belum teruji di mesin nyata: perilaku `claude plugin update` per project (lihat PILOT bagian 8).
+Project terdaftar otomatis di `~/.harness/projects.json` saat `install.mjs` berhasil; `--add`/`--remove` mengatur manual. Tiap project diperbarui di branch `harness-update` (satu commit): review lalu merge sendiri. Pohon kotor atau versi lebih baru dari installer ditolak dan dilaporkan; exit 1 bila ada yang gagal. Opsi: `--no-pull`, `--no-plugin`, `--force`. Plugin baru termuat di sesi berikutnya (atau `/reload-plugins`). Migrasi dari pemasangan per project: update kernel membuang `enabledPlugins`/`extraKnownMarketplaces` milik harness dari settings project; `--cleanup-project` menghapus entri project di Claude Code. Belum teruji di mesin nyata: perilaku bila plugin yang sama sempat aktif di dua scope (lihat PILOT bagian 8).
 
 ## Pengiriman berantai (PR bertumpuk, merge oleh keputusanmu)
 - **Base per service adalah data project**, bukan bagian repo ini: `harness.config.json` → `ship.base` (`{"api": "feat/dasar"}` = PR bertumpuk di atas branch itu). Bawaan: branch baseline service. `harness.mjs ship-plan <slug>` menampilkan branch kerja, base, akun `gh` aktif, dan masalah (di branch utama, akun tanpa akses tulis) sebelum apa pun di-push.
@@ -121,7 +123,7 @@ Uji di mesinmu (Windows, GitHub asli, Claude Code asli): lihat [`PILOT.md`](PILO
 
 - `ship` (commit/push/PR) dan cek `merged` lewat `gh` pada repo GitHub nyata; `init`/`onboard`/`refresh` pada repo besar dan 14 repo (biaya token belum diukur — jalankan satu service dulu; bagian yang dijalankan model, yaitu kualitas ringkasan explorer, hanya diperiksa lint dan manusia); `lint-knowledge` diuji pada repo contoh kecil (heuristik simbol ±3 baris bisa memberi false positive pada bahasa/gaya tertentu).
 - Windows untuk inti harness: hook murni Node; perbaikan gagal-terbuka pada path berspasi diuji otomatis di Linux, belum di Windows.
-- Pendaftaran plugin otomatis lewat `extraKnownMarketplaces` di `.claude/settings.json`: pemasangan lokal terverifikasi; jalur github privat tergantung kredensial git di mesinmu (`gh auth setup-git`). Cadangan manual: `claude plugin marketplace add devhardiyanto/agent-harness && claude plugin install harness@harness-marketplace`.
+- Plugin global (scope user): marketplace GitHub privat tergantung kredensial git di mesinmu (`gh auth setup-git`); rekan satu repo tidak otomatis mendapat skill karena tidak ada pendaftaran di settings project.
 - Mode `-p`/headless: entri `permissions.allow` diabaikan sampai workspace dipercaya (dialog trust).
 
 Lisensi: MIT. Atribusi: lihat `THIRD_PARTY.md`.

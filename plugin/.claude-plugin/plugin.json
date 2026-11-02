@@ -1,7 +1,7 @@
 {
   "name": "harness",
   "displayName": "Harness v1",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "description": "Skill per fase untuk alur kerja agentic: init (knowledge dari baseline), impact, plan, build, review (usulan pola), ship, onboard, refresh, verify, patterns, status, board.",
   "author": { "name": "devhardiyanto" },
   "license": "MIT",

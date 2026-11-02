@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // Perbarui harness di semua project terdaftar.
-//   node scripts/update-all.mjs                 pull installer → refresh marketplace → tiap project: install --update → claude plugin update
+//   node scripts/update-all.mjs                 pull installer → plugin global (marketplace update + plugin update --scope user) → tiap project: install --update
 //   node scripts/update-all.mjs --list          daftar project + versi terpasang
 //   node scripts/update-all.mjs --scan <dir>    cari project ber-harness (.claude/harness.version) di bawah <dir> lalu daftarkan
 //   node scripts/update-all.mjs --add <p>... | --remove <p>...
-//   opsi: --dry-run (rencana installer saja) · --no-pull · --no-plugin · --force
+//   node scripts/update-all.mjs --setup-plugin  pasang plugin harness global (scope user), sekali per mesin
+//   opsi: --dry-run (rencana installer saja) · --no-pull · --no-plugin · --force · --cleanup-project (hapus pemasangan plugin tingkat project lama setelah kernel diperbarui)
 // Installer memperbarui tiap project di branch `harness-update` (satu commit); kamu yang me-review dan merge. Tanpa dependency.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -47,6 +48,16 @@ if (flag('scan')) {
   process.exit(0);
 }
 
+if (flag('setup-plugin')) {
+  const url = spawnSync('git', ['-C', ROOT, 'remote', 'get-url', 'origin'], { encoding: 'utf8' }).stdout.trim();
+  const slug = (/github\.com[:/]([^/]+\/[^/.]+)(\.git)?$/.exec(url) || [])[1];
+  if (!slug) { console.error('GAGAL: remote origin installer bukan GitHub; pasang manual: claude plugin install harness --marketplace <owner>/<repo> --scope user'); process.exit(1); }
+  if (claude(['--version']).status !== 0) { console.error('GAGAL: claude tidak ditemukan di PATH'); process.exit(1); }
+  const r = claude(['plugin', 'install', 'harness', '--marketplace', slug, '--scope', 'user']);
+  console.log(r.status === 0 ? `plugin ${PLUGIN} terpasang global (scope user) dari ${slug}` : `GAGAL: ${lastLine(r)}`);
+  process.exit(r.status === 0 ? 0 : 1);
+}
+
 const projects = readProjects();
 if (flag('list') || !projects.length) {
   if (!projects.length) console.log(`Belum ada project terdaftar (${registryFile()}). Pasang/perbarui lewat install.mjs (terdaftar otomatis) atau: --scan <folder>, --add <path>.`);
@@ -64,13 +75,18 @@ if (!flag('no-pull')) {
 const VERSION = readVer();
 const hasClaude = !flag('no-plugin') && !DRY && claude(['--version']).status === 0;
 if (!flag('no-plugin') && !hasClaude && !DRY) notes.push('claude tidak ditemukan di PATH: pembaruan plugin dilewati.');
-if (hasClaude) { const r = claude(['plugin', 'marketplace', 'update', MARKET]); notes.push(r.status === 0 ? `marketplace ${MARKET}: diperbarui` : `marketplace ${MARKET}: gagal (${lastLine(r)})`); }
+let globalFailed = false;
+if (hasClaude) {
+  const m = claude(['plugin', 'marketplace', 'update', MARKET]); notes.push(m.status === 0 ? `marketplace ${MARKET}: diperbarui` : `marketplace ${MARKET}: gagal (${lastLine(m)})`);
+  const u = claude(['plugin', 'update', PLUGIN, '--scope', 'user']); globalFailed = u.status !== 0;
+  notes.push(u.status === 0 ? `plugin ${PLUGIN} (global, user): OK` : `plugin ${PLUGIN} (global, user): GAGAL (${lastLine(u)}); belum terpasang? jalankan --setup-plugin`);
+}
 console.log(`Installer ${VERSION}${DRY ? ' (dry run)' : ''}\n`);
 
 const rows = []; let failed = 0;
 for (const p of projects) {
   const inst = installedOf(p);
-  let kernel, plug = '-', note = '';
+  let kernel, note = '';
   if (!fs.existsSync(p)) { kernel = 'HILANG'; note = 'folder tidak ada; --remove bila sudah tidak dipakai'; failed++; }
   else if (!inst) { kernel = 'BUKAN v1'; note = 'tidak ada .claude/harness.version'; failed++; }
   else if (cmp(inst, VERSION) > 0 && !flag('force')) { kernel = `${inst} (lebih baru)`; note = 'perbarui installer (git pull)'; failed++; }
@@ -81,10 +97,14 @@ for (const p of projects) {
     else { kernel = 'GAGAL'; note = lastLine(r); failed++; }
     if (r.status === 0 && !DRY) note = 'branch harness-update: review lalu merge';
   }
-  if (hasClaude && fs.existsSync(p) && inst) { const r = claude(['plugin', 'update', PLUGIN], p); plug = r.status === 0 ? 'OK' : 'GAGAL'; if (r.status !== 0) { note = `${note ? note + ' · ' : ''}plugin: ${lastLine(r)}`; failed++; } }
-  rows.push([p, kernel, plug, note || '-']);
+  if (fs.existsSync(p) && inst) {
+    let reg = false; try { const st = JSON.parse(fs.readFileSync(path.join(p, '.claude', 'settings.json'), 'utf8')); reg = !!(st.enabledPlugins && PLUGIN in st.enabledPlugins); } catch { /* abaikan */ }
+    if (reg) note = `${note ? note + ' · ' : ''}masih mendaftarkan plugin di tingkat project (dibuang oleh update kernel setelah branch di-merge)`;
+    if (flag('cleanup-project') && hasClaude && /→/.test(kernel) && !DRY) { const r = claude(['plugin', 'uninstall', PLUGIN, '--scope', 'project'], p); note = `${note ? note + ' · ' : ''}${r.status === 0 ? 'plugin project dihapus' : 'plugin project: tidak ada/gagal dihapus'}`; }
+  }
+  rows.push([p, kernel, note || '-']);
 }
-table(['project', 'kernel', 'plugin', 'catatan'], rows);
+table(['project', 'kernel', 'catatan'], rows);
 console.log(`\n${notes.map((n) => `- ${n}`).join('\n')}`);
 if (!DRY) console.log('- Plugin baru dimuat pada sesi berikutnya (atau /reload-plugins di sesi yang berjalan).');
-process.exit(failed ? 1 : 0);
+process.exit(failed || globalFailed ? 1 : 0);
