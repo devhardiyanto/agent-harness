@@ -106,6 +106,9 @@ Project terdaftar otomatis di `~/.harness/projects.json` saat `install.mjs` berh
 - **Draft berlabel**: knowledge `draft` dikutip dengan label `[draft]` dan dicek ke kode; `/harness:init` mencatat biaya per service di `docs/knowledge/_init.md` (angka `/usage` dari kamu) supaya keputusan lanjut `all` berbasis data.
 - Perintah CLI: `harness.mjs snapshot | board | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | patterns-check` (+ `verify-knowledge`, `patterns-approve`: hanya manusia).
 
+## Rilis (pemelihara)
+`node scripts/bump.mjs patch|minor|major|X.Y.Z` menaikkan versi di kelima tempat (`VERSION`, `package.json`, `plugin.json`, config kernel, `lib.mjs`) dan menjalankan `check-repo`; lalu commit, PR, dan setelah merge beri tag `v<versi>` pada commit merge. Naikkan versi untuk tiap perubahan kernel/plugin/installer yang harus sampai ke project: plugin hanya berganti bila `version` berubah, dan `--update` menolak memasang ulang versi yang sama.
+
 ## Pengujian
 
 `npm test` (hook + installer di project contoh, termasuk existing, baru, tanpa git, layout single, pasang ulang, `--ignore`/`backup/`, sisa modul lama dipertahankan; knowledge: baseline, worktree, lint, kedaluwarsa, verifikasi, usulan pola). `node scripts/check-repo.mjs` (konsistensi repo). CI menjalankan keduanya di Linux dan Windows. `claude plugin validate .` lolos.
