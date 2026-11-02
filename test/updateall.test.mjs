@@ -79,3 +79,14 @@ test('--dry-run tidak mengubah project', () => {
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.equal(jr(a, '.claude/harness.version').version, '1.0.0');
 });
+
+test('update-all menandai project yang masih mendaftarkan plugin di tingkat project', () => {
+  const a = project({ v1: true, name: 'reg' });
+  const st = jr(a, '.claude/settings.json'); st.enabledPlugins = { 'harness@harness-marketplace': true };
+  wr(a, '.claude/settings.json', JSON.stringify(st, null, 2)); commitAll(a, 'daftar plugin lama');
+  const home = homeDir();
+  run(home, '--add', a);
+  const r = run(home);
+  assert.match(r.stdout, /terbaru/);
+  assert.match(r.stdout, /masih mendaftarkan plugin di tingkat project/);
+});

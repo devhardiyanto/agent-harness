@@ -213,3 +213,21 @@ test('--update tidak menimpa svc-*.md buatan user; service baru tetap dibuatkan 
   assert.equal(rd(root, '.claude/rules/svc-api.md'), mine, 'svc-api.md buatan user dipertahankan');
   assert.match(rd(root, '.claude/rules/svc-web.md'), /terdeteksi installer/, 'service tanpa rule dibuatkan templat');
 });
+
+test('--update membuang pendaftaran plugin tingkat project lama, kunci settings lain tetap', () => {
+  const root = project({ v1: true });
+  const st = jr(root, '.claude/settings.json');
+  st.enabledPlugins = { 'harness@harness-marketplace': true, 'lain@punya-user': true };
+  st.extraKnownMarketplaces = { 'harness-marketplace': { source: { source: 'github', repo: 'x/y' } } };
+  st.worktree = { bgIsolation: 'none' };
+  wr(root, '.claude/settings.json', JSON.stringify(st, null, 2));
+  const v = jr(root, '.claude/harness.version'); v.version = '1.0.0'; wr(root, '.claude/harness.version', JSON.stringify(v));
+  commitAll(root, 'settings lama');
+  const r = install(root, '--update', '--yes');
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  const after = jr(root, '.claude/settings.json');
+  assert.equal(after.enabledPlugins['harness@harness-marketplace'], undefined);
+  assert.equal(after.enabledPlugins['lain@punya-user'], true, 'plugin lain milik user tetap');
+  assert.equal(after.extraKnownMarketplaces, undefined);
+  assert.deepEqual(after.worktree, { bgIsolation: 'none' });
+});

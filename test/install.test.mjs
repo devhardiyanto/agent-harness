@@ -72,7 +72,8 @@ test('existing: ganti penuh, tag cadangan, branch, yang lain dipertahankan', () 
   assert.deepEqual(cfg.services, ['ce-api', 'ce-web']);
   assert.equal(cfg.plane, undefined, 'blok plane tidak dibuat lagi');
   const st = JSON.parse(fs.readFileSync(path.join(root, '.claude/settings.json'), 'utf8'));
-  assert.equal(st.enabledPlugins['harness@harness-marketplace'], true);
+  assert.equal(st.enabledPlugins, undefined, 'plugin global: tidak didaftarkan di settings project');
+  assert.equal(st.extraKnownMarketplaces, undefined);
   assert.equal(hx(root, 'doctor').status, 0, hx(root, 'doctor').stdout);
   // tag benar-benar berisi harness lama
   assert.match(sh('git', ['show', `${sh('git', ['tag'], root).stdout.trim()}:.claude/agents/x.md`], root).stdout, /x/);

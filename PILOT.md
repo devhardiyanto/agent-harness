@@ -55,7 +55,7 @@ Di sesi `claude`, minta agent menjalankan (satu per satu) lewat tool **PowerShel
 ## 8. Update semua project
 1. `node ~/agent-harness/scripts/update-all.mjs --scan /d/dev` lalu `--list`: `event` dan `astra` harus muncul dengan versi terpasang.
 2. `--dry-run`: tabel menampilkan rencana tanpa mengubah apa pun.
-3. Jalankan tanpa opsi: tiap project pindah ke branch `harness-update` dengan satu commit; kolom plugin `OK`. Buka Claude Code di satu project: `claude plugin list` harus menampilkan versi plugin yang baru (catat bila masih lama; itu tanda `claude plugin update` perlu `--scope`).
+3. Jalankan tanpa opsi: tiap project pindah ke branch `harness-update` dengan satu commit. Catatan global `plugin … (global, user): OK`. `claude plugin list` harus menampilkan SATU entri harness (scope user) bernomor versi terbaru; entri scope project dari pemasangan lama dihapus dengan `--cleanup-project` (atau `claude plugin uninstall harness@harness-marketplace --scope project` di tiap project).
 
 ## Tabel hasil (isi dan kirim)
 | # | uji | hasil (LULUS/GAGAL) | catatan (versi claude, OS, angka) |
