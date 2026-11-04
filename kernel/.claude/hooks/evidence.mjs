@@ -2,7 +2,7 @@
 // Agent `runner` hanya memanggil `harness.mjs run-checks <slug>`; berkas ini dilindungi dari Edit/Write dan tulis lewat shell.
 import fs from 'node:fs';
 import path from 'node:path';
-import { evidenceDir, codeFingerprint, redact } from './lib.mjs';
+import { evidenceDir, codeFingerprint, redact, audit } from './lib.mjs';
 import { runGate } from './delivery.mjs';
 
 export function recordEvidence(root, cfg, item, g) {
@@ -12,6 +12,7 @@ export function recordEvidence(root, cfg, item, g) {
   const dir = evidenceDir(root, item.slug);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'tests.json'), JSON.stringify(doc, null, 2) + '\n');
+  audit(root, { event: 'checks', slug: item.slug, to: verdict });
   return doc;
 }
 

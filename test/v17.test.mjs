@@ -218,13 +218,13 @@ test('handoff: PreCompact/SessionEnd menulis, SessionStart menyuntik dan memoton
   assert.match(c2, /dipotong/);
 });
 
-test('log: menampilkan handoff dan audit terakhir', () => {
+test('log: menampilkan handoff dan event terakhir', () => {
   const root = mk({ align: false });
   newItem(root);
   run(root, 'handoff.mjs', { hook_event_name: 'SessionEnd', reason: 'other' });
   const out = cli(root, 'log', '5').stdout;
   assert.match(out, /Handoff otomatis/);
-  assert.match(out, /## Audit terakhir/);
+  assert.match(out, /## Event terakhir/);
 });
 
 // ---------- tiket update ----------

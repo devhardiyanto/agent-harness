@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.7.0',
+  harness_version: '1.8.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -435,7 +435,25 @@ export function redact(text) {
 }
 export const SECRET_FILE = /(^|\/)(\.env(\.(?!example$|sample$|template$)[^/]*)?|[^/]*\.pem|[^/]*\.p12|[^/]*\.pfx|id_(rsa|ed25519|ecdsa)|credentials(\.json)?|\.npmrc|\.netrc)$/;
 
-// ---------- audit ----------
+// ---------- audit + event log ----------
+// audit(): jejak lengkap per hari (.claude/audit/*.jsonl). Event bermakna (bukan tiap tool call) juga masuk .harness/events.jsonl
+// yang dibaca `harness log` dan `harness watch`. Keduanya di-redact dan tidak pernah menjatuhkan hook.
+const NOISY_EVENTS = new Set(['PostToolUse', 'InstructionsLoaded']);
+export const eventsPath = (root) => path.join(root, '.harness', 'events.jsonl');
+export function emit(root, rec) {
+  if (process.env.HARNESS_BENCH) return;
+  try {
+    const f = eventsPath(root);
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    try { if (fs.statSync(f).size > 1_000_000) fs.renameSync(f, f + '.1'); } catch { /* belum ada */ }
+    const out = { ...rec };
+    for (const k of Object.keys(out)) if (typeof out[k] === 'string') out[k] = redact(out[k]).slice(0, 300);
+    fs.appendFileSync(f, JSON.stringify(out) + '\n');
+  } catch { /* event log tidak boleh menjatuhkan hook */ }
+}
+export function readEvents(root, n = 15) {
+  try { return fs.readFileSync(eventsPath(root), 'utf8').split('\n').filter(Boolean).slice(-n).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch { return []; }
+}
 export function audit(root, entry) {
   if (process.env.HARNESS_BENCH) return;
   try {
@@ -445,6 +463,7 @@ export function audit(root, entry) {
     const rec = { ts, ...entry };
     for (const k of Object.keys(rec)) if (typeof rec[k] === 'string') rec[k] = redact(rec[k]).slice(0, 400);
     fs.appendFileSync(path.join(dir, ts.slice(0, 10) + '.jsonl'), JSON.stringify(rec) + '\n');
+    if (!NOISY_EVENTS.has(entry.event)) emit(root, { ts, event: entry.event, slug: entry.slug, by: entry.by, to: entry.to, from: entry.from, tool: entry.tool, reason: entry.reason });
   } catch { /* audit tidak boleh menjatuhkan hook */ }
 }
 

@@ -91,6 +91,15 @@ Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_comma
 
 Belum terverifikasi di Claude Code asli (tidak bisa diuji di sandbox): hook `Stop` memblokir lewat exit 2 pada versi-mu, `omitClaudeMd` pada versi-mu, perilaku Windows (hook memakai exec form; diuji otomatis di Linux dan Windows lewat CI, bukan di sesi interaktif). Gerbang #1 (`ExitPlanMode`) dan #2 (hash error `PostToolUseFailure`) sengaja belum dipasang karena belum teruji.
 
+## Event log, papan TUI, ringkasan, gc (1.8.0)
+
+| bagian | perilaku |
+|---|---|
+| event log | `.harness/events.jsonl` (di-gitignore, rotasi di 1 MB → `.1`, di-redact): perubahan status, approve/align/quick, penolakan hook, bukti test, update, ringkasan. Tool call berisik tidak masuk. `harness.mjs log [n]` menampilkannya; jejak lengkap tetap di `.claude/audit/` |
+| `harness.mjs watch` | TUI Node murni (tanpa dependency; bukan binary Go): Backlog=`draft`, Todo=`approved`, In Progress, Review=`in-review`, Done=`done`/`merged`; kartu menunjukkan lajur, AC berbukti, verdict test; event terakhir di bawah. Segar otomatis; `q` keluar, `r` muat ulang; `--once` satu bingkai tanpa ANSI |
+| ringkasan lokal | saat `done` dan `merged`: `docs/work/<slug>/summary.md` dirangkum dari file (objective di `brief.md`, hasil per AC, `## Decision log` di `progress.md`, debat dan parking lot di `align.md`, review, gate, bukti test, PR). Deterministik, tanpa model |
+| `harness.mjs gc [--days N]` | rencana pembersihan: bukti test item merged/tidak ada, event log rotasi, penanda/tiket kedaluwarsa, audit lebih dari N hari (30). `--yes` menghapus dan hanya untuk manusia (diblokir untuk agent). Work item, docs, knowledge, config, metrics, dan handoff tidak disentuh |
+
 ## Memperbarui semua project
 Ada dua jalur, dan keduanya berasal dari repo-mu sendiri: **kernel** (hook, config, rules) ditulis `install.mjs --update` ke tiap project, **plugin** (skill) dipasang **global** (scope user, satu kali per mesin) dari marketplace `harness-marketplace` (repo GitHub installer) dan hanya berganti bila `version` di `plugin/.claude-plugin/plugin.json` naik (naikkan tiap rilis; `scripts/bump.mjs`). Installer tidak lagi mendaftarkan plugin di `.claude/settings.json` project.
 
