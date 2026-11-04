@@ -57,6 +57,31 @@ Di sesi `claude`, minta agent menjalankan (satu per satu) lewat tool **PowerShel
 2. `--dry-run`: tabel menampilkan rencana tanpa mengubah apa pun.
 3. Jalankan tanpa opsi: tiap project pindah ke branch `harness-update` dengan satu commit. Catatan global `plugin … (global, user): OK`. `claude plugin list` harus menampilkan SATU entri harness (scope user) bernomor versi terbaru; entri scope project dari pemasangan lama dihapus dengan `--cleanup-project` (atau `claude plugin uninstall harness@harness-marketplace --scope project` di tiap project).
 
+## 9. 1.7.0 dan 1.8.0 (uji lokal di Windows, PowerShell dan Git Bash)
+1. **Update**: ketik `tolong root nya di update ke main` di sesi Claude Code pada satu root (`event`/`yhpa`/`astra`). Harapan: root berpindah ke `main` bila bersih (berhenti bila kotor), `pull --ff-only`, satu commit `chore(harness): update to v1.8.0` tanpa kredit apa pun, `doctor` OK, TIDAK ada push (kecuali `update.autoPush: true`). `/harness:update rollback` membatalkan commit itu. `/harness:update all` untuk semua project terdaftar.
+2. **Hook exec form**: di sesi baru, `SessionStart` menyuntik ringkasan tanpa error di PowerShell maupun Git Bash; `/harness:status` memuat `doctor` tanpa GAGAL.
+3. **align**: `/harness:impact feature <permintaan>` → `/harness:align <slug>` (agent menguji klaim ke kode, tabel `Klaim vs bukti kode`) → `/harness:align <slug> ok` → baru `/harness:plan` dan `/harness:approve`. Coba menyuruh agent menulis `verdict: aligned` sendiri: harus ditolak. Ronde ke-4 ditolak.
+4. **Routing**: pada sesi build, `/agents` menampilkan `scout`/`runner` (Haiku) dan `reviewer` (Opus). Panggil `/harness:review`: pastikan hanya reviewer yang berjalan di Opus.
+5. **Gerbang Stop**: selesaikan semua AC (bukti di `progress.md`) lalu coba berhenti tanpa menjalankan `runner`: sesi harus ditolak berhenti dengan alasan yang jelas (maks 2 kali per sesi, lalu mengalah). Setelah `runner` (`run-checks`), berhenti harus lolos. **Catat versi `claude`**: ini perilaku yang tidak bisa diuji di sandbox.
+6. **Handoff**: `/compact` atau keluar sesi → `.harness/handoff.md` muncul; sesi berikutnya menampilkan "Handoff sesi sebelumnya" di konteks awal. `node .claude/hooks/harness.mjs log` menampilkan handoff + event.
+7. **Papan TUI**: `node .claude/hooks/harness.mjs watch` (q keluar). Kolom Backlog/Todo/In Progress/Review/Done berubah sendiri saat status berubah. `watch --once` untuk satu bingkai.
+8. **Ringkasan Done**: item yang `done` punya `docs/work/<slug>/summary.md` (objective, AC, keputusan, review, gate, PR).
+9. **gc**: `harness.mjs gc` hanya menampilkan rencana; `! node .claude/hooks/harness.mjs gc --yes` menghapus. Agent yang mencoba `gc --yes` harus diblokir.
+10. **Ukur baseline**: `harness.mjs measure <transcript.jsonl> --label sebelum` pada sesi lama dan `--label sesudah` pada sesi 1.7+ untuk pekerjaan serupa; bandingkan token per model, panggilan subagent, giliran Opus, durasi (file di `.harness/metrics/`).
+
+| # | uji 1.7/1.8 | hasil | catatan |
+|---|---|---|---|
+| 9.1 | update ke main + rollback | | |
+| 9.2 | hook di PowerShell dan Git Bash | | |
+| 9.3 | align + penolakan agent | | |
+| 9.4 | routing Haiku/Opus | | |
+| 9.5 | gerbang Stop (versi claude) | | |
+| 9.6 | handoff | | |
+| 9.7 | watch | | |
+| 9.8 | summary.md | | |
+| 9.9 | gc | | |
+| 9.10 | measure sebelum/sesudah | | |
+
 ## Tabel hasil (isi dan kirim)
 | # | uji | hasil (LULUS/GAGAL) | catatan (versi claude, OS, angka) |
 |---|---|---|---|

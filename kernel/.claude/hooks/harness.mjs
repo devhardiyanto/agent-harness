@@ -18,7 +18,9 @@
 //   ship-plan <slug>        rencana pengiriman per service: branch kerja, base (config ship.base), akun gh, masalah
 //   ship <slug>             merge PR berurutan; HANYA berjalan dengan tiket sekali pakai dari ketikan manusia /harness:ship <slug>
 //   run-checks <slug>       jalankan checks per service (lint/test/build) dan tulis bukti .harness/evidence/<slug>/tests.json (dipakai gerbang Stop; dipanggil agent runner)
-//   log [n] [--handoff]     handoff terakhir + n catatan audit terbaru (default 15)
+//   log [n] [--handoff]     handoff terakhir + n event terbaru dari .harness/events.jsonl (default 15)
+//   watch [--once]          TUI papan kerja (Backlog/Todo/In Progress/Review/Done) + event terakhir; q keluar
+//   gc [--days N] [--yes]   rencana pembersihan berkas sementara (bukti item merged, tiket/penanda kedaluwarsa, audit > N hari, default 30); --yes hanya manusia
 //   measure <transcript.jsonl> [--json] [--label x]   token per model, panggilan tool/subagent, durasi → .harness/metrics/ (baseline sebelum/sesudah routing)
 //   update [--all|--rollback]  perbarui harness di root ke main (HANYA dengan tiket: /harness:update atau "tolong root nya di update ke main")
 //   doctor                  periksa instalasi
@@ -42,6 +44,9 @@ import { getStore } from './store.mjs';
 import { runChecks } from './evidence.mjs';
 import { handoffPath } from './handoff.mjs';
 import { measureTranscript, formatMetrics } from './metrics.mjs';
+import { writeSummary } from './summary.mjs';
+import { planGc, applyGc } from './gc.mjs';
+import { renderFrame, runWatch } from './watch.mjs';
 import { shipPlan, runShip, ghAccess } from './ship.mjs';
 import {
   inventory, baselineOf, worktreeAdd, worktreeRm, lintService, formatLint, sampleService, knowledgeStatus, proposeChecks,
@@ -50,7 +55,7 @@ import {
 import {
   projectRoot, loadConfig, checkTransition, checkDone, setFmKey, STATUSES,
   splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli, globToRegex,
-  updateTicket, updateTicketPath, readAlign,
+  updateTicket, updateTicketPath, readEvents,
 } from './lib.mjs';
 
 const root = projectRoot();
@@ -94,7 +99,10 @@ function svcArgs(a) {
 const slugify = (s) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 48) || 'item';
 const today = () => new Date().toISOString().slice(0, 10);
 
-const write = (item, to, extra = {}) => store.setStatus(item, to, extra);
+const write = (item, to, extra = {}) => {
+  store.setStatus(item, to, extra);
+  if (to === 'done' || to === 'merged') { try { writeSummary(root, cfg, readItem(root, item.slug)); } catch { /* ringkasan tidak boleh menggagalkan transisi */ } }
+};
 
 switch (cmd) {
   case 'new': {
@@ -239,11 +247,23 @@ switch (cmd) {
     if (fs.existsSync(hp)) console.log(fs.readFileSync(hp, 'utf8').trim() + '\n');
     else console.log('(belum ada handoff: ditulis otomatis saat PreCompact/SessionEnd)\n');
     if (args.includes('--handoff')) break;
-    const ad = path.join(root, '.claude', 'audit');
-    const files = fs.existsSync(ad) ? fs.readdirSync(ad).filter((f) => f.endsWith('.jsonl')).sort().slice(-3) : [];
-    const lines = files.flatMap((f) => fs.readFileSync(path.join(ad, f), 'utf8').split('\n').filter(Boolean)).slice(-n);
-    console.log(`## Audit terakhir (${lines.length})`);
-    for (const l of lines) { try { const e = JSON.parse(l); console.log(`${e.ts.slice(11, 19)} ${e.event}${e.slug ? ' ' + e.slug : ''}${e.tool ? ' ' + e.tool : ''}${e.target ? ' ' + String(e.target).slice(0, 80) : ''}${e.reason ? ' — ' + String(e.reason).slice(0, 100) : ''}`); } catch { /* baris rusak */ } }
+    const ev = readEvents(root, n);
+    console.log(`## Event terakhir (${ev.length})`);
+    for (const e of ev) console.log(`${String(e.ts || '').slice(11, 19)} ${e.event || '-'}${e.slug ? ' ' + e.slug : ''}${e.from || e.to ? ` ${e.from || ''}→${e.to || ''}` : ''}${e.tool ? ' ' + e.tool : ''}${e.by ? ' oleh ' + e.by : ''}${e.reason ? ' — ' + String(e.reason).slice(0, 100) : ''}`);
+    break;
+  }
+  case 'watch': {
+    if (args.includes('--once') || !process.stdout.isTTY) { console.log(renderFrame(root, { width: Number((args[args.indexOf('--width') + 1])) || 110 })); break; }
+    runWatch(root);
+    break;
+  }
+  case 'gc': {
+    const di = args.indexOf('--days');
+    const plan = planGc(root, cfg, { days: Math.max(1, Number(di >= 0 ? args[di + 1] : 30) || 30) });
+    const kb = (b) => `${Math.max(1, Math.round(b / 1024))} KB`;
+    console.log(plan.length ? `| berkas | alasan | ukuran |\n|---|---|---|\n${plan.map((x) => `| ${x.rel} | ${x.why} | ${kb(x.bytes)} |`).join('\n')}` : '(tidak ada yang perlu dibersihkan)');
+    if (plan.length && args.includes('--yes')) { console.log(`\ndihapus: ${applyGc(plan)} dari ${plan.length}`); audit(root, { event: 'gc', reason: `${plan.length} berkas` }); }
+    else if (plan.length) console.log('\nRencana saja. Hapus: ! node .claude/hooks/harness.mjs gc --yes (hanya manusia).');
     break;
   }
   case 'measure': {
@@ -456,5 +476,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('perintah: new | gate | run-checks | log | measure | update | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
+    die('perintah: new | gate | run-checks | log | watch | gc | measure | update | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
 }
