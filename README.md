@@ -1,6 +1,6 @@
-# agent-harness — Harness v1 untuk Claude Code
+# agent-harness — Harness untuk Claude Code
 
-Installer satu perintah yang **mengganti penuh** harness lama dengan harness v1: alur `impact → plan → approve → build → review → ship`, ditegakkan hook, dengan pengetahuan project berlapis. Berlaku untuk project existing dan project baru. Tanpa data project tertanam; service dideteksi dari `source-code/<repo git>`.
+Installer satu perintah yang **mengganti penuh** harness lama dengan harness ini: alur `impact → align → plan → approve → build → review → ship`, ditegakkan hook, dengan pengetahuan project berlapis. Berlaku untuk project existing dan project baru. Tanpa data project tertanam; service dideteksi dari `source-code/<repo git>`.
 
 ## Pasang (repo privat, lewat `gh`)
 
@@ -31,21 +31,23 @@ Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge).
 | bootstrap (sekali; ulangi untuk service baru) | `/harness:init` (satu service dulu, lihat `/usage`, lalu `all`) | inventaris, baseline per service, `docs/_map.md`, `docs/knowledge/<svc>/{summary,patterns}.md` dari commit baseline, usulan `checks.<svc>` |
 | verifikasi knowledge (kamu) | `harness.mjs knowledge-sample <svc>` → `/harness:knowledge verify <svc>` | `draft → verified` (hanya bila `lint-knowledge` bersih) |
 | **perubahan kecil (kamu)** | `/harness:quick <permintaan>` → kerjakan di sesi yang sama → `/harness:ship <slug>` | item `approved` oleh ketikanmu; 1 service, maks 5 file, bukan skema; tanpa `in-review`. Melebihi batas: `harness.mjs promote <slug>` |
-| 1. dampak | `/harness:impact feature <permintaan>` | `docs/work/<slug>/{brief,impact}.md` |
+| 1. dampak | `/harness:impact feature <permintaan>` | `docs/work/<slug>/{brief,impact}.md` (brief = objective saja) |
+| 1b. align (agent skeptis, maks 3 ronde; kamu menutup) | `/harness:align <slug>` → `/harness:align <slug> ok` | `align.md`: klaim vs bukti kode, parking lot; hook menulis `aligned` |
 | 2. plan (sesi planning) | `/harness:plan <slug>` | `plan.md` `draft` + AC bernomor |
-| 3. setuju (kamu) | `/harness:approve <slug>` | hook menulis `approved` |
+| 3. setuju (kamu) | `/harness:approve <slug>` | hook menulis `approved` (item standard butuh `aligned`) |
 | 4. eksekusi (sesi baru) | `/harness:build <slug>` | kode + bukti per AC di `progress.md` → `in-review` |
 | 5. review / feedback | `/harness:review <slug> [feedback]` | `review.md`; blocker → balik ke build; clean → `done` |
 | 6. kirim | `/harness:ship <slug>` | panggilan 1: branch, commit, push, PR (`gh`). Setelah check PR hijau, ketik lagi: **ketikanmu = keputusan merge** → `merged` (lihat "Pengiriman berantai") |
 | usulan pola (kamu) | `/harness:knowledge patterns <slug> P1,P3\|all` | hook menerapkan usulan dari review ke `patterns.md` |
 | bingung langkah berikutnya | `/harness:next` | tabel: item, status, siapa yang bertindak, perintah persisnya |
+| update harness (kamu) | `/harness:update [all\|rollback]` atau "tolong root nya di update ke main" | root ke `main`, `pull --ff-only`, update berkas harness, `doctor`, commit `chore(harness): update to vX.Y.Z`; push hanya bila `update.autoPush` |
 | lain | `/harness:status`, `/harness:status board`, `/harness:knowledge refresh <svc>` | tabel item + cek instalasi; papan HTML lokal per service (`.claude/state/board.html`); perbarui knowledge yang tertinggal dari baseline |
 
 Awal setiap sesi, hook melaporkan (tanpa token, git lokal saja): service tanpa knowledge, knowledge tertinggal dari baseline (ambang `knowledge.stale_warn_commits`, bawaan 15), dan yang masih `draft`.
 
 **Gerbang pengiriman (`gate.md`):** `harness.mjs gate <slug>` (otomatis saat `set-status done`) menjalankan `checks.<svc>` di `harness.config.json` (`lint`, `test`, `build`, atau kunci lain; contoh `"checks": {"api": {"lint": "npm run lint", "test": "npm test"}}`), memeriksa bukti AC, review (lajur standard), dan secret di diff terhadap baseline. Hasil per item: PASS / FAIL / TIDAK DIPERIKSA (service tanpa checks tetap boleh dikirim, tetapi tercatat). Satu FAIL menolak `done`; `gate.md` yang usang (kode/bukti berubah) juga menolak. Usulan checks: `harness.mjs propose-checks <svc>` (kamu yang menyalin ke config). `gate.require_checks: true` menjadikan checks kosong sebagai FAIL.
 
-Tambahan kecil setelah approve: `harness.mjs amend <slug> --ac "..."` (maks `amend.max`, bawaan 3; hanya menambah AC). Perubahan besar: `reopen` + approve ulang. Skill ada 12: `init impact plan approve build review ship status knowledge next quick summarize`. `summarize` menulis ringkasan serah-terima sesi ke `docs/sessions/` dan dijalankan otomatis setelah ship berstatus `merged`.
+Tambahan kecil setelah approve: `harness.mjs amend <slug> --ac "..."` (maks `amend.max`, bawaan 3; hanya menambah AC). Perubahan besar: `reopen` + approve ulang. Skill ada 14: `init impact align plan approve build review ship status knowledge next quick summarize update`. `summarize` menulis ringkasan serah-terima sesi ke `docs/sessions/` dan dijalankan otomatis setelah ship berstatus `merged`.
 
 Tipe: `feature`, `improvement`, `hotfix` (plan 4 baris, gerbang tetap), `analysis`, `cross-repo`, `schema`, `onboard`.
 Status: `draft → approved → in-progress → in-review → done → merged`. Selesai = PR merged.
@@ -74,6 +76,20 @@ Read, Grep, dan Glob **tidak** melewati hook sama sekali. Ukur beban hook di mes
 Hook adalah guardrail berbasis pola, **bukan sandbox**: agent yang sengaja mencari celah lewat shell bisa saja menemukannya. Ia menutup jalan yang lazim dan membuat pelanggaran terlihat di audit.
 
 Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_command`, ambang konteks, `knowledge` (batas baris, ambang kedaluwarsa), `baseline` (override branch baseline per service)).
+
+## Routing model, bukti test, handoff (1.7.0)
+
+| bagian | perilaku |
+|---|---|
+| model | sesi utama Sonnet (`settings.json` → `model`). `scout` (Haiku, read-only: cari fakta di kode), `runner` (Haiku: menjalankan `run-checks`), `reviewer` (Opus, read-only: menyetujui/menolak). `scout`, `runner`, `reviewer` memakai `omitClaudeMd` agar konteks kecil. `explorer` tetap Sonnet untuk analisa relasi |
+| bukti test | `harness.mjs run-checks <slug>` menjalankan `checks.<svc>` dan **kode harness** menulis `.harness/evidence/<slug>/tests.json` (verdict, sidik jari kode). Berkas ini dilindungi dari Edit/Write dan tulis lewat shell |
+| gerbang Stop | hook `Stop` menolak berhenti (exit 2) bila item yang baru dikerjakan sudah semua-AC-berbukti tetapi bukti test belum ada / gagal / usang, atau (standard, `in-review`) review belum dijalankan. Anti-loop: `stop_hook_active` dari Claude Code + batas `stop_gate.max_blocks` (2) per sesi; `stop_gate.enabled: false` mematikan |
+| handoff | `PreCompact` dan `SessionEnd` menulis `.harness/handoff.md` (tabel item + "Status terkini"); `SessionStart` menyuntiknya (dipotong `handoff.max_chars`, total ≤ 10.000 karakter). Lihat: `harness.mjs log [n]` |
+| `harness update` | `scripts/harness-update.mjs` (dipanggil `harness.mjs update`): lihat tabel alur. Hanya jalan dengan tiket dari ketikanmu (`/harness:update` atau kalimat pemicu); `--all` untuk semua project terdaftar; `--rollback` = `git revert` update terakhir (tanpa push). Commit tanpa kredit apa pun |
+| WorkStore | `store.mjs`: semua baca/tulis work item lewat satu antarmuka; backend `local` (docs/work). `store.backend` lain belum ada |
+| ukur | `harness.mjs measure <transcript.jsonl> [--label x]`: token per model, panggilan subagent, giliran Opus, durasi → `.harness/metrics/`. Jalankan sebelum dan sesudah, bandingkan |
+
+Belum terverifikasi di Claude Code asli (tidak bisa diuji di sandbox): hook `Stop` memblokir lewat exit 2 pada versi-mu, `omitClaudeMd` pada versi-mu, perilaku Windows (hook memakai exec form; diuji otomatis di Linux dan Windows lewat CI, bukan di sesi interaktif). Gerbang #1 (`ExitPlanMode`) dan #2 (hash error `PostToolUseFailure`) sengaja belum dipasang karena belum teruji.
 
 ## Memperbarui semua project
 Ada dua jalur, dan keduanya berasal dari repo-mu sendiri: **kernel** (hook, config, rules) ditulis `install.mjs --update` ke tiap project, **plugin** (skill) dipasang **global** (scope user, satu kali per mesin) dari marketplace `harness-marketplace` (repo GitHub installer) dan hanya berganti bila `version` di `plugin/.claude-plugin/plugin.json` naik (naikkan tiap rilis; `scripts/bump.mjs`). Installer tidak lagi mendaftarkan plugin di `.claude/settings.json` project.

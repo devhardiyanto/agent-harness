@@ -23,7 +23,7 @@ function mkProject({ remote = true } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kn-'));
   fs.cpSync(kernel, root, { recursive: true });
   const cfgP = path.join(root, 'harness.config.json');
-  const cfg = JSON.parse(fs.readFileSync(cfgP, 'utf8')); cfg.services = ['svc-a']; cfg.project = 'p';
+  const cfg = JSON.parse(fs.readFileSync(cfgP, 'utf8')); cfg.services = ['svc-a']; cfg.project = 'p'; cfg.align = { required: false };
   fs.writeFileSync(cfgP, JSON.stringify(cfg));
   const svc = path.join(root, 'source-code', 'svc-a');
   fs.mkdirSync(path.join(svc, 'src/http'), { recursive: true });

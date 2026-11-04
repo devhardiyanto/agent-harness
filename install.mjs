@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Installer Harness v1. Ganti penuh (bukan update): yang lama dibuang, yang baru dipasang.
+// Installer Harness. Ganti penuh (bukan update): yang lama dibuang, yang baru dipasang.
 // Pakai:  node install.mjs [folder-project] [--yes] [--dry-run] [--branch NAMA] [--repo owner/repo]
 //                          [--project-name NAMA] [--root-branch main] [--allow-dirty] [--no-commit]
+//                          [--in-place] [--commit-message TEKS]  (update di branch aktif tanpa branch baru; dipakai `harness update`)
 //                          [--ignore backup,tmp]  folder/file di root yang diabaikan harness: masuk .gitignore dan TIDAK di-commit
 //                                                 (folder bernama backup/ atau backups/ otomatis diabaikan; matikan: --no-auto-ignore)
 // Tanpa dependency; Node >= 18.
@@ -11,7 +12,7 @@ import path from 'node:path';
 import readline from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { addProject } from './scripts/projects.mjs';
+import { addProject, setInstaller } from './scripts/projects.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const KERNEL = path.join(HERE, 'kernel');
@@ -22,12 +23,13 @@ const LEGACY_BLOCKS = ['executor', 'plane'];
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(`--${n}`);
 const opt = (n, d = null) => { const i = argv.indexOf(`--${n}`); return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : d; };
-const valueFlags = new Set(['branch', 'repo', 'project-name', 'root-branch', 'ignore']);
+const valueFlags = new Set(['branch', 'repo', 'project-name', 'root-branch', 'ignore', 'commit-message']);
 const positional = argv.filter((a, i) => !a.startsWith('--') && !valueFlags.has((argv[i - 1] || '').replace(/^--/, '')));
 const target = path.resolve(positional[0] || process.cwd());
 const optAll = (n) => argv.flatMap((a, i) => (a === `--${n}` && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1].split(',') : []));
 const DRY = flag('dry-run');
 const UPDATE = flag('update');
+const IN_PLACE = flag('in-place');
 const warnings = [];
 const semver = (v) => String(v || '').split('.').map((n) => parseInt(n, 10) || 0);
 const cmpVer = (a, b) => { const x = semver(a), y = semver(b); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0); return 0; };
@@ -213,7 +215,7 @@ function render(det, mode) {
 }
 
 // ---------- 4. terapkan ----------
-const GITIGNORE = ['.harness-staging/', '.harness-backup-*/', '.claude/audit/', '.claude/state/', '.claude/settings.local.json', 'CLAUDE.local.md'];
+const GITIGNORE = ['.harness-staging/', '.harness-backup-*/', '.harness/', '.claude/audit/', '.claude/state/', '.claude/settings.local.json', 'CLAUDE.local.md'];
 function applyGitignore(isGit) {
   const p = path.join(target, '.gitignore');
   const cur = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
@@ -222,7 +224,7 @@ function applyGitignore(isGit) {
   for (const n of IGNORE) add.push(`/${n}${fs.existsSync(path.join(target, n)) && fs.statSync(path.join(target, n)).isFile() ? '' : '/'}`);
   if (exists('source-code') && !(isGit && out(sh('git', ['ls-files', '--', 'source-code']))) ) add.push('/source-code/');
   const missing = add.filter((l) => !lines.has(l));
-  if (missing.length) fs.writeFileSync(p, cur.replace(/\n*$/, '\n') + `\n# harness v1\n${missing.join('\n')}\n`);
+  if (missing.length) fs.writeFileSync(p, cur.replace(/\n*$/, '\n') + `\n# harness\n${missing.join('\n')}\n`);
 }
 
 async function confirm(q) {
@@ -234,7 +236,7 @@ async function confirm(q) {
 }
 
 // ---------- main ----------
-log(`# Harness v1 installer ${VERSION}\nproject: ${target}${DRY ? '  (DRY RUN: tidak ada yang diubah)' : ''}\n`);
+log(`# Harness installer ${VERSION}\nproject: ${target}${DRY ? '  (DRY RUN: tidak ada yang diubah)' : ''}\n`);
 if (!fs.existsSync(target) || !fs.statSync(target).isDirectory()) die(`folder tidak ada: ${target}`);
 if (path.resolve(target) === path.resolve(HERE)) die('jangan jalankan di folder installer sendiri; arahkan ke folder project.');
 prereq();
@@ -296,7 +298,7 @@ table(['aksi', 'path'], [
   ['DIPASANG', 'AGENTS.md, CLAUDE.md, harness.config.json, .claude/{settings.json,hooks,rules,agents}, docs/{_map.md,knowledge,work/_TEMPLATE}'],
   ...LEFTOVER.map((p) => ['DIBIARKAN (sisa modul lama; tidak dipakai lagi sejak 1.4.0, hapus manual bila sudah tidak perlu)', p]),
 ]);
-log(`\nCadangan: ${isGit ? `tag git harness-pre-${UPDATE ? 'update' : 'v1'}-${stamp} di HEAD, lalu branch ${opt('branch', UPDATE ? 'harness-update' : 'harness-v1')}` : `salinan di .harness-backup-${stamp}/`}`);
+log(`\nCadangan: ${isGit ? `tag git harness-pre-${UPDATE ? 'update' : 'v1'}-${stamp} di HEAD, ${IN_PLACE ? ', tetap di branch aktif (--in-place)' : `, lalu branch ${opt('branch', UPDATE ? 'harness-update' : 'harness-v1')}`}` : `salinan di .harness-backup-${stamp}/`}`);
 
 const dirtyTracked = () => (isGit ? String(sh('git', ['status', '--porcelain', '--untracked-files=no']).stdout || '').trimEnd() : '');
 const DIRTY_HELP = 'Saran: commit dulu (mis. git add -A && git commit -m "wip: docs"), supaya tag cadangan mencakup semuanya. --allow-dirty juga aman bila berkas itu data yang dipertahankan (docs/work, docs/knowledge): perubahan itu tidak disentuh, hanya tidak tercakup tag cadangan.';
@@ -323,10 +325,13 @@ try {
       for (let n = 2; sh('git', ['rev-parse', '-q', '--verify', `refs/tags/${tag}`]).status === 0; n++) tag = `${tagBase}-${n}`;
       const r = sh('git', ['tag', tag]); if (r.status !== 0) die(`gagal membuat tag: ${r.stderr}`);
     }
-    branch = opt('branch', UPDATE ? 'harness-update' : 'harness-v1');
-    if (sh('git', ['rev-parse', '--verify', '-q', branch]).status === 0) branch = `${branch}-${stamp}`;
-    const sw = sh('git', ['switch', '-c', branch]);
-    if (sw.status !== 0) die(`gagal membuat branch ${branch}: ${sw.stderr}`);
+    if (IN_PLACE) branch = out(sh('git', ['symbolic-ref', '--short', '-q', 'HEAD'])) || null; // tetap di branch aktif (harness update)
+    else {
+      branch = opt('branch', UPDATE ? 'harness-update' : 'harness-v1');
+      if (sh('git', ['rev-parse', '--verify', '-q', branch]).status === 0) branch = `${branch}-${stamp}`;
+      const sw = sh('git', ['switch', '-c', branch]);
+      if (sw.status !== 0) die(`gagal membuat branch ${branch}: ${sw.stderr}`);
+    }
   } else {
     const bk = path.join(target, `.harness-backup-${stamp}`);
     for (const p of existing) { fs.mkdirSync(path.dirname(path.join(bk, p)), { recursive: true }); fs.cpSync(path.join(target, p), path.join(bk, p), { recursive: true }); }
@@ -351,11 +356,12 @@ if (isGit && !flag('no-commit')) {
   const stagePaths = [...new Set([...removable, 'AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude', 'docs/_map.md', 'docs/knowledge', 'docs/work', '.gitignore'])];
   for (const sp of stagePaths) if (exists(sp) || removable.includes(sp)) sh('git', ['add', '-A', '--', sp]);
   const nm = out(sh('git', ['config', 'user.name'])) ? [] : ['-c', 'user.name=harness-installer', '-c', 'user.email=harness@localhost'];
-  const c = sh('git', [...nm, 'commit', '-q', '-m', UPDATE ? `chore(harness): perbarui ke ${VERSION}` : `chore(harness): ganti ke harness v1 (${VERSION})`]);
+  const c = sh('git', [...nm, 'commit', '-q', '-m', opt('commit-message') || (UPDATE ? `chore(harness): perbarui ke ${VERSION}` : `chore(harness): ganti ke harness v1 (${VERSION})`)]);
   committed = c.status === 0;
   if (!committed) log(`\nPeringatan: commit gagal (${(c.stderr || c.stdout).trim().slice(0, 200)}). Perubahan tetap ada di working tree branch ${branch}.`);
 }
 
+try { setInstaller(HERE); } catch { /* opsional */ }
 try { addProject(target); } catch (e) { warnings.push(`gagal mendaftarkan project di ~/.harness: ${e.message}`); }
 log('\n## Selesai');
 table(['item', 'nilai'], [

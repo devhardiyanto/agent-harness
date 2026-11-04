@@ -87,6 +87,7 @@ test('hasil instalasi langsung menegakkan gerbang; alur lengkap approveâ†’buildâ
   const slug = path.basename(hx(root, 'new', 'feature', 'Endpoint baru').stdout.trim());
   const p = path.join(root, 'docs/work', slug, 'plan.md');
   fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('services: []', 'services: [ce-api]').replace('- AC1:', '- AC1: GET /x 200'));
+  fs.writeFileSync(path.join(root, 'docs/work', slug, 'align.md'), '---\nverdict: aligned\nrounds: 1\n---\n| C1 | k | a.ts:1 | terverifikasi |\n');
   const ap = hook(root, 'prompt.mjs', { hook_event_name: 'UserPromptSubmit', prompt: `/harness:approve ${slug}` });
   assert.equal(ap.status, 0);
   assert.equal(edit().status, 0);

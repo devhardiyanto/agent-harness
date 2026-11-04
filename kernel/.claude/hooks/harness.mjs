@@ -17,6 +17,10 @@
 //   next [slug]             langkah berikutnya per item: siapa dan perintah persisnya
 //   ship-plan <slug>        rencana pengiriman per service: branch kerja, base (config ship.base), akun gh, masalah
 //   ship <slug>             merge PR berurutan; HANYA berjalan dengan tiket sekali pakai dari ketikan manusia /harness:ship <slug>
+//   run-checks <slug>       jalankan checks per service (lint/test/build) dan tulis bukti .harness/evidence/<slug>/tests.json (dipakai gerbang Stop; dipanggil agent runner)
+//   log [n] [--handoff]     handoff terakhir + n catatan audit terbaru (default 15)
+//   measure <transcript.jsonl> [--json] [--label x]   token per model, panggilan tool/subagent, durasi → .harness/metrics/ (baseline sebelum/sesudah routing)
+//   update [--all|--rollback]  perbarui harness di root ke main (HANYA dengan tiket: /harness:update atau "tolong root nya di update ke main")
 //   doctor                  periksa instalasi
 // Pengetahuan (tanpa token, deterministik):
 //   inventory [--json]                  service di source-code/, stack, baseline, status checkout
@@ -34,18 +38,27 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runGate } from './delivery.mjs';
+import { getStore } from './store.mjs';
+import { runChecks } from './evidence.mjs';
+import { handoffPath } from './handoff.mjs';
+import { measureTranscript, formatMetrics } from './metrics.mjs';
 import { shipPlan, runShip, ghAccess } from './ship.mjs';
 import {
   inventory, baselineOf, worktreeAdd, worktreeRm, lintService, formatLint, sampleService, knowledgeStatus, proposeChecks,
   verifyService, checkProposal, approveProposal, isRepo, svcDir,
 } from './knowledge.mjs';
 import {
-  projectRoot, loadConfig, listItems, readItem, resolveSlug, checkTransition, checkDone, setFmKey, STATUSES,
+  projectRoot, loadConfig, checkTransition, checkDone, setFmKey, STATUSES,
   splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli, globToRegex,
+  updateTicket, updateTicketPath, readAlign,
 } from './lib.mjs';
 
 const root = projectRoot();
 const cfg = loadConfig(root);
+const store = getStore(root, cfg);
+const listItems = () => store.list();
+const readItem = (_r, slug) => store.get(slug);
+const resolveSlug = (_r, q) => store.resolve(q);
 const [cmd, ...args] = process.argv.slice(2);
 const die = (m, code = 1) => { console.error(m); process.exit(code); };
 const TYPES = ['feature', 'improvement', 'hotfix', 'analysis', 'cross-repo', 'schema', 'onboard'];
@@ -61,7 +74,7 @@ function buildSnapshot() {
   });
   return {
     schema: 1, generated_at: new Date().toISOString(), project: cfg.project || path.basename(root),
-    work_items: listItems(root).map(summarizeItem).sort((a, b) => a.slug.localeCompare(b.slug)),
+    work_items: listItems().map(summarizeItem).sort((a, b) => a.slug.localeCompare(b.slug)),
     services,
   };
 }
@@ -81,14 +94,7 @@ function svcArgs(a) {
 const slugify = (s) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 48) || 'item';
 const today = () => new Date().toISOString().slice(0, 10);
 
-function write(item, to, extra = {}) {
-  let t = fs.readFileSync(item.planPath, 'utf8');
-  t = setFmKey(t, 'status', to);
-  t = setFmKey(t, 'updated', today());
-  for (const [k, v] of Object.entries(extra)) t = setFmKey(t, k, v);
-  fs.writeFileSync(item.planPath, t);
-  audit(root, { event: 'status', slug: item.slug, from: item.status, to });
-}
+const write = (item, to, extra = {}) => store.setStatus(item, to, extra);
 
 switch (cmd) {
   case 'new': {
@@ -109,7 +115,7 @@ switch (cmd) {
     break;
   }
   case 'list': {
-    const items = listItems(root);
+    const items = listItems();
     if (args.includes('--json')) { console.log(JSON.stringify(items.map(summarizeItem), null, 2)); break; }
     if (!items.length) { console.log('(belum ada work item)'); break; }
     console.log('| slug | type | lajur | status | services |\n|---|---|---|---|---|');
@@ -193,10 +199,10 @@ switch (cmd) {
   }
   case 'next': {
     const q = args.find((a) => !a.startsWith('--'));
-    const items = q ? [need(q)] : listItems(root).filter((i) => i.status !== 'merged');
+    const items = q ? [need(q)] : listItems().filter((i) => i.status !== 'merged');
     if (!items.length) { console.log('(tidak ada work item terbuka) Mulai: /harness:quick <permintaan> untuk perubahan kecil, atau /harness:impact <tipe> <permintaan>.'); break; }
     console.log('| slug | lajur | status | siapa | langkah berikutnya |\n|---|---|---|---|---|');
-    for (const i of items) { const n = nextStep(i); console.log(`| ${i.slug} | ${isQuick(i) ? 'quick' : 'standard'} | ${i.status} | ${n.who} | ${n.cmd} |`); }
+    for (const i of items) { const n = nextStep(i, cfg); console.log(`| ${i.slug} | ${isQuick(i) ? 'quick' : 'standard'} | ${i.status} | ${n.who} | ${n.cmd} |`); }
     break;
   }
   case 'ship-plan': {
@@ -218,6 +224,51 @@ switch (cmd) {
     write(readItem(root, i.slug), 'merged');
     console.log(`${i.slug}: done → merged\nBerikutnya: ringkasan sesi (skill summarize ${i.slug}) → docs/sessions/`);
     break;
+  }
+  case 'run-checks': {
+    const i = need(args[0]);
+    const r = runChecks(root, cfg, i, { log: (m) => console.error(m) });
+    const ev = r.evidence;
+    console.log(`| service | check | hasil |\n|---|---|---|\n${(ev.checks.length ? ev.checks.map((c) => `| ${c.service} | ${c.name} | ${c.ok ? 'PASS' : 'FAIL'} |`) : ['| - | - | tidak ada checks terkonfigurasi |']).join('\n')}\n\nbukti test: ${ev.verdict.toUpperCase()} → .harness/evidence/${i.slug}/tests.json`);
+    if (ev.verdict === 'fail') process.exit(2);
+    break;
+  }
+  case 'log': {
+    const n = Math.max(1, Number(args.find((a) => /^\d+$/.test(a))) || 15);
+    const hp = handoffPath(root);
+    if (fs.existsSync(hp)) console.log(fs.readFileSync(hp, 'utf8').trim() + '\n');
+    else console.log('(belum ada handoff: ditulis otomatis saat PreCompact/SessionEnd)\n');
+    if (args.includes('--handoff')) break;
+    const ad = path.join(root, '.claude', 'audit');
+    const files = fs.existsSync(ad) ? fs.readdirSync(ad).filter((f) => f.endsWith('.jsonl')).sort().slice(-3) : [];
+    const lines = files.flatMap((f) => fs.readFileSync(path.join(ad, f), 'utf8').split('\n').filter(Boolean)).slice(-n);
+    console.log(`## Audit terakhir (${lines.length})`);
+    for (const l of lines) { try { const e = JSON.parse(l); console.log(`${e.ts.slice(11, 19)} ${e.event}${e.slug ? ' ' + e.slug : ''}${e.tool ? ' ' + e.tool : ''}${e.target ? ' ' + String(e.target).slice(0, 80) : ''}${e.reason ? ' — ' + String(e.reason).slice(0, 100) : ''}`); } catch { /* baris rusak */ } }
+    break;
+  }
+  case 'measure': {
+    const f = args.find((a) => !a.startsWith('--') && a !== args[args.indexOf('--label') + 1]);
+    if (!f || !fs.existsSync(f)) die('usage: measure <transcript.jsonl> [--json] [--label nama]');
+    const m = measureTranscript(f);
+    const li = args.indexOf('--label');
+    const label = (li >= 0 && args[li + 1] ? args[li + 1] : new Date().toISOString().slice(0, 10)).replace(/[^\w.-]/g, '_');
+    const out = path.join(root, '.harness', 'metrics', `${label}.json`);
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, JSON.stringify({ label, source: path.basename(f), ...m }, null, 2) + '\n');
+    console.log(args.includes('--json') ? JSON.stringify(m, null, 2) : formatMetrics(m) + `\n\ntersimpan: .harness/metrics/${label}.json`);
+    break;
+  }
+  case 'update': {
+    const mode = args.includes('--all') ? 'all' : args.includes('--rollback') ? 'rollback' : 'update';
+    const ticket = updateTicket(root, mode);
+    if (ticket) fs.rmSync(updateTicketPath(root), { force: true }); // sekali pakai; berjalan tanpa tiket hanya bila manusia memanggil langsung
+    const home = process.env.HARNESS_HOME || path.join(process.env.USERPROFILE || process.env.HOME || '', '.harness');
+    const inst = readJson(path.join(home, 'installer.json'), null);
+    const script = inst && inst.path ? path.join(inst.path, 'scripts', 'harness-update.mjs') : null;
+    if (!script || !fs.existsSync(script)) die('lokasi installer belum tercatat (~/.harness/installer.json). Jalankan sekali: node <folder agent-harness>/install.mjs <root> --update', 2);
+    const r = spawnSync(process.execPath, [script, ...(mode === 'all' ? ['--all'] : [root]), ...(mode === 'rollback' ? ['--rollback'] : []), ...args.filter((a) => ['--dry-run', '--push', '--no-pull', '--no-plugin'].includes(a))], { stdio: 'inherit', cwd: root });
+    audit(root, { event: 'harness-update', mode, status: r.status });
+    process.exit(r.status ?? 1);
   }
   case 'doctor': {
     const rows = [];
@@ -405,5 +456,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('perintah: new | gate | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
+    die('perintah: new | gate | run-checks | log | measure | update | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
 }

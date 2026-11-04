@@ -26,3 +26,10 @@ export function removeProject(p) {
   save(next); return true;
 }
 export const registryFile = file;
+// Lokasi folder installer (per mesin): dipakai `harness.mjs update` di tiap project untuk menemukan scripts/harness-update.mjs.
+const instFile = () => path.join(path.dirname(file()), 'installer.json');
+export function setInstaller(dir) {
+  fs.mkdirSync(path.dirname(instFile()), { recursive: true });
+  fs.writeFileSync(instFile(), JSON.stringify({ path: path.resolve(dir) }, null, 2) + '\n');
+}
+export function getInstaller() { try { return JSON.parse(fs.readFileSync(instFile(), 'utf8')).path || null; } catch { return null; } }

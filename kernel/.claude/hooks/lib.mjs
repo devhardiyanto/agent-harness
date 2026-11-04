@@ -1,4 +1,4 @@
-// Harness v1 — pustaka bersama untuk hook dan CLI. Tanpa dependency; Node >= 18.
+// Harness — pustaka bersama untuk hook dan CLI. Tanpa dependency; Node >= 18.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -9,15 +9,15 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.6.0',
+  harness_version: '1.7.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
   services_dir: 'source-code',
   services: [],
   // 'single': semua path di luar allow_paths dianggap kode dan di-gate
-  allow_paths: ['docs/**', '.claude/rules/**', '.claude/audit/**', 'AGENTS.md', 'CLAUDE.md', '.gitignore'],
-  protected_paths: ['.claude/hooks/**', '.claude/settings.json', '.claude/agents/**', 'harness.config.json', '.claude/state/merge-tickets/**'],
+  allow_paths: ['docs/**', '.claude/rules/**', '.claude/audit/**', '.harness/**', 'AGENTS.md', 'CLAUDE.md', '.gitignore'],
+  protected_paths: ['.claude/hooks/**', '.claude/settings.json', '.claude/agents/**', 'harness.config.json', '.claude/state/merge-tickets/**', '.claude/state/update-ticket.json', '.harness/evidence/**'],
   schema_paths: ['**/migrations/**', '**/migration/**', '**/*.sql', '**/schema.prisma'],
   protected_branches: ['main', 'master', 'develop', 'production', 'staging', 'release/*'],
   deny_commands: [
@@ -33,6 +33,13 @@ export const DEFAULT_CONFIG = {
   context: { window_tokens: 1000000, warn_tokens: 400000 },
   knowledge: { summary_max_lines: 80, patterns_max_lines: 150, stale_warn_commits: 15 },
   baseline: {}, // override per service: { "ce-api": "production" } (bawaan: origin/HEAD → production → main → master)
+  store: { backend: 'local' },  // penyimpanan work item: 'local' (docs/work). Backend lain didaftarkan di store.mjs.
+  // align: gerbang sebelum approve. Item standard butuh align.md berverdict "aligned" (ditulis hook saat manusia mengetik /harness:align <slug> ok). Debat maks max_rounds ronde.
+  align: { required: true, max_rounds: 3, exempt_types: ['onboard', 'analysis'] },
+  // gerbang Stop: sesi tidak boleh berhenti bila item yang baru dikerjakan siap review tetapi bukti test / review belum ada. max_blocks = batas penolakan per sesi (anti-loop).
+  stop_gate: { enabled: true, max_blocks: 2, recent_hours: 12 },
+  handoff: { max_chars: 6000 },
+  update: { autoPush: false },  // `harness update`: push ke origin/root_branch hanya bila true
 };
 
 // True bila modul ini dijalankan sebagai skrip (bukan di-import). JANGAN membandingkan import.meta.url dengan
@@ -60,7 +67,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   return cfg;
 }
 
@@ -241,6 +248,46 @@ export function gateProblems(root, cfg, item) {
   return [];
 }
 
+// ---------- tiket update: dibuat hook dari ketikan manusia, dikonsumsi `harness.mjs update` ----------
+export const updateTicketPath = (root) => path.join(root, '.claude', 'state', 'update-ticket.json');
+export function updateTicket(root, mode, ttlMin = 30) {
+  const t = readJson(updateTicketPath(root), null);
+  if (!t || !t.at || Date.now() - Date.parse(t.at) > ttlMin * 60000) return null;
+  return !mode || t.mode === mode ? t : null;
+}
+
+// ---------- align: kesepahaman objective sebelum plan ----------
+// align.md: frontmatter `verdict: open|aligned`, `rounds: N`; tabel klaim `| C1 | klaim | bukti path:baris | status |`.
+export const CLAIM_ROW = /^\|\s*C\d+\s*\|/;
+export function readAlign(item) {
+  const p = path.join(item.dir, 'align.md');
+  if (!fs.existsSync(p)) return null;
+  const { fm, body } = splitFrontmatter(fs.readFileSync(p, 'utf8'));
+  return { fm, body, verdict: String(fm.verdict || 'open').toLowerCase(), rounds: Number(fm.rounds || 0), claims: body.split(/\r?\n/).filter((l) => CLAIM_ROW.test(l)).length,
+    contradicted: body.split(/\r?\n/).filter((l) => CLAIM_ROW.test(l) && /bertentangan/i.test(l)).length };
+}
+export const alignExempt = (item, cfg) => isQuick(item) || !cfg.align.required || (cfg.align.exempt_types || []).includes(item.type);
+export function alignProblems(item, cfg) {
+  if (alignExempt(item, cfg)) return [];
+  const a = readAlign(item);
+  if (!a) return [`align.md belum ada: jalankan /harness:align ${item.slug} (klaim vs bukti kode), lalu user mengetik /harness:align ${item.slug} ok.`];
+  if (a.verdict !== 'aligned') return [`align.md belum aligned (verdict: ${a.verdict}, ronde ${a.rounds}/${cfg.align.max_rounds}): user mengetik /harness:align ${item.slug} ok bila objective sudah sepaham.`];
+  return [];
+}
+
+// Sidik jari keadaan kode saja (tanpa bukti/review): dipakai bukti test (.harness/evidence) untuk mendeteksi usang.
+export function codeFingerprint(root, cfg, item) {
+  const h = crypto.createHash('sha1');
+  for (const sv of item.services) {
+    const d = serviceDirOf(root, cfg, sv === '*' ? '' : sv);
+    if (!fs.existsSync(path.join(d, '.git'))) { h.update(`${sv}:nogit`); continue; }
+    h.update(worktreeHash(d));
+  }
+  return h.digest('hex').slice(0, 16);
+}
+export const evidenceDir = (root, slug) => path.join(root, '.harness', 'evidence', slug);
+export function readEvidence(root, slug) { return readJson(path.join(evidenceDir(root, slug), 'tests.json'), null); }
+
 // ---------- gerbang 2 ----------
 export function checkDone(root, item, cfg) {
   const problems = [];
@@ -325,6 +372,7 @@ export function checkTransition(root, cfg, item, to, { actor = 'agent' } = {}) {
     const p = [];
     if (!parseAcs(item.body).length) p.push('plan.md belum punya acceptance criteria ("- AC1: ...").');
     if (!item.services.length) p.push('frontmatter plan.md belum punya "services: [..]".');
+    p.push(...alignProblems(item, cfg));
     return p;
   }
   if (to === 'draft') return []; // reopen: wajib approve ulang
@@ -442,11 +490,20 @@ export function contextWarning(root, cfg, payload) {
 }
 
 // ---------- langkah berikutnya (untuk /harness:next dan pesan blokir) ----------
-export function nextStep(item) {
+function alignNext(item, cfg) {
+  const sl = item.slug;
+  const hasPlan = parseAcs(item.body).length > 0;
+  const a = readAlign(item);
+  const needAlign = cfg ? alignProblems(item, cfg).length > 0 : !a || a.verdict !== 'aligned';
+  if (needAlign) return a && a.claims > 0 ? ['kamu', `jawab temuan di align.md; sepaham → ketik /harness:align ${sl} ok`] : ['agent', `/harness:align ${sl}`];
+  if (!hasPlan) return ['agent', `/harness:plan ${sl}`];
+  return ['kamu', `tinjau plan.md; bila setuju ketik /harness:approve ${sl}`];
+}
+export function nextStep(item, cfg = null) {
   const sl = item.slug;
   const q = isQuick(item);
   const rows = {
-    draft: q ? ['kamu', `/harness:plan ${sl}, lalu /harness:approve ${sl} (item quick dipromosikan ke standard)`] : ['kamu', `tinjau plan.md; bila setuju ketik /harness:approve ${sl}`],
+    draft: q ? ['kamu', `/harness:plan ${sl}, lalu /harness:approve ${sl} (item quick dipromosikan ke standard)`] : alignNext(item, cfg),
     approved: q ? ['agent', `kerjakan di sesi ini; bukti per AC di progress.md; lalu set-status ${sl} done`] : ['kamu', `buka sesi baru, ketik /harness:build ${sl}`],
     'in-progress': q ? ['agent', `lengkapi bukti AC di progress.md; set-status ${sl} done`] : ['agent', `lanjut /harness:build ${sl}; semua AC berbukti → set-status ${sl} in-review`],
     'in-review': ['agent', `/harness:review ${sl}`],

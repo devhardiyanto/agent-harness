@@ -3,7 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import {
   readStdinJson, projectRoot, loadConfig, globToRegex, activeItems, coversService, posix, deny, SECRET_FILE,
-  isMain,
+  isMain, updateTicket,
 } from './lib.mjs';
 
 const WRITE_OP = /(\bsed\s+(-[a-zA-Z]*i|--in-place)|\btee\b|(^|[^<>&=\d])>>?(?![>&=])|\bmv\b|\bcp\b|\brm\b|\bpatch\b|\bgit\s+apply\b|\bperl\s+-[a-z]*i|\btruncate\b|\binstall\s+-|\bdd\b)/;
@@ -26,6 +26,12 @@ export function evaluate(root, cfg, payload) {
 
   // verifikasi knowledge dan persetujuan pola hanya manusia
   if (/harness\.mjs\s+(verify-knowledge|patterns-approve)\b/.test(flat)) return fail('verify-knowledge / patterns-approve hanya manusia: ketik /harness:knowledge verify <svc> atau /harness:knowledge patterns <slug> <P1,P3|all>, atau jalankan sendiri dengan awalan "!".');
+
+  // update harness di root butuh tiket dari ketikan manusia (/harness:update atau "tolong root nya di update ke main")
+  if (/harness\.mjs\s+update\b/.test(flat)) {
+    const mode = /--all\b/.test(flat) ? 'all' : /--rollback\b/.test(flat) ? 'rollback' : 'update';
+    if (!updateTicket(root, mode)) return fail(`update harness hanya atas permintaan manusia: ketik /harness:update${mode === 'update' ? '' : ' ' + mode} (atau jalankan sendiri dengan awalan "!").`);
+  }
 
   // perintah terlarang dari config
   for (const re of cfg.deny_commands) if (new RegExp(re, 'i').test(flat)) return fail(`perintah cocok dengan daftar larangan (${re}). Lakukan manual di luar agent.`);
@@ -65,7 +71,7 @@ export function evaluate(root, cfg, payload) {
   if (WRITE_OP.test(cmd)) {
     if (/docs\/work\/[^\s'"]*plan\.md/.test(flat)) return fail('jangan ubah plan.md lewat shell; pakai Edit/Write (transisi status diperiksa hook) atau harness.mjs set-status.');
     if (/docs\/knowledge\/[^\s'"]*(summary|patterns)\.md|docs\/work\/[^\s'"]*patterns-proposal\.md/.test(flat)) return fail('jangan ubah summary.md/patterns.md/patterns-proposal.md lewat shell; pakai Edit/Write (status verified/approved dijaga hook).');
-    if (!process.env.HARNESS_ADMIN && /(\.claude\/(hooks|agents)\/|\.claude\/settings\.json|harness\.config\.json|merge-tickets)/.test(flat)) return fail('file harness dilindungi; ubah manual di luar sesi agent.');
+    if (!process.env.HARNESS_ADMIN && /(\.claude\/(hooks|agents)\/|\.claude\/settings\.json|harness\.config\.json|merge-tickets|update-ticket|\.harness\/evidence)/.test(flat)) return fail('file harness dilindungi; ubah manual di luar sesi agent.');
     // gerbang 1 untuk tulis lewat shell ke services_dir
     if (cfg.layout === 'multi-repo') {
       const dir = posix(cfg.services_dir).replace(/\/$/, '');

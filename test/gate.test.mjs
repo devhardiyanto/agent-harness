@@ -15,7 +15,7 @@ function mkProject(cfgPatch = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gt-'));
   fs.cpSync(kernel, root, { recursive: true });
   const cfgPath = path.join(root, 'harness.config.json');
-  fs.writeFileSync(cfgPath, JSON.stringify({ ...JSON.parse(fs.readFileSync(cfgPath, 'utf8')), services: ['svc-a', 'svc-b'], ...cfgPatch }));
+  fs.writeFileSync(cfgPath, JSON.stringify({ ...JSON.parse(fs.readFileSync(cfgPath, 'utf8')), services: ['svc-a', 'svc-b'], align: { required: false }, ...cfgPatch }));
   for (const s of ['svc-a', 'svc-b']) {
     const d = path.join(root, 'source-code', s);
     fs.mkdirSync(d, { recursive: true });

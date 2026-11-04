@@ -157,7 +157,7 @@ test('root pra-v1: dokumentasi yang ada tidak dihapus dan tidak ditimpa', () => 
   for (const [p, c] of [['docs/knowledge/api/summary.md', 'ringkasan lama'], ['docs/knowledge/README.md', 'readme milik user'], ['docs/work/lama/plan.md', 'plan lama'], ['docs/_map.md', '# peta lama\n'], ['docs/_archive/a.md', 'arsip'], ['docs/discussion/d.md', 'diskusi'], ['docs/other/n.md', 'lain']]) {
     assert.equal(rd(root, p), c, p);
   }
-  assert.ok(rd(root, 'AGENTS.md').includes('Harness v1'), 'berkas perangkat tetap diganti');
+  assert.ok(rd(root, 'AGENTS.md').includes('aturan kerja agent'), 'berkas perangkat tetap diganti');
   assert.ok(fs.existsSync(path.join(root, 'docs/work/_TEMPLATE/plan.md')));
 });
 

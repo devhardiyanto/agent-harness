@@ -1,4 +1,4 @@
-// Harness v1 — Delivery Gate: menjalankan checks per service dan menulis docs/work/<slug>/gate.md (PASS / FAIL / TIDAK DIPERIKSA per item).
+// Harness — Delivery Gate: menjalankan checks per service dan menulis docs/work/<slug>/gate.md (PASS / FAIL / TIDAK DIPERIKSA per item).
 // Dipanggil oleh `harness.mjs gate <slug>` dan otomatis oleh `set-status <slug> done`. Tanpa dependency; Node >= 18.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -41,6 +41,7 @@ export function runGate(root, cfg, item, { log = () => {} } = {}) {
   else rows.push(['review', sum.review.verdict === 'clean' && !sum.review.blockers_open ? PASS : FAIL, `verdict ${sum.review.verdict}, blocker terbuka ${sum.review.blockers_open}`]);
 
   const checks = cfg.checks || {};
+  const ran = [];
   for (const svc of item.services) {
     const sc = (checks[svc] && typeof checks[svc] === 'object') ? checks[svc] : {};
     const names = [...ORDER, ...Object.keys(sc).filter((k) => !ORDER.includes(k))];
@@ -53,6 +54,7 @@ export function runGate(root, cfg, item, { log = () => {} } = {}) {
       log(`[gate] ${svc}: ${n} → ${cmd}`);
       const r = runCommand(cmd, dir, cfg.gate.test_timeout_sec || 300);
       rows.push([`${svc}: ${n}`, r.ok ? PASS : FAIL, r.note]);
+      ran.push({ service: svc, name: n, command: cmd, ok: r.ok, note: r.note });
     }
     if (!any) rows.push([`${svc}: checks`, cfg.gate.require_checks ? FAIL : SKIP, cfg.gate.require_checks ? 'gate.require_checks aktif tetapi checks.' + svc + ' kosong' : `checks.${svc} belum diisi di harness.config.json (usulan: harness.mjs propose-checks ${svc})`]);
     const sec = secretsInDiff(root, cfg, svc);
@@ -62,5 +64,5 @@ export function runGate(root, cfg, item, { log = () => {} } = {}) {
   const skipped = rows.filter((r) => r[1] === SKIP).length;
   const text = `---\nverdict: ${verdict}\ngenerated: ${new Date().toISOString()}\nfingerprint: ${gateFingerprint(root, cfg, item)}\nlane: ${isQuick(item) ? 'quick' : 'standard'}\nunchecked: ${skipped}\n---\n# Gate pengiriman — ${item.slug}\n\n| item | hasil | catatan |\n|---|---|---|\n${rows.map((r) => `| ${r[0]} | ${r[1]} | ${String(r[2]).replace(/\|/g, '\\|').replace(/\n/g, ' ')} |`).join('\n')}\n\n${skipped ? `**${skipped} item TIDAK DIPERIKSA**: tidak ada checks yang terkonfigurasi; keputusan ship ada di tanganmu.\n` : ''}`;
   fs.writeFileSync(path.join(item.dir, 'gate.md'), text);
-  return { verdict, rows, skipped };
+  return { verdict, rows, skipped, checks: ran };
 }
