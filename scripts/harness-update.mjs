@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // `harness update`: perbarui harness di root project ke main.
-//   node scripts/harness-update.mjs <root>... [--dry-run] [--push] [--no-pull]
+//   node scripts/harness-update.mjs <root>... [--dry-run] [--push] [--no-pull] [--no-plugin]
 //   node scripts/harness-update.mjs --all                 semua project terdaftar (~/.harness/projects.json)
 //   node scripts/harness-update.mjs <root> --rollback     revert commit update harness terakhir (git revert; tidak ada push)
 // Alur per root: tentukan root git → pastikan di root_branch (pindah bila bersih, berhenti bila ada perubahan tracked; .harness/ diabaikan)
 //   → git fetch origin <branch> + pull --ff-only → installer --update --in-place (commit "chore(harness): update to vX.Y.Z", tanpa kredit apa pun)
 //   → doctor → push ke origin/<branch> hanya bila config update.autoPush atau --push → laporan.
+// Skill (plugin harness, global/scope user) ikut diperbarui sekali per eksekusi (best-effort; lewati dengan --no-plugin).
 // Berkas milik user (docs/discussion, work item, knowledge, config, rule/agent buatan sendiri) tidak ditimpa: itu perilaku install.mjs --update.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -89,6 +90,16 @@ export function updateRoot(root, { dry = DRY, push = flag('push'), pull = !flag(
   return rep;
 }
 
+// claude di Windows adalah claude.cmd: lewat shell; argumen konstan (bukan input user).
+const claude = (args) => (process.platform === 'win32' ? spawnSync(`claude ${args.join(' ')}`, { encoding: 'utf8', shell: true, timeout: 120000 }) : spawnSync('claude', args, { encoding: 'utf8', timeout: 120000 }));
+export function updatePlugin() {
+  const v = claude(['--version']);
+  if (v.error || v.status !== 0) return 'plugin: claude tidak ditemukan di PATH; skill tidak diperbarui (jalankan: node scripts/update-all.mjs --setup-plugin)';
+  claude(['plugin', 'marketplace', 'update', 'harness-marketplace']);
+  const u = claude(['plugin', 'update', 'harness@harness-marketplace', '--scope', 'user']);
+  return u.status === 0 ? 'plugin harness (global): diperbarui; berlaku di sesi berikutnya atau /reload-plugins' : `plugin harness (global): gagal (${tail(u)}); belum terpasang? node scripts/update-all.mjs --setup-plugin`;
+}
+
 function show(r) {
   console.log(`\n## ${r.root}\n${r.steps.map((s) => `- ${s}`).join('\n')}`);
   if (r.error) console.log(`GAGAL: ${r.error}`);
@@ -100,6 +111,9 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(file
   const roots = flag('all') ? readProjects() : argv.filter((a, i) => !a.startsWith('--') && !skip.has(i)).map((a) => path.resolve(a));
   if (!roots.length) { console.error('pakai: harness-update.mjs <root>... | --all [--dry-run] [--push] [--no-pull] [--rollback]'); process.exit(1); }
   let failed = 0;
+  const notes = [];
+  if (!flag('no-plugin') && !DRY && !flag('rollback')) notes.push(updatePlugin());
   for (const root of roots) { const r = updateRoot(root); show(r); if (!r.ok) failed++; }
+  for (const n of notes) console.log(`\n- ${n}`);
   process.exit(failed ? 1 : 0);
 }
