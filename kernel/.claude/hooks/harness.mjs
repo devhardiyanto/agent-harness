@@ -286,7 +286,7 @@ switch (cmd) {
     const inst = readJson(path.join(home, 'installer.json'), null);
     const script = inst && inst.path ? path.join(inst.path, 'scripts', 'harness-update.mjs') : null;
     if (!script || !fs.existsSync(script)) die('lokasi installer belum tercatat (~/.harness/installer.json). Jalankan sekali: node <folder agent-harness>/install.mjs <root> --update', 2);
-    const r = spawnSync(process.execPath, [script, ...(mode === 'all' ? ['--all'] : [root]), ...(mode === 'rollback' ? ['--rollback'] : []), ...args.filter((a) => ['--dry-run', '--push', '--no-pull'].includes(a))], { stdio: 'inherit', cwd: root });
+    const r = spawnSync(process.execPath, [script, ...(mode === 'all' ? ['--all'] : [root]), ...(mode === 'rollback' ? ['--rollback'] : []), ...args.filter((a) => ['--dry-run', '--push', '--no-pull', '--no-plugin'].includes(a))], { stdio: 'inherit', cwd: root });
     audit(root, { event: 'harness-update', mode, status: r.status });
     process.exit(r.status ?? 1);
   }

@@ -277,7 +277,7 @@ function installedProject(inst, home) {
   git(root, 'add', '-A'); git(root, 'commit', '-qm', 'harness awal'); git(root, 'switch', '-q', 'main'); git(root, 'merge', '-q', '--ff-only', 'harness-v1'); git(root, 'push', '-q', 'origin', 'main');
   return { root, bare };
 }
-const upd = (inst, home, root, ...a) => sh('node', [path.join(inst, 'scripts', 'harness-update.mjs'), root, '--no-pull', ...a], root, { HARNESS_HOME: home });
+const upd = (inst, home, root, ...a) => sh('node', [path.join(inst, 'scripts', 'harness-update.mjs'), root, '--no-pull', '--no-plugin', ...a], root, { HARNESS_HOME: home });
 const subject = (root) => git(root, 'log', '-1', '--format=%s').stdout.trim();
 const author = (root) => git(root, 'log', '-1', '--format=%an <%ae>%n%b').stdout;
 const remoteHead = (bare) => git(bare, 'rev-parse', 'main').stdout.trim();
@@ -368,7 +368,7 @@ test('harness.mjs update memakai installer.json dan menghabiskan tiket; tanpa in
   assert.equal(JSON.parse(fs.readFileSync(path.join(home, 'installer.json'), 'utf8')).path, inst);
   setVersion(inst, '9.0.1');
   prompt(root, '/harness:update');
-  const r = sh('node', [path.join(root, '.claude/hooks/harness.mjs'), 'update', '--dry-run', '--no-pull'], root, { CLAUDE_PROJECT_DIR: root, HARNESS_HOME: home });
+  const r = sh('node', [path.join(root, '.claude/hooks/harness.mjs'), 'update', '--dry-run', '--no-pull', '--no-plugin'], root, { CLAUDE_PROJECT_DIR: root, HARNESS_HOME: home });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stdout, /dry run/);
   assert.equal(fs.existsSync(path.join(root, '.claude/state/update-ticket.json')), false, 'tiket sekali pakai');
