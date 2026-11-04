@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.join(here, '..');
@@ -48,7 +48,7 @@ const ALIGNED = (rounds = 1) => `---\nverdict: aligned\nrounds: ${rounds}\n---\n
 test('store: backend local bawaan, backend tidak dikenal ditolak jelas', async () => {
   const root = mk({ align: false });
   const slug = newItem(root);
-  const { getStore } = await import(path.join(root, '.claude/hooks/store.mjs'));
+  const { getStore } = await import(pathToFileURL(path.join(root, '.claude/hooks/store.mjs')).href);
   const s = getStore(root, { store: { backend: 'local' } });
   assert.equal(s.backend, 'local');
   assert.deepEqual(s.list().map((i) => i.slug), [slug]);
