@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.6.0",
+  "harness_version": "1.7.0",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -46,5 +46,27 @@
     "base": {},
     "merge_method": "merge",
     "ticket_ttl_min": 30
+  },
+  "store": {
+    "backend": "local"
+  },
+  "align": {
+    "required": true,
+    "max_rounds": 3,
+    "exempt_types": [
+      "onboard",
+      "analysis"
+    ]
+  },
+  "stop_gate": {
+    "enabled": true,
+    "max_blocks": 2,
+    "recent_hours": 12
+  },
+  "handoff": {
+    "max_chars": 6000
+  },
+  "update": {
+    "autoPush": false
   }
 }

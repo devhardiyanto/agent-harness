@@ -3,7 +3,9 @@
 import fs from 'node:fs';
 import {
   readStdinJson, projectRoot, loadConfig, resolveSlug, readItem, checkTransition, setFmKey, context, audit, contextWarning, createQuick,
+  readAlign, alignExempt, updateTicketPath,
 } from './lib.mjs';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { verifyService, approveProposal, formatLint } from './knowledge.mjs';
 import { issueTicket } from './ship.mjs';
@@ -18,17 +20,51 @@ const mv = /^\s*\/(?:harness:)?(?:knowledge\s+)?verify\s+([\w.\-]+)\s*$/i.exec(p
 const mp = /^\s*\/(?:harness:)?(?:knowledge\s+)?patterns\s+([\w.\-]+)\s+(all|P\d+(?:\s*,\s*P\d+)*)\s*$/i.exec(prompt);
 const mq = /^\s*\/(?:harness:)?quick(?:\s+([\s\S]*))?$/i.exec(prompt);
 const ms = /^\s*\/(?:harness:)?ship\s+([\w.\-]+)\s*$/i.exec(prompt);
-if (!m && !mv && !mp && !mq && !ms) {
+const ma = /^\s*\/(?:harness:)?align\s+([\w.\-]+)\s+ok\s*$/i.exec(prompt);
+// /harness:update [all|rollback] atau kalimat "tolong root nya di update ke main": ketikan manusia = izin menjalankan `harness.mjs update` (tiket, 30 menit)
+const mu = /^\s*\/(?:harness:)?update(?:\s+(all|rollback))?\s*$/i.exec(prompt)
+  || (prompt.trim().length <= 120 && /root\s*nya\s+di\s*update\s+ke\s+main/i.test(prompt) ? [prompt, undefined] : null);
+if (!m && !mv && !mp && !mq && !ms && !ma && !mu) {
   // Peringatan ambang konteks juga di sini (bukan hanya setelah tool): murah, sekali per prompt.
   try { const w = contextWarning(root, cfg, payload); if (w) context('UserPromptSubmit', w); } catch { /* abaikan */ }
   process.exit(0);
 }
 
 const block = (reason) => {
-  process.stdout.write(JSON.stringify({ decision: 'block', reason: `[harness] ${mv ? 'verify' : mp ? 'patterns' : mq ? 'quick' : ms ? 'merge' : 'approve'} ditolak: ${reason}` }));
+  process.stdout.write(JSON.stringify({ decision: 'block', reason: `[harness] ${mv ? 'verify' : mp ? 'patterns' : mq ? 'quick' : ms ? 'merge' : ma ? 'align' : 'approve'} ditolak: ${reason}` }));
   process.exit(0);
 };
 const who0 = () => spawnSync('git', ['config', 'user.email'], { cwd: root, encoding: 'utf8' }).stdout.trim() || 'unknown';
+
+// /harness:align <slug> ok: manusia menutup debat objective. Ditulis hook (agent tidak boleh menulis verdict aligned).
+if (ma) {
+  const sa = resolveSlug(root, ma[1]);
+  const ia = sa ? readItem(root, sa) : null;
+  if (!ia) block(`work item "${ma[1]}" tidak ditemukan / ambigu.`);
+  if (alignExempt(ia, cfg)) block(`item ${sa} tidak butuh align (lajur quick, tipe dikecualikan, atau align.required=false).`);
+  const a = readAlign(ia);
+  if (!a) block(`align.md belum ada. Minta agent menjalankan /harness:align ${sa} dulu.`);
+  if (a.claims < 1) block('tabel klaim kosong (baris "| C1 | klaim | bukti path:baris | status |").');
+  if (a.contradicted > 0) block(`${a.contradicted} klaim masih berstatus "bertentangan" dengan kode. Selesaikan dulu (ubah klaim atau minta penjelasan), lalu ulangi.`);
+  if (a.rounds > cfg.align.max_rounds) block(`ronde ${a.rounds} melewati batas ${cfg.align.max_rounds}.`);
+  const ap = path.join(ia.dir, 'align.md');
+  let t = fs.readFileSync(ap, 'utf8');
+  t = setFmKey(t, 'verdict', 'aligned'); t = setFmKey(t, 'aligned_at', new Date().toISOString()); t = setFmKey(t, 'aligned_by', who0());
+  fs.writeFileSync(ap, t);
+  audit(root, { event: 'align', session: payload.session_id, slug: sa, by: who0() });
+  context('UserPromptSubmit', `[harness] Objective ${sa} ALIGNED oleh ${who0()} (ditulis hook). Berikutnya: /harness:plan ${sa}. Balas satu baris.`);
+  process.exit(0);
+}
+// Update harness di root: hanya jalan dengan tiket dari ketikan manusia (guard-bash menolak tanpa tiket).
+if (mu) {
+  const mode = mu[1] ? mu[1].toLowerCase() : 'update';
+  fs.mkdirSync(path.dirname(updateTicketPath(root)), { recursive: true });
+  fs.writeFileSync(updateTicketPath(root), JSON.stringify({ mode, by: who0(), at: new Date().toISOString() }));
+  audit(root, { event: 'update-ticket', session: payload.session_id, mode, by: who0() });
+  const flag = mode === 'all' ? ' --all' : mode === 'rollback' ? ' --rollback' : '';
+  context('UserPromptSubmit', `[harness] ${who0()} meminta ${mode === 'rollback' ? 'ROLLBACK update' : mode === 'all' ? 'update SEMUA project' : 'update root ke main'}. Jalankan HANYA "node .claude/hooks/harness.mjs update${flag}" (satu kali, tiket berlaku 30 menit); jangan commit/push/merge sendiri. Balas ≤5 baris: versi sebelum → sesudah, hasil doctor, apakah di-push, dan masalah bila ada.`);
+  process.exit(0);
+}
 
 // /harness:ship <slug>: bila PR sudah terbuka, ketikan ini = keputusan merge. Hook memeriksa gate + check PR + akun gh,
 // lalu menerbitkan tiket sekali pakai yang dipakai `harness.mjs ship`. Tanpa PR (fase A), perintah diteruskan ke skill.

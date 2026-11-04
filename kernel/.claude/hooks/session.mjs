@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { knowledgeStatusAll, knowledgeCfg } from './knowledge.mjs';
 import { readStdinJson, projectRoot, loadConfig, listItems, context, audit } from './lib.mjs';
+import { readHandoff } from './handoff.mjs';
 
 const payload = await readStdinJson();
 const root = projectRoot(payload);
@@ -33,4 +34,6 @@ try {
 } catch { /* abaikan */ }
 lines.push('Aturan: kode di service hanya boleh diedit lewat work item approved. Mulai dari /harness:impact. Balasan chat ≤5 baris + path file.');
 if (payload.source === 'compact' || payload.source === 'resume') lines.push('Sesi dilanjutkan: baca progress.md work item in-progress sebelum bertindak.');
-context('SessionStart', lines.join('\n'));
+try { const h = readHandoff(root, cfg); if (h) lines.push(h); } catch { /* abaikan */ }
+// additionalContext dibatasi 10.000 karakter oleh Claude Code
+context('SessionStart', lines.join('\n').slice(0, 9500));

@@ -14,7 +14,7 @@ function mkProject(cfgPatch = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qk-'));
   fs.cpSync(kernel, root, { recursive: true });
   const cfgPath = path.join(root, 'harness.config.json');
-  const cfg = { ...JSON.parse(fs.readFileSync(cfgPath, 'utf8')), services: ['svc-a', 'svc-b'], ...cfgPatch };
+  const cfg = { ...JSON.parse(fs.readFileSync(cfgPath, 'utf8')), services: ['svc-a', 'svc-b'], align: { required: false }, ...cfgPatch };
   fs.writeFileSync(cfgPath, JSON.stringify(cfg));
   for (const s of cfg.services) { fs.mkdirSync(path.join(root, 'source-code', s), { recursive: true }); spawnSync('git', ['init', '-q', '-b', 'main'], { cwd: path.join(root, 'source-code', s) }); }
   return root;
@@ -164,7 +164,7 @@ test('next: siapa dan perintah persis per status, lajur quick vs standard', () =
   const std = cli(root, 'new', 'feature', 'fitur biasa').stdout.trim().split('/').pop();
   const out = cli(root, 'next').stdout;
   assert.match(out, new RegExp(`\\| ${q} \\| quick \\| approved \\| agent \\| kerjakan di sesi ini`));
-  assert.match(out, new RegExp(`\\| ${std} \\| standard \\| draft \\| kamu \\| tinjau plan\\.md; bila setuju ketik /harness:approve ${std}`));
+  assert.match(out, new RegExp(`\\| ${std} \\| standard \\| draft \\| agent \\| /harness:plan ${std}`));
   assert.match(cli(root, 'next', q).stdout, /set-status .* done/);
 });
 
@@ -179,7 +179,7 @@ test('knowledge: bentuk /harness:knowledge verify dan patterns diterima hook (be
   assert.match(r.stdout, /patterns ditolak/);
 });
 
-test('skill: tepat 12, pintu knowledge/quick/next ada, skill yang dilebur sudah hilang', () => {
+test('skill: tepat 14, pintu knowledge/quick/next ada, skill yang dilebur sudah hilang', () => {
   const dirs = fs.readdirSync(path.join(here, '..', 'plugin', 'skills')).sort();
-  assert.deepEqual(dirs, ['approve', 'build', 'impact', 'init', 'knowledge', 'next', 'plan', 'quick', 'review', 'ship', 'status', 'summarize']);
+  assert.deepEqual(dirs, ['align', 'approve', 'build', 'impact', 'init', 'knowledge', 'next', 'plan', 'quick', 'review', 'ship', 'status', 'summarize', 'update']);
 });

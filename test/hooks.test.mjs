@@ -16,6 +16,7 @@ function mkProject(prefix = 'hx-') {
   const cfgPath = path.join(root, 'harness.config.json');
   const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
   cfg.services = ['svc-a', 'svc-b'];
+  cfg.align = { required: false };
   fs.writeFileSync(cfgPath, JSON.stringify(cfg));
   for (const s of cfg.services) {
     fs.mkdirSync(path.join(root, 'source-code', s), { recursive: true });

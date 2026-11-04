@@ -48,7 +48,7 @@ check('versi konsisten (VERSION, package.json, config kernel, plugin.json)', (ba
 const skillDirs = fs.existsSync(path.join(ROOT, 'plugin/skills')) ? fs.readdirSync(path.join(ROOT, 'plugin/skills'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name) : [];
 check('skill: SKILL.md valid dan namanya sama dengan folder', (bad) => {
   if (!skillDirs.length) bad('plugin/skills kosong');
-  if (skillDirs.length > 12) bad(`terlalu banyak skill (${skillDirs.length}); target 1.5.0 = 12, batas 12`);
+  if (skillDirs.length > 14) bad(`terlalu banyak skill (${skillDirs.length}); batas 14 (1.7.0: +align, +update)`);
   for (const d of skillDirs) {
     const f = `plugin/skills/${d}/SKILL.md`;
     if (!has(f)) { bad(`${f} tidak ada`); continue; }
@@ -87,7 +87,7 @@ check('hook di settings.json ada dan sintaks Node valid', (bad) => {
   const names = new Set([...st.matchAll(/\.claude\/hooks\/([A-Za-z0-9_.-]+\.mjs)/g)].map((m) => m[1]));
   if (!names.size) bad('settings.json tidak merujuk hook apa pun');
   for (const n of names) if (!has(`kernel/.claude/hooks/${n}`)) bad(`hook ${n} dirujuk tetapi tidak ada`);
-  for (const f of [...walk('kernel/.claude/hooks'), 'install.mjs', 'scripts/check-repo.mjs'].filter((x) => x.endsWith('.mjs'))) {
+  for (const f of [...walk('kernel/.claude/hooks'), 'install.mjs', 'scripts/check-repo.mjs', 'scripts/harness-update.mjs', 'scripts/projects.mjs'].filter((x) => x.endsWith('.mjs'))) {
     const r = spawnSync(process.execPath, ['--check', path.join(ROOT, f)], { encoding: 'utf8' });
     if (r.status !== 0) bad(`${f}: ${(r.stderr || '').split('\n')[0]}`);
   }
@@ -116,6 +116,40 @@ check('marketplace menunjuk plugin yang ada', (bad) => {
     const src = String(p.source || '').replace(/^\.\//, '');
     if (!has(`${src}/.claude-plugin/plugin.json`)) bad(`plugin "${p.name}": ${src}/.claude-plugin/plugin.json tidak ada`);
   }
+});
+
+// 10. hook memakai exec form (command "node" + args): tanpa shell, jalan sama di PowerShell dan Git Bash
+check('hook settings.json memakai exec form (command: node + args)', (bad) => {
+  const st = json('kernel/.claude/settings.json');
+  for (const [ev, groups] of Object.entries(st.hooks || {})) for (const g of groups) for (const h of g.hooks || []) {
+    if (h.command !== 'node' || !Array.isArray(h.args) || !h.args.length) bad(`${ev}: hook harus {command:"node", args:[...]} (ditemukan ${JSON.stringify(h.command)})`);
+    else if (!/^\$\{CLAUDE_PROJECT_DIR\}\/\.claude\/hooks\/[\w.-]+\.mjs$/.test(h.args[0])) bad(`${ev}: args[0] bukan path hook di \${CLAUDE_PROJECT_DIR}: ${h.args[0]}`);
+  }
+  for (const ev of ['Stop', 'PreCompact', 'SessionEnd', 'SessionStart']) if (!(st.hooks || {})[ev]) bad(`hook ${ev} tidak terpasang`);
+});
+
+// 11. agent: frontmatter lengkap, model dikenal; scout/runner Haiku, reviewer Opus
+check('agent: frontmatter valid dan routing model sesuai', (bad) => {
+  const want = { scout: 'haiku', runner: 'haiku', reviewer: 'opus' };
+  for (const f of walk('kernel/.claude/agents').filter((x) => x.endsWith('.md'))) {
+    const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(read(f));
+    if (!m) { bad(`${f}: frontmatter tidak ada`); continue; }
+    const name = /^name:\s*(.+)$/m.exec(m[1])?.[1].trim();
+    const model = /^model:\s*(.+)$/m.exec(m[1])?.[1].trim();
+    if (!name || !/^description:\s*\S/m.test(m[1]) || !/^tools:\s*\S/m.test(m[1])) bad(`${f}: name/description/tools wajib`);
+    if (model && !['sonnet', 'opus', 'haiku', 'inherit'].includes(model)) bad(`${f}: model "${model}" tidak dikenal`);
+    if (want[name] && model !== want[name]) bad(`${f}: ${name} harus model ${want[name]} (ditemukan ${model || 'tidak ada'})`);
+    if (want[name] && !/^omitClaudeMd:\s*true/m.test(m[1])) bad(`${f}: ${name} harus omitClaudeMd: true`);
+  }
+});
+
+// 12. tidak ada penanda "v1" pada nama produk/skill yang tampil ke user
+check('tanpa penanda "v1" pada nama plugin, judul, dan skill', (bad) => {
+  for (const f of ['plugin/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'kernel/AGENTS.md', 'README.md']) {
+    const first = f.endsWith('.md') ? read(f).split('\n')[0] : read(f);
+    if (/harness[ -]?v1\b/i.test(first)) bad(`${f}: memuat penanda "v1"`);
+  }
+  for (const d of skillDirs) if (/v\d/.test(d)) bad(`skill ${d}: nama berpenanda versi`);
 });
 
 let failed = 0;

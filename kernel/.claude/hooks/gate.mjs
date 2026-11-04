@@ -90,6 +90,21 @@ export function evaluate(root, cfg, payload) {
     return { ok: true };
   }
 
+  // 4a. align.md: verdict "aligned" hanya oleh manusia; debat dibatasi max_rounds; isi aligned tidak diubah diam-diam
+  const am = /^docs\/work\/([^/]+)\/align\.md$/.exec(rel);
+  if (am) {
+    const abs = path.resolve(root, rel);
+    const current = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
+    const c = splitFrontmatter(current); const n = splitFrontmatter(simulate(current, inc));
+    const cv = String(c.fm.verdict || 'open').toLowerCase(); const nv = String(n.fm.verdict || 'open').toLowerCase();
+    if (nv === 'aligned' && cv !== 'aligned') return fail(`verdict "aligned" hanya oleh manusia: ketik /harness:align ${am[1]} ok. Tulis "verdict: open".`);
+    if (cv === 'aligned' && nv === 'aligned' && c.body !== n.body) return fail(`align ${am[1]} sudah aligned (disetujui manusia). Mengubah isinya = turunkan ke "verdict: open" dalam edit yang sama; user menutup lagi dengan /harness:align ${am[1]} ok.`);
+    const rn = Number(n.fm.rounds || 0);
+    if (rn > cfg.align.max_rounds) return fail(`debat align dibatasi ${cfg.align.max_rounds} ronde (diminta ${rn}). Berhenti: ringkas titik beda lewat AskUserQuestion dan biarkan user memutuskan.`);
+    if (rn < Number(c.fm.rounds || 0)) return fail('rounds tidak boleh diturunkan.');
+    return { ok: true };
+  }
+
   // 4b. knowledge: status verified hanya oleh manusia; isi verified tidak diubah agent tanpa turun ke draft
   const km = /^docs\/knowledge\/([^/]+)\/(summary|patterns)\.md$/.exec(rel);
   if (km) {

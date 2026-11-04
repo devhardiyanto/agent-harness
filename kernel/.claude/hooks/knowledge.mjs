@@ -1,4 +1,4 @@
-// Harness v1 — pengetahuan (L0–L3): baseline, worktree, lint, kedaluwarsa, verifikasi, usulan pola.
+// Harness — pengetahuan (L0–L3): baseline, worktree, lint, kedaluwarsa, verifikasi, usulan pola.
 // Semua deterministik dan TANPA token. Tanpa dependency; Node >= 18. Dipakai harness.mjs, session.mjs, prompt.mjs, gate.mjs.
 import fs from 'node:fs';
 import path from 'node:path';

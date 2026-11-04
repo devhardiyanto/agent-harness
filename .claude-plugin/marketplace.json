@@ -1,7 +1,7 @@
 {
   "name": "harness-marketplace",
   "owner": { "name": "devhardiyanto" },
-  "metadata": { "description": "Harness v1 — skill per fase untuk alur kerja agentic" },
+  "metadata": { "description": "Harness — skill per fase untuk alur kerja agentic" },
   "plugins": [
     {
       "name": "harness",
