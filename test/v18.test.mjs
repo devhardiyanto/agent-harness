@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const kernel = path.join(here, '..', 'kernel');
@@ -65,8 +65,8 @@ test('event log: rotasi di atas 1 MB dan redaksi secret', () => {
   prompt(root, `/harness:approve ${slug}`);
   assert.ok(fs.existsSync(path.join(root, '.harness/events.jsonl.1')));
   assert.ok(fs.statSync(path.join(root, '.harness/events.jsonl')).size < 5000);
-  const lib = path.join(root, '.claude/hooks/lib.mjs');
-  const r = spawnSync('node', ['-e', `import('${lib.replace(/\\/g, '/')}').then((m) => m.emit(process.env.CLAUDE_PROJECT_DIR, { event: 'x', reason: 'token ghp_${'a'.repeat(36)}' }))`], { env: env(root), encoding: 'utf8' });
+  const lib = pathToFileURL(path.join(root, '.claude/hooks/lib.mjs')).href;
+  const r = spawnSync('node', ['-e', `import('${lib}').then((m) => m.emit(process.env.CLAUDE_PROJECT_DIR, { event: 'x', reason: 'token ghp_${'a'.repeat(36)}' }))`], { env: env(root), encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.doesNotMatch(rd(root, '.harness/events.jsonl'), /ghp_a{36}/);
 });
