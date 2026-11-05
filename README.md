@@ -112,7 +112,16 @@ harness-update-all --dry-run          # rencana installer saja
 harness-update-all                    # git pull installer → plugin global (marketplace update + plugin update --scope user) → tiap project: install --update
 harness-update-all --cleanup-project  # sekaligus hapus pemasangan plugin tingkat project lama setelah kernelnya diperbarui
 ```
-Project terdaftar otomatis di `~/.harness/projects.json` saat `install.mjs` berhasil; `--add`/`--remove` mengatur manual. Tiap project diperbarui di branch `harness-update` (satu commit): review lalu merge sendiri. Pohon kotor atau versi lebih baru dari installer ditolak dan dilaporkan; exit 1 bila ada yang gagal. Opsi: `--no-pull`, `--no-plugin`, `--force`. Plugin baru termuat di sesi berikutnya (atau `/reload-plugins`). Migrasi dari pemasangan per project: update kernel membuang `enabledPlugins`/`extraKnownMarketplaces` milik harness dari settings project; `--cleanup-project` menghapus entri project di Claude Code. Belum teruji di mesin nyata: perilaku bila plugin yang sama sempat aktif di dua scope (lihat PILOT bagian 8).
+**Alur 1.7+ (disarankan, tanpa branch tambahan):** `update-all.mjs` hanya dipakai untuk `--setup-plugin`, `--scan`, `--list`, `--add`, `--remove`. Untuk memperbarui project, pakai `harness-update.mjs`: pindah ke `main` bila bersih, `pull --ff-only`, update di tempat, satu commit lokal `chore(harness): update to vX.Y.Z`, doctor, tanpa push (kecuali `update.autoPush` atau `--push`).
+
+```
+node ~/agent-harness/scripts/harness-update.mjs /d/dev/yhpa --dry-run   # rencana satu root
+node ~/agent-harness/scripts/harness-update.mjs /d/dev/yhpa             # update (lokal, belum di-push)
+node ~/agent-harness/scripts/harness-update.mjs --all --dry-run         # semua project terdaftar
+node ~/agent-harness/scripts/harness-update.mjs /d/dev/yhpa --rollback  # git revert update terakhir
+```
+
+Project terdaftar otomatis di `~/.harness/projects.json` saat `install.mjs` berhasil; `--add`/`--remove` mengatur manual. Alur lama `update-all.mjs` (tanpa `--list`/`--scan`/dst.) memperbarui tiap project di branch `harness-update` (satu commit): review lalu merge sendiri. Root multi-repo tidak boleh punya branch tambahan, jadi alur lama tidak cocok untuknya. Pohon kotor atau versi lebih baru dari installer ditolak dan dilaporkan; exit 1 bila ada yang gagal. Opsi: `--no-pull`, `--no-plugin`, `--force`. Plugin baru termuat di sesi berikutnya (atau `/reload-plugins`). Migrasi dari pemasangan per project: update kernel membuang `enabledPlugins`/`extraKnownMarketplaces` milik harness dari settings project; `--cleanup-project` menghapus entri project di Claude Code. Belum teruji di mesin nyata: perilaku bila plugin yang sama sempat aktif di dua scope (lihat PILOT bagian 8).
 
 ## Pengiriman berantai (PR bertumpuk, merge oleh keputusanmu)
 - **Base per service adalah data project**, bukan bagian repo ini: `harness.config.json` → `ship.base` (`{"api": "feat/dasar"}` = PR bertumpuk di atas branch itu). Bawaan: branch baseline service. `harness.mjs ship-plan <slug>` menampilkan branch kerja, base, akun `gh` aktif, dan masalah (di branch utama, akun tanpa akses tulis) sebelum apa pun di-push.
