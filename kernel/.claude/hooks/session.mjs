@@ -2,13 +2,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { knowledgeStatusAll, knowledgeCfg } from './knowledge.mjs';
-import { readStdinJson, projectRoot, loadConfig, listItems, context, audit } from './lib.mjs';
+import { readStdinJson, projectRoot, loadConfig, listItems, context, audit, planeKick } from './lib.mjs';
 import { readHandoff } from './handoff.mjs';
 
 const payload = await readStdinJson();
 const root = projectRoot(payload);
 const cfg = loadConfig(root);
 audit(root, { event: 'SessionStart', session: payload.session_id, source: payload.source });
+planeKick(root); // kejar status yang tertunda (jaringan mati, sesi lain)
 
 const items = listItems(root).filter((i) => i.status !== 'merged');
 const lines = [`[harness v${cfg.harness_version}] project: ${cfg.project || path.basename(root)} · root branch: ${cfg.root_branch}`];

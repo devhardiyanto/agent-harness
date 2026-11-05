@@ -20,7 +20,7 @@ Yang dilakukan installer: cek prasyarat (tidak memasang apa pun) → deteksi mod
 Dipertahankan selalu: `source-code/`, `.mcp.json`, `.claude/settings.local.json`, semua isi `docs/` (termasuk `docs/discussion/`, `docs/work/`, `docs/knowledge/`, `docs/_map.md`, `docs/_archive/`), dan `scripts/` selain skrip harness lama. Pada root yang belum ber-harness v1, dokumen yang sudah ada tidak dibuang dan tidak ditimpa; yang diganti hanya perangkat harness lama (hook, rule, agent, skill, `AGENTS.md`, `CLAUDE.md`, config), dengan tag cadangan.
 
 **Memperbarui:** `install.mjs --update` (tambah `--dry-run` untuk meninjau; dry-run juga memperingatkan bila ada perubahan tracked yang belum di-commit, karena pemasangan nyata berhenti di situ: commit dulu, atau `--allow-dirty` bila itu data yang dipertahankan). Hanya berkas milik harness yang diganti; berkas buatan user di `.claude/` (rule, agent) tidak dibuang. Berkas harness yang sudah usang dibuang berdasarkan `.claude/harness.manifest.json`. `harness.config.json` digabung: nilai user (`root_branch`, `protected_branches`, `checks`, `baseline`, dst.) menang atas bawaan, kunci baru dari kernel ditambahkan. `settings.json`: izin dan kunci lain milik user dibawa; hook kustom tidak dibawa dan dilaporkan. Versi sama → tidak ada perubahan (`--force` untuk memasang ulang); versi terpasang lebih baru dari installer → ditolak (`--force` untuk menurunkan). Config yang rusak menghentikan installer, tidak ditimpa. Cek hasilnya: `node .claude/hooks/harness.mjs doctor` (membandingkan `.claude/harness.version` dengan config).
-Sisa modul yang sudah dibuang (`scripts/executor/`, `.agents/`, blok config `executor` dan `plane`) tidak disentuh: dilaporkan di rencana, tidak dipakai lagi, dan boleh kamu hapus sendiri.
+Sisa modul yang sudah dibuang (`scripts/executor/`, `.agents/`, blok config `executor`) tidak disentuh: dilaporkan di rencana, tidak dipakai lagi, dan boleh kamu hapus sendiri.
 
 Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge).
 
@@ -99,6 +99,20 @@ Belum terverifikasi di Claude Code asli (tidak bisa diuji di sandbox): hook `Sto
 | `harness.mjs watch` | TUI Node murni (tanpa dependency; bukan binary Go): Backlog=`draft`, Todo=`approved`, In Progress, Review=`in-review`, Done=`done`/`merged`; kartu menunjukkan lajur, AC berbukti, verdict test; event terakhir di bawah. Segar otomatis; `q` keluar, `r` muat ulang; `--once` satu bingkai tanpa ANSI |
 | ringkasan lokal | saat `done` dan `merged`: `docs/work/<slug>/summary.md` dirangkum dari file (objective di `brief.md`, hasil per AC, `## Decision log` di `progress.md`, debat dan parking lot di `align.md`, review, gate, bukti test, PR). Deterministik, tanpa model |
 | `harness.mjs gc [--days N]` | rencana pembersihan: bukti test item merged/tidak ada, event log rotasi, penanda/tiket kedaluwarsa, audit lebih dari N hari (30). `--yes` menghapus dan hanya untuk manusia (diblokir untuk agent). Work item, docs, knowledge, config, metrics, dan handoff tidak disentuh |
+
+## Plane: sinkron status satu arah (1.9.0, opsional)
+Mati bawaan. Bila dinyalakan, tiap work item punya satu kartu di project Plane dan statusnya mengikuti status lokal. **Satu arah**: harness menulis ke Plane, Plane tidak mengubah apa pun di lokal. Sumber kebenaran tetap `docs/work/<slug>/plan.md`; kartu hanya menyimpan tautan balik (`plane_id` di frontmatter) dan menampilkan status.
+
+Pemetaan bawaan: `draft`=Backlog, `approved`=Todo, `in-progress`=In Progress, `in-review`=Review, `done`/`merged`=Done. Nama state diubah di `plane.states` (mis. astra: `"in-review": "In Review"`).
+
+Menyalakan (per root):
+1. Buat API key Plane (akun yang kartunya mau ditulis); simpan **hanya** sebagai variabel lingkungan, mis. `PLANE_API_KEY`. Variabel harus sudah ada sebelum Claude Code dijalankan. Token tidak pernah ditulis ke config, event log, atau audit.
+2. Di `harness.config.json`: `"plane": {"enabled": true, "workspace": "<slug workspace>", "project_id": "<id project>"}` (opsional: `base_url` untuk self-hosted, hanya `https://`; `token_env`; `states`).
+3. `node .claude/hooks/harness.mjs plane check` (uji konfigurasi, token, koneksi, dan bahwa semua nama state ada), lalu `plane sync --dry-run` (lihat apa yang akan dikirim), lalu `plane sync`.
+
+Cara kerja: tiap perubahan status (hook approve, `set-status`, `quick`, `promote`, awal sesi) memicu `plane sync` di proses latar, tanpa menunda apa pun. Kegagalan jaringan/API tidak menggagalkan transisi status; yang tertinggal dikirim pada sync berikutnya (rekonsiliasi: status lokal ≠ status terakhir terkirim, dicatat di `.harness/plane.json`). Tiap pemindahan kolom ditandai komentar `[harness] draft → approved` dan kartu dibuat dengan `external_source: harness`. Item `merged` tanpa kartu tidak dibuat (pakai `plane sync --include-merged` bila mau). `doctor` GAGAL bila `enabled` tetapi konfigurasi atau token tidak lengkap.
+
+Belum ada di fase ini: Plane Wiki, Monitor/polling dari Plane (kartu ke Todo memulai Build), dan memindahkan isi task ke Plane.
 
 ## Memperbarui semua project
 Ada dua jalur, dan keduanya berasal dari repo-mu sendiri: **kernel** (hook, config, rules) ditulis `install.mjs --update` ke tiap project, **plugin** (skill) dipasang **global** (scope user, satu kali per mesin) dari marketplace `harness-marketplace` (repo GitHub installer) dan hanya berganti bila `version` di `plugin/.claude-plugin/plugin.json` naik (naikkan tiap rilis; `scripts/bump.mjs`). Installer tidak lagi mendaftarkan plugin di `.claude/settings.json` project.

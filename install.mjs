@@ -17,7 +17,7 @@ import { addProject, setInstaller } from './scripts/projects.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const KERNEL = path.join(HERE, 'kernel');
 const VERSION = fs.readFileSync(path.join(HERE, 'VERSION'), 'utf8').trim();
-const LEGACY_BLOCKS = ['executor', 'plane'];
+const LEGACY_BLOCKS = ['executor'];
 
 // ---------- argumen ----------
 const argv = process.argv.slice(2);
@@ -391,5 +391,5 @@ log('1. Plugin (skill /harness:*) dipasang global sekali per mesin:  node script
 log('2. Cek:  node .claude/hooks/harness.mjs doctor      (atau /harness:status)');
 log('3. Isi pengetahuan:  /harness:init   (satu service dulu → lihat /usage → lanjut all) → knowledge-sample → /harness:knowledge verify <svc>');
 log('4. Pakai:  /harness:impact feature <permintaan>');
-if (LEFTOVER.length || LEGACY_BLOCKS.some((k) => oldCfg[k])) log(`\nCatatan: sisa modul lama (${[...LEFTOVER, ...LEGACY_BLOCKS.filter((k) => oldCfg[k]).map((k) => `config.${k}`)].join(', ')}) dibiarkan apa adanya. Executor, Plane, dan dispatch sudah dibuang di harness ini; hapus sendiri bila tidak diperlukan.`);
+if (LEFTOVER.length || LEGACY_BLOCKS.some((k) => oldCfg[k])) log(`\nCatatan: sisa modul lama (${[...LEFTOVER, ...LEGACY_BLOCKS.filter((k) => oldCfg[k]).map((k) => `config.${k}`)].join(', ')}) dibiarkan apa adanya. Executor dan dispatch sudah dibuang di harness ini; hapus sendiri bila tidak diperlukan.`);
 if (tag) log(`\nKembali ke harness lama kapan saja:  git switch -c lama ${tag}`);
