@@ -324,6 +324,10 @@ switch (cmd) {
     ok('service di config ada di disk', !bad.length, bad.join(', '));
     const wts = rootWorktrees(root, cfg);
     ok('tidak ada worktree di root (multi-repo: root selalu di main)', !wts.length, `${wts.map((w) => path.relative(root, w.path).split(path.sep).join('/') || w.path).join(', ')} → lihat rencana: node .claude/hooks/harness.mjs gc ; hapus (manusia): ! node .claude/hooks/harness.mjs gc --yes`.slice(0, 300));
+    if (cfg.layout === 'multi-repo') {
+      const bgIso = [settings, readJson(path.join(root, '.claude', 'settings.local.json'))].map((s) => s && s.worktree && s.worktree.bgIsolation);
+      ok('sesi background tidak dipindah ke worktree (worktree.bgIsolation = "none")', bgIso.includes('none'), 'tambahkan {"worktree":{"bgIsolation":"none"}} ke .claude/settings.json, atau jalankan install --update');
+    }
     // Branch baseline (tempat deploy) tiap service harus dilindungi; kalau tidak, commit/push langsung ke sana tidak diblokir.
     const prot = [cfg.root_branch, ...(cfg.protected_branches || [])].map((g) => globToRegex(g));
     const open = (cfg.services || []).map((s) => ({ s, b: baselineOf(root, cfg, s, { light: true }) })).filter((x) => x.b.ok && !prot.some((re) => re.test(x.b.branch)));

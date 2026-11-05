@@ -203,6 +203,12 @@ function render(det, mode) {
     const custom = JSON.stringify(oldSt.hooks || {}).match(/"(?:command|args)":\s*"[^"]*"/g) || [];
     if (custom.some((c) => !/\.claude\/hooks\/|"node"/.test(c))) warnings.push('settings.json lama memuat hook kustom; tidak dibawa. Lihat tag/branch cadangan bila perlu.');
   }
+  // Layout multi-repo: root selalu di main. Sesi background Claude Code (`claude --bg`, agent view) secara bawaan pindah ke worktree di .claude/worktrees/ sebelum mengedit;
+  // matikan isolasi itu di root. Nilai yang sudah dipilih user tidak ditimpa.
+  if (cfg.layout === 'multi-repo') {
+    const wt = st.worktree && typeof st.worktree === 'object' && !Array.isArray(st.worktree) ? st.worktree : {};
+    if (!('bgIsolation' in wt)) st.worktree = { ...wt, bgIsolation: 'none' };
+  }
   fs.writeFileSync(setP, JSON.stringify(st, null, 2) + '\n');
   fs.writeFileSync(path.join(stage, '.claude', 'harness.manifest.json'), JSON.stringify({ version: VERSION, files: [...ownedNow()].filter((f) => !/harness\.(version|manifest)/.test(f)).sort() }, null, 2) + '\n');
   fs.writeFileSync(path.join(stage, '.claude', 'harness.version'), JSON.stringify({ version: VERSION, installed_at: new Date().toISOString(), installer_repo: slug, mode: UPDATE ? 'update' : mode, ...(UPDATE && installedVer ? { previous: installedVer } : {}) }, null, 2) + '\n');

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.4
+Untuk root ber-layout multi-repo: sesi background Claude Code (`claude --bg`, agent view) tidak lagi dipindah ke worktree di `.claude/worktrees/`. Itu perilaku bawaan Claude Code dan bertentangan dengan kebijakan 1.8.3 (root selalu di `main`).
+- Installer menulis `{"worktree": {"bgIsolation": "none"}}` ke `.claude/settings.json` root, hanya untuk layout multi-repo (kunci dan nilai resmi: halaman agent view Claude Code). Nilai `bgIsolation` yang sudah dipilih user tidak ditimpa; kunci `worktree` lain milik user dibawa.
+- `doctor`: baris baru "sesi background tidak dipindah ke worktree" (GAGAL bila multi-repo dan tidak ada `bgIsolation: "none"` di `settings.json` atau `settings.local.json`).
+- `update-all.mjs` dan README: alur `harness-update.mjs` (di `main`, tanpa branch tambahan) dijadikan jalur update project; `update-all.mjs` mencetak catatan bahwa alur lamanya membuat branch `harness-update`.
+- Batas yang perlu diketahui: setelan ini mengatur sesi background. Sesi yang kamu pindahkan ke background dengan `←` atau `/background` memang tidak pernah dipindah, dan worktree yang dibuat manual (mis. dari opsi worktree di aplikasi desktop) tidak diatur olehnya; `guard-bash` hanya menolak `git worktree add` oleh agent.
+
 ## 1.8.3
 Kebijakan untuk semua project ber-layout multi-repo: **root selalu di `main`, tanpa worktree atau branch untuk root.** Catatan kerja (`docs/`) ditulis langsung di root `main` (commit oleh manusia); worktree hanya di repo service.
 - `AGENTS.md`: aturan ditambahkan di "Batas keras".

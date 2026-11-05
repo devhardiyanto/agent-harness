@@ -82,6 +82,7 @@ if (hasClaude) {
   notes.push(u.status === 0 ? `plugin ${PLUGIN} (global, user): OK` : `plugin ${PLUGIN} (global, user): GAGAL (${lastLine(u)}); belum terpasang? jalankan --setup-plugin`);
 }
 console.log(`Installer ${VERSION}${DRY ? ' (dry run)' : ''}\n`);
+notes.push('alur ini membuat branch harness-update (lama). Alur 1.7+ langsung di main tanpa branch tambahan: node scripts/harness-update.mjs <root>... | --all [--dry-run]');
 
 const rows = []; let failed = 0;
 for (const p of projects) {
