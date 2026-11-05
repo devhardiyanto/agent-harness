@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.3
+Kebijakan untuk semua project ber-layout multi-repo: **root selalu di `main`, tanpa worktree atau branch untuk root.** Catatan kerja (`docs/`) ditulis langsung di root `main` (commit oleh manusia); worktree hanya di repo service.
+- `AGENTS.md`: aturan ditambahkan di "Batas keras".
+- `guard-bash`: agent tidak bisa `git worktree add` di root (boleh di repo service: `git -C source-code/<svc> worktree add ...`, atau `cd` ke service). Layout `single` tidak terkena.
+- `doctor`: baris baru "tidak ada worktree di root" (GAGAL bila ada).
+- `gc`: worktree root yang bersih dan sudah digabung masuk rencana; `gc --yes` (hanya manusia) menghapusnya lewat `git worktree remove` tanpa `--force` dan tanpa menghapus cabangnya. Yang kotor, belum digabung, atau foldernya hilang ditahan dan dilaporkan.
+- Installer: `.claude/worktrees/` masuk `.gitignore` root. Catatan: bila folder itu sudah terlanjur ter-track sebagai gitlink, hapus dari indeks dengan `git rm --cached` (installer tidak melakukannya).
+
 ## 1.8.2
 Perbaikan gerbang Stop, ditemukan saat uji di Claude Code 2.1.318:
 - Gerbang hanya menahan sesi yang mengerjakan item itu. Sebelumnya penanda "baru disentuh" memakai mtime berkas, padahal `git clone/pull/switch/merge` menulis ulang mtime semua berkas, sehingga sesi yang hanya menjalankan `/harness:status` ikut ditolak berhenti karena item lama milik orang lain. Kini `post.mjs` mencatat item yang disentuh tiap sesi (tulis ke `docs/work/<slug>/...`, atau perintah shell yang menyebut slug) di `.harness/state/touched-<sesi>.json`, dan `stop.mjs` hanya memeriksa item itu.

@@ -1,5 +1,6 @@
 // PreToolUse (Bash): git gate, perintah destruktif, secret, proteksi harness. Exit 2 = blokir.
 // Ini guardrail best-effort (regex), bukan sandbox.
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
   readStdinJson, projectRoot, loadConfig, globToRegex, activeItems, coversService, posix, deny, SECRET_FILE,
@@ -43,6 +44,13 @@ export function evaluate(root, cfg, payload) {
   if (/\brm\s+(-[a-zA-Z]*[rf][a-zA-Z]*\s+)+(\/|~|\$HOME|\.\.|\*|\.)(\s|$)/.test(flat)) return fail('rm rekursif pada root/home/parent/wildcard dilarang.');
   if (/\b(curl|wget)\b[^|;]*\|\s*(sudo\s+)?(ba|z)?sh\b/.test(flat)) return fail('pipe unduhan langsung ke shell dilarang. Unduh, periksa, baru jalankan.');
   if (/--no-verify\b/.test(flat) && /\bgit\b/.test(flat)) return fail('--no-verify dilarang (melewati hook git).');
+
+  // worktree di root (layout multi-repo): root selalu di branch utama; worktree hanya di repo service (git -C source-code/<svc> worktree add ...)
+  const wt = /\bgit\s+(?:-C\s+(\S+)\s+)?worktree\s+add\b/.exec(flat);
+  if (wt && cfg.layout === 'multi-repo' && !/\bcd\s/.test(flat.slice(0, wt.index))) {
+    const rel = path.relative(path.resolve(root, cfg.services_dir), path.resolve(cwd, (wt[1] || '').replace(/^["']|["']$/g, '') || '.'));
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return fail('worktree di root dilarang: root selalu di main dan catatan kerja ditulis langsung di sana. Worktree hanya di repo service: git -C source-code/<svc> worktree add ...');
+  }
 
   // git push
   if (/\bgit\b[^;&|]*\bpush\b/.test(flat)) {

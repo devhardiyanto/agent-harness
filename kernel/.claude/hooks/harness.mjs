@@ -45,7 +45,7 @@ import { runChecks } from './evidence.mjs';
 import { handoffPath } from './handoff.mjs';
 import { measureTranscript, formatMetrics } from './metrics.mjs';
 import { writeSummary } from './summary.mjs';
-import { planGc, applyGc } from './gc.mjs';
+import { planGc, applyGc, rootWorktrees } from './gc.mjs';
 import { renderFrame, runWatch } from './watch.mjs';
 import { shipPlan, runShip, ghAccess } from './ship.mjs';
 import {
@@ -264,6 +264,8 @@ switch (cmd) {
     console.log(plan.length ? `| berkas | alasan | ukuran |\n|---|---|---|\n${plan.map((x) => `| ${x.rel} | ${x.why} | ${kb(x.bytes)} |`).join('\n')}` : '(tidak ada yang perlu dibersihkan)');
     if (plan.length && args.includes('--yes')) { console.log(`\ndihapus: ${applyGc(plan)} dari ${plan.length}`); audit(root, { event: 'gc', reason: `${plan.length} berkas` }); }
     else if (plan.length) console.log('\nRencana saja. Hapus: ! node .claude/hooks/harness.mjs gc --yes (hanya manusia).');
+    const held = rootWorktrees(root, cfg).filter((w) => !w.removable);
+    if (held.length) console.log(`\nWorktree di root yang DITAHAN (tidak dihapus): ${held.map((w) => `${path.relative(root, w.path).split(path.sep).join('/') || w.path} (${!w.exists ? 'folder hilang: git worktree prune' : w.dirty ? 'ada perubahan belum di-commit' : 'cabang belum digabung ke ' + (cfg.root_branch || 'main')})`).join(', ')}. Selesaikan dulu (commit/gabung), lalu ulangi.`);
     break;
   }
   case 'measure': {
@@ -320,6 +322,8 @@ switch (cmd) {
     ok('docs/work/_TEMPLATE', fs.existsSync(path.join(root, 'docs', 'work', '_TEMPLATE', 'plan.md')), 'hilang');
     const bad = (cfg.services || []).filter((s) => !fs.existsSync(path.join(root, cfg.services_dir, s)));
     ok('service di config ada di disk', !bad.length, bad.join(', '));
+    const wts = rootWorktrees(root, cfg);
+    ok('tidak ada worktree di root (multi-repo: root selalu di main)', !wts.length, `${wts.map((w) => path.relative(root, w.path).split(path.sep).join('/') || w.path).join(', ')} → lihat rencana: node .claude/hooks/harness.mjs gc ; hapus (manusia): ! node .claude/hooks/harness.mjs gc --yes`.slice(0, 300));
     // Branch baseline (tempat deploy) tiap service harus dilindungi; kalau tidak, commit/push langsung ke sana tidak diblokir.
     const prot = [cfg.root_branch, ...(cfg.protected_branches || [])].map((g) => globToRegex(g));
     const open = (cfg.services || []).map((s) => ({ s, b: baselineOf(root, cfg, s, { light: true }) })).filter((x) => x.b.ok && !prot.some((re) => re.test(x.b.branch)));

@@ -29,6 +29,7 @@ User mengetik `/harness:quick <permintaan>`: hook membuat item `approved` (ketik
 - Jangan commit/push ke branch utama/dilindungi, jangan force push, jangan `gh pr merge`.
 - Jangan baca/tulis `.env`, kunci privat, atau menulis secret literal. Pakai variabel lingkungan.
 - `.claude/hooks/`, `.claude/settings.json`, `harness.config.json` tidak boleh diubah agent.
+- Layout multi-repo: root selalu di `main`, tanpa worktree/branch untuk root. Catatan kerja (`docs/`) ditulis langsung di root `main` (commit oleh manusia). Worktree hanya di repo service: `git -C source-code/<svc> worktree add ...`.
 - Perubahan skema (migrations/*.sql) hanya di work item bertipe `schema` dan lewat agent `dba`.
 - Dependency baru: laporan diff muncul di `deps-report.md`; justifikasi di review.
 
