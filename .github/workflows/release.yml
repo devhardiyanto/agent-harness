@@ -1,0 +1,26 @@
+name: release
+# Saat VERSION berubah di main (merge PR rilis): buat tag vX.Y.Z dan GitHub Release dari bagian CHANGELOG.md versi itu.
+# Dilewati bila release-nya sudah ada. Gagal (merah) bila VERSION bukan semver atau CHANGELOG tidak punya bagian versi itu.
+on:
+  push:
+    branches: [main]
+    paths: [VERSION]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag dan release dari VERSION
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="$(tr -d '[:space:]' < VERSION)"
+          [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::VERSION bukan semver: $v"; exit 1; }
+          if gh release view "v$v" >/dev/null 2>&1; then echo "v$v sudah ada, dilewati"; exit 0; fi
+          notes="$(tr -d '\r' < CHANGELOG.md | awk -v v="$v" '$0=="## "v{f=1;next} /^## /{f=0} f')"
+          [ -n "$notes" ] || { echo "::error::CHANGELOG.md tidak punya bagian '## $v'"; exit 1; }
+          printf '%s\n' "$notes" | gh release create "v$v" --target "$GITHUB_SHA" --title "v$v" --notes-file -

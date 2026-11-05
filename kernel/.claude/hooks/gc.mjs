@@ -21,8 +21,20 @@ export function rootWorktrees(root, cfg) {
     const exists = fs.existsSync(p);
     const dirty = exists && !!git(p, ['status', '--porcelain']).stdout.trim();
     const merged = git(root, ['merge-base', '--is-ancestor', branch || f.HEAD, 'HEAD']).status === 0;
-    return { path: p, branch, exists, dirty, merged, removable: exists && !dirty && merged };
+    // Claude Code mengunci worktree buatannya selama sesi hidup ("claude session <nama> (pid N)"); git menolak menghapus yang terkunci, dan prune melewatinya.
+    const locked = f.locked === undefined ? false : f.locked === true ? true : String(f.locked).replace(/[\u0000-\u001f]/g, ' ').slice(0, 120);
+    return { path: p, branch, exists, dirty, merged, locked, removable: exists && !dirty && merged && !locked };
   });
+}
+
+// Alasan worktree root ditahan (tidak masuk rencana hapus), satu kalimat untuk gc dan doctor.
+export function heldReason(w, rootBranch = 'main') {
+  const r = [];
+  if (w.locked) r.push(`dikunci${typeof w.locked === 'string' ? ` (${w.locked})` : ''}: tutup sesinya; bila sesi sudah mati: git worktree unlock "${w.path}"`);
+  if (!w.exists) r.push('folder hilang: git worktree prune');
+  else if (w.dirty) r.push('ada perubahan belum di-commit');
+  else if (!w.merged) r.push(`cabang belum digabung ke ${rootBranch}`);
+  return r.join('; ');
 }
 
 const age = (p) => { try { return (Date.now() - fs.statSync(p).mtimeMs) / 86400e3; } catch { return 0; } };

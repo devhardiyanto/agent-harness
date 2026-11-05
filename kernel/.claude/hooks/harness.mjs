@@ -45,7 +45,7 @@ import { runChecks } from './evidence.mjs';
 import { handoffPath } from './handoff.mjs';
 import { measureTranscript, formatMetrics } from './metrics.mjs';
 import { writeSummary } from './summary.mjs';
-import { planGc, applyGc, rootWorktrees } from './gc.mjs';
+import { planGc, applyGc, rootWorktrees, heldReason } from './gc.mjs';
 import { renderFrame, runWatch } from './watch.mjs';
 import { shipPlan, runShip, ghAccess } from './ship.mjs';
 import {
@@ -265,7 +265,7 @@ switch (cmd) {
     if (plan.length && args.includes('--yes')) { console.log(`\ndihapus: ${applyGc(plan)} dari ${plan.length}`); audit(root, { event: 'gc', reason: `${plan.length} berkas` }); }
     else if (plan.length) console.log('\nRencana saja. Hapus: ! node .claude/hooks/harness.mjs gc --yes (hanya manusia).');
     const held = rootWorktrees(root, cfg).filter((w) => !w.removable);
-    if (held.length) console.log(`\nWorktree di root yang DITAHAN (tidak dihapus): ${held.map((w) => `${path.relative(root, w.path).split(path.sep).join('/') || w.path} (${!w.exists ? 'folder hilang: git worktree prune' : w.dirty ? 'ada perubahan belum di-commit' : 'cabang belum digabung ke ' + (cfg.root_branch || 'main')})`).join(', ')}. Selesaikan dulu (commit/gabung), lalu ulangi.`);
+    if (held.length) console.log(`\nWorktree di root yang DITAHAN (tidak dihapus): ${held.map((w) => `${path.relative(root, w.path).split(path.sep).join('/') || w.path} (${heldReason(w, cfg.root_branch || 'main')})`).join(', ')}. Selesaikan dulu (commit/gabung/buka kunci), lalu ulangi.`);
     break;
   }
   case 'measure': {
@@ -323,7 +323,7 @@ switch (cmd) {
     const bad = (cfg.services || []).filter((s) => !fs.existsSync(path.join(root, cfg.services_dir, s)));
     ok('service di config ada di disk', !bad.length, bad.join(', '));
     const wts = rootWorktrees(root, cfg);
-    ok('tidak ada worktree di root (multi-repo: root selalu di main)', !wts.length, `${wts.map((w) => path.relative(root, w.path).split(path.sep).join('/') || w.path).join(', ')} → lihat rencana: node .claude/hooks/harness.mjs gc ; hapus (manusia): ! node .claude/hooks/harness.mjs gc --yes`.slice(0, 300));
+    ok('tidak ada worktree di root (multi-repo: root selalu di main)', !wts.length, `${wts.map((w) => (path.relative(root, w.path).split(path.sep).join('/') || w.path) + (w.locked ? ' [dikunci]' : '')).join(', ')} → lihat rencana: node .claude/hooks/harness.mjs gc ; hapus (manusia): ! node .claude/hooks/harness.mjs gc --yes`.slice(0, 300));
     if (cfg.layout === 'multi-repo') {
       const bgIso = [settings, readJson(path.join(root, '.claude', 'settings.local.json'))].map((s) => s && s.worktree && s.worktree.bgIsolation);
       ok('sesi background tidak dipindah ke worktree (worktree.bgIsolation = "none")', bgIso.includes('none'), 'tambahkan {"worktree":{"bgIsolation":"none"}} ke .claude/settings.json, atau jalankan install --update');

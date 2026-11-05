@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.5
+Ditemukan saat update yhpa di Windows: `gc --yes` mencetak "dihapus: 0 dari 1" tanpa alasan karena worktree-nya **terkunci** (Claude Code mengunci worktree buatannya selama sesi hidup: `claude session <nama> (pid N)`; git menolak menghapus yang terkunci).
+- `gc`: worktree root yang terkunci tidak masuk rencana hapus. Laporan "DITAHAN" menyebut alasan kunci dan cara menanganinya: tutup sesinya, atau bila sesi sudah mati, `git worktree unlock <path>` (keputusan manusia). Alasan lain (kotor, belum digabung, folder hilang) tetap disebut bersamaan.
+- `doctor`: baris "tidak ada worktree di root" menandai `[dikunci]` pada worktree yang terkunci.
+- Baru: workflow `.github/workflows/release.yml`. Saat `VERSION` berubah di `main`, ia membuat tag `vX.Y.Z` dan GitHub Release dengan catatan dari bagian `## X.Y.Z` di CHANGELOG. Dilewati bila release-nya sudah ada; gagal (merah) bila `VERSION` bukan semver atau bagian CHANGELOG-nya tidak ada. Hanya memakai `GITHUB_TOKEN` (`contents: write`). Alur rilis jadi: bump, PR, merge; tag dan release menyusul otomatis.
+
 ## 1.8.4
 Untuk root ber-layout multi-repo: sesi background Claude Code (`claude --bg`, agent view) tidak lagi dipindah ke worktree di `.claude/worktrees/`. Itu perilaku bawaan Claude Code dan bertentangan dengan kebijakan 1.8.3 (root selalu di `main`).
 - Installer menulis `{"worktree": {"bgIsolation": "none"}}` ke `.claude/settings.json` root, hanya untuk layout multi-repo (kunci dan nilai resmi: halaman agent view Claude Code). Nilai `bgIsolation` yang sudah dipilih user tidak ditimpa; kunci `worktree` lain milik user dibawa.
