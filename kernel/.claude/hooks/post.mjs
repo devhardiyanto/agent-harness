@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
-  readStdinJson, projectRoot, loadConfig, relPath, audit, activeItems, serviceOf, context, contextWarning,
+  readStdinJson, projectRoot, loadConfig, relPath, audit, activeItems, serviceOf, context, contextWarning, markTouched,
 } from './lib.mjs';
 
 const MANIFEST = /(^|\/)(package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|composer\.json|composer\.lock|go\.mod|go\.sum|requirements[\w.-]*\.txt|pyproject\.toml|poetry\.lock|Pipfile|Gemfile|Cargo\.toml|pom\.xml|build\.gradle(\.kts)?)$/;
@@ -36,6 +36,15 @@ if (ev === 'InstructionsLoaded') {
 }
 const target = input.file_path || input.notebook_path || input.command || input.pattern || '';
 audit(root, { event: ev, session: payload.session_id, tool: payload.tool_name, target });
+
+// Catat item yang disentuh sesi ini: tulis ke docs/work/<slug>/..., atau perintah shell yang menyebut slug (mis. run-checks <slug>).
+try {
+  const slugs = new Set();
+  const m = /^docs\/work\/([^/]+)\//.exec(relPath(root, input.file_path || input.notebook_path || ''));
+  if (m && m[1] !== '_TEMPLATE') slugs.add(m[1]);
+  if (/^(Bash|PowerShell)$/.test(payload.tool_name)) for (const t of String(input.command || '').match(/\d{4}-\d{2}-\d{2}-[\w.-]+/g) || []) slugs.add(t.replace(/[.-]+$/, ''));
+  if (slugs.size) markTouched(root, payload.session_id, [...slugs]);
+} catch { /* abaikan */ }
 
 try {
   const rel = relPath(root, input.file_path || '');
