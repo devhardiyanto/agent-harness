@@ -215,7 +215,7 @@ function render(det, mode) {
 }
 
 // ---------- 4. terapkan ----------
-const GITIGNORE = ['.harness-staging/', '.harness-backup-*/', '.harness/', '.claude/audit/', '.claude/state/', '.claude/settings.local.json', 'CLAUDE.local.md'];
+const GITIGNORE = ['.harness-staging/', '.harness-backup-*/', '.harness/', '.claude/audit/', '.claude/state/', '.claude/worktrees/', '.claude/settings.local.json', 'CLAUDE.local.md'];
 function applyGitignore(isGit) {
   const p = path.join(target, '.gitignore');
   const cur = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
