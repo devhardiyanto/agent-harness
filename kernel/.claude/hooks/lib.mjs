@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.8.1',
+  harness_version: '1.8.2',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -284,6 +284,17 @@ export function codeFingerprint(root, cfg, item) {
     h.update(worktreeHash(d));
   }
   return h.digest('hex').slice(0, 16);
+}
+// Item yang disentuh sesi ini (diisi post.mjs): gerbang Stop hanya menahan sesi yang benar-benar mengerjakan item itu.
+// mtime berkas tidak bisa jadi penanda: git clone/pull/switch/merge menulis ulang mtime semua berkas.
+const touchedPath = (root, sid) => path.join(root, '.harness', 'state', `touched-${String(sid || 'x').replace(/\W/g, '')}.json`);
+export const touchedSlugs = (root, sid) => new Set(readJson(touchedPath(root, sid), { slugs: [] }).slugs || []);
+export function markTouched(root, sid, slugs) {
+  const have = touchedSlugs(root, sid);
+  const add = slugs.filter((x) => !have.has(x));
+  if (!add.length) return;
+  fs.mkdirSync(path.dirname(touchedPath(root, sid)), { recursive: true });
+  fs.writeFileSync(touchedPath(root, sid), JSON.stringify({ slugs: [...have, ...add] }));
 }
 export const evidenceDir = (root, slug) => path.join(root, '.harness', 'evidence', slug);
 export function readEvidence(root, slug) { return readJson(path.join(evidenceDir(root, slug), 'tests.json'), null); }

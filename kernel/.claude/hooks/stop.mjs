@@ -1,20 +1,18 @@
-// Stop: gerbang #3. Sesi tidak boleh berhenti bila item yang baru dikerjakan sudah "siap" (semua AC berbukti)
+// Stop: gerbang #3. Sesi tidak boleh berhenti bila item yang dikerjakan SESI INI (dicatat post.mjs) sudah "siap" (semua AC berbukti)
 // tetapi bukti test (.harness/evidence/<slug>/tests.json) belum ada / gagal / usang, atau (lajur standard, in-review) review.md belum ada.
 // Exit 2 = tolak berhenti dan beri alasan ke agent. Anti-loop: stop_hook_active dari Claude Code + penghitung per sesi (stop_gate.max_blocks).
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  readStdinJson, projectRoot, loadConfig, listItems, summarizeItem, readEvidence, codeFingerprint, isQuick, readJson, audit, isMain,
+  readStdinJson, projectRoot, loadConfig, listItems, summarizeItem, readEvidence, codeFingerprint, isQuick, readJson, audit, isMain, touchedSlugs,
 } from './lib.mjs';
 
-const mtime = (p) => { try { return fs.statSync(p).mtimeMs; } catch { return 0; } };
-
-export function problemsFor(root, cfg, now = Date.now()) {
-  const cutoff = now - (cfg.stop_gate.recent_hours || 12) * 3600e3;
+export function problemsFor(root, cfg, sid) {
+  const mine = touchedSlugs(root, sid);
   const out = [];
   for (const item of listItems(root)) {
     if (!['in-progress', 'in-review'].includes(item.status)) continue;
-    if (Math.max(mtime(item.planPath), mtime(path.join(item.dir, 'progress.md'))) < cutoff) continue;
+    if (!mine.has(item.slug)) continue; // bukan item yang dikerjakan sesi ini
     const sum = summarizeItem(item);
     if (!sum.ac.length || sum.ac.some((a) => a.evidence !== 'ok')) continue; // belum siap: boleh berhenti
     const ev = readEvidence(root, item.slug);
@@ -33,7 +31,7 @@ export function evaluate(root, cfg, payload) {
   const mark = path.join(root, '.harness', 'state', `stop-${String(payload.session_id || 'x').replace(/\W/g, '')}.json`);
   const prev = readJson(mark, { blocks: 0 });
   if ((prev.blocks || 0) >= cfg.stop_gate.max_blocks) return { ok: true, why: 'batas penolakan per sesi tercapai' };
-  const problems = problemsFor(root, cfg);
+  const problems = problemsFor(root, cfg, payload.session_id);
   if (!problems.length) return { ok: true };
   fs.mkdirSync(path.dirname(mark), { recursive: true });
   fs.writeFileSync(mark, JSON.stringify({ blocks: (prev.blocks || 0) + 1, at: new Date().toISOString() }));

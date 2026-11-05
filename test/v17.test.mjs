@@ -33,6 +33,8 @@ const gateWrite = (root, rel, content) => run(root, 'gate.mjs', { hook_event_nam
 const gateEdit = (root, rel, o, n) => run(root, 'gate.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: path.join(root, rel), old_string: o, new_string: n } });
 const bash = (root, command) => run(root, 'guard-bash.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command } });
 const stop = (root, extra = {}) => run(root, 'stop.mjs', { hook_event_name: 'Stop', ...extra });
+// meniru PostToolUse: sesi menulis berkas di docs/work/<slug>/ (penanda item yang dikerjakan sesi ini)
+const touch = (root, slug, session_id = 's1', rel = 'progress.md') => run(root, 'post.mjs', { hook_event_name: 'PostToolUse', session_id, tool_name: 'Write', tool_input: { file_path: path.join(root, 'docs', 'work', slug, rel) } });
 const rd = (root, p) => fs.readFileSync(path.join(root, p), 'utf8');
 const wr = (root, p, c) => { fs.mkdirSync(path.dirname(path.join(root, p)), { recursive: true }); fs.writeFileSync(path.join(root, p), c); };
 
@@ -120,6 +122,7 @@ function inProgress(root, { check = 'node -e "process.exit(0)"' } = {}) {
   assert.match(prompt(root, `/harness:approve ${slug}`).stdout, /APPROVED/);
   assert.equal(cli(root, 'start', slug).status, 0);
   wr(root, `docs/work/${slug}/progress.md`, '- AC1: curl localhost:3000/x -> 200 OK\n');
+  touch(root, slug);
   return slug;
 }
 
@@ -160,7 +163,9 @@ test('Stop: anti-loop (stop_hook_active, batas per sesi), item belum siap, dan d
   assert.equal(stop(root).status, 2);
   assert.equal(stop(root).status, 2);
   assert.equal(stop(root).status, 0, 'max_blocks=2 lalu mengalah');
-  // sesi lain tetap dihitung sendiri
+  // sesi lain dihitung sendiri; sesi yang tidak menyentuh item itu tidak ditahan
+  assert.equal(stop(root, { session_id: 'lain' }).status, 0);
+  touch(root, path.basename(fs.readdirSync(path.join(root, 'docs', 'work')).map((d) => path.join(root, 'docs', 'work', d)).find((d) => fs.existsSync(path.join(d, 'plan.md')))), 'lain');
   assert.equal(stop(root, { session_id: 'lain' }).status, 2);
   // belum semua AC berbukti: boleh berhenti
   const r2 = mk({ align: false });
@@ -413,4 +418,27 @@ test('kernel memuat hook dan agent baru; settings: model sonnet dan hook Stop/Pr
   for (const ev of ['Stop', 'PreCompact', 'SessionEnd']) assert.ok(st.hooks[ev], ev);
   for (const f of ['stop', 'handoff', 'store', 'evidence', 'metrics']) assert.ok(fs.existsSync(path.join(kernel, '.claude/hooks', `${f}.mjs`)), f);
   for (const a of ['scout', 'runner', 'reviewer']) assert.ok(fs.existsSync(path.join(kernel, '.claude/agents', `${a}.md`)), a);
+});
+
+test('Stop: sesi yang tidak mengerjakan item tidak ditahan (mtime berkas segar karena git clone/pull bukan penanda)', () => {
+  const root = mk({ align: false });
+  const slug = inProgress(root); // sesi s1 mengerjakan item; semua AC berbukti, test belum jalan
+  const fresh = new Date();
+  for (const f of ['plan.md', 'progress.md']) fs.utimesSync(path.join(root, 'docs', 'work', slug, f), fresh, fresh);
+  assert.equal(stop(root, { session_id: 'sesi-status' }).status, 0, 'sesi yang hanya menjalankan /harness:status tidak boleh ditolak');
+  assert.equal(stop(root, { session_id: 's1' }).status, 2, 'sesi yang mengerjakan item tetap ditahan');
+});
+
+test('Stop: perintah shell yang menyebut slug (mis. run-checks) juga menandai item sebagai dikerjakan sesi itu', () => {
+  const root = mk({ align: false });
+  const slug = inProgress(root);
+  run(root, 'post.mjs', { hook_event_name: 'PostToolUse', session_id: 'sesi-bash', tool_name: 'Bash', tool_input: { command: `node .claude/hooks/harness.mjs run-checks ${slug}.` } });
+  assert.equal(stop(root, { session_id: 'sesi-bash' }).status, 2);
+});
+
+test('post.mjs: penanda tidak dibuat untuk _TEMPLATE atau berkas di luar docs/work', () => {
+  const root = mk({ align: false });
+  touch(root, '_TEMPLATE', 'sx');
+  run(root, 'post.mjs', { hook_event_name: 'PostToolUse', session_id: 'sx', tool_name: 'Write', tool_input: { file_path: path.join(root, 'README.md') } });
+  assert.equal(fs.existsSync(path.join(root, '.harness', 'state', 'touched-sx.json')), false);
 });
