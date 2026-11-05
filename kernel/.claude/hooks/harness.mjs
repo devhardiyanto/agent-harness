@@ -23,6 +23,7 @@
 //   gc [--days N] [--yes]   rencana pembersihan berkas sementara (bukti item merged, tiket/penanda kedaluwarsa, audit > N hari, default 30); --yes hanya manusia
 //   measure <transcript.jsonl> [--json] [--label x]   token per model, panggilan tool/subagent, durasi → .harness/metrics/ (baseline sebelum/sesudah routing)
 //   update [--all|--rollback]  perbarui harness di root ke main (HANYA dengan tiket: /harness:update atau "tolong root nya di update ke main")
+//   plane sync|check        Plane (plane.enabled): sync = kirim status work item ke kartu Plane (satu arah; --dry-run, --include-merged, <slug>); check = uji konfigurasi, token (env), koneksi, nama state
 //   doctor                  periksa instalasi
 // Pengetahuan (tanpa token, deterministik):
 //   inventory [--json]                  service di source-code/, stack, baseline, status checkout
@@ -47,6 +48,7 @@ import { measureTranscript, formatMetrics } from './metrics.mjs';
 import { writeSummary } from './summary.mjs';
 import { planGc, applyGc, rootWorktrees, heldReason } from './gc.mjs';
 import { renderFrame, runWatch } from './watch.mjs';
+import { planeSync, planeCheck, planeProblems } from './plane.mjs';
 import { shipPlan, runShip, ghAccess } from './ship.mjs';
 import {
   inventory, baselineOf, worktreeAdd, worktreeRm, lintService, formatLint, sampleService, knowledgeStatus, proposeChecks,
@@ -292,6 +294,33 @@ switch (cmd) {
     audit(root, { event: 'harness-update', mode, status: r.status });
     process.exit(r.status ?? 1);
   }
+  case 'plane': {
+    const sub = args[0];
+    const flags = args.slice(1).filter((a) => a.startsWith('--'));
+    const slug = args.slice(1).find((a) => !a.startsWith('--')) || null;
+    const quiet = flags.includes('--quiet');
+    const table = (rows, head) => `| ${head.join(' | ')} |\n|${head.map(() => '---').join('|')}|\n${rows.map((r) => `| ${r.slice(0, head.length).join(' | ')} |`).join('\n')}`;
+    if (sub === 'sync') {
+      let q = null; if (slug) { q = resolveSlug(root, slug); if (!q) die(`work item "${slug}" tidak ditemukan / ambigu.`); }
+      const r = await planeSync(root, cfg, { slug: q, includeMerged: flags.includes('--include-merged'), dryRun: flags.includes('--dry-run') });
+      if (!quiet) {
+        if (r.problems.length) console.error(`Plane belum siap:\n- ${r.problems.join('\n- ')}`);
+        else if (r.busy) console.log('sinkron lain sedang berjalan; tidak ada yang dikirim.');
+        else console.log(r.rows.length ? table(r.rows, ['item', 'aksi', 'hasil']) : 'Plane sudah sama dengan status lokal.');
+      }
+      if (!r.ok) process.exit(2);
+      break;
+    }
+    if (sub === 'check') {
+      const r = await planeCheck(cfg);
+      if (r.problems.length) { console.error(`Plane belum siap:\n- ${r.problems.join('\n- ')}`); process.exit(2); }
+      console.log(table(r.rows, ['status harness', 'state Plane', 'hasil']));
+      if (!r.ok) process.exit(2);
+      break;
+    }
+    die('usage: plane sync [slug] [--dry-run] [--include-merged] | plane check');
+    break;
+  }
   case 'doctor': {
     const rows = [];
     const ok = (name, pass, hint = '') => rows.push(`| ${name} | ${pass ? 'OK' : 'GAGAL'} | ${pass ? '' : hint} |`);
@@ -328,6 +357,7 @@ switch (cmd) {
       const bgIso = [settings, readJson(path.join(root, '.claude', 'settings.local.json'))].map((s) => s && s.worktree && s.worktree.bgIsolation);
       ok('sesi background tidak dipindah ke worktree (worktree.bgIsolation = "none")', bgIso.includes('none'), 'tambahkan {"worktree":{"bgIsolation":"none"}} ke .claude/settings.json, atau jalankan install --update');
     }
+    if (cfg.plane.enabled) { const pp = planeProblems(cfg); ok('Plane: konfigurasi lengkap dan token ada di lingkungan', !pp.length, pp.join('; ').slice(0, 300)); }
     // Branch baseline (tempat deploy) tiap service harus dilindungi; kalau tidak, commit/push langsung ke sana tidak diblokir.
     const prot = [cfg.root_branch, ...(cfg.protected_branches || [])].map((g) => globToRegex(g));
     const open = (cfg.services || []).map((s) => ({ s, b: baselineOf(root, cfg, s, { light: true }) })).filter((x) => x.b.ok && !prot.some((re) => re.test(x.b.branch)));

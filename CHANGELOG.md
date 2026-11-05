@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.0
+Fase 1 integrasi Plane: **sinkron status satu arah**, work item lokal → kartu Plane. Mati bawaan; root yang tidak menyalakannya tidak berubah perilaku.
+- Baru: `.claude/hooks/plane.mjs` dan perintah `harness.mjs plane sync [slug] [--dry-run] [--include-merged]` / `plane check`. Kartu dibuat di state sesuai status (`external_id` = slug, `external_source` = `harness`), `plane_id` ditulis ke frontmatter `plan.md` (sudah diabaikan oleh pembekuan plan), tiap pemindahan kolom memberi komentar bertanda `[harness]`.
+- Config `plane`: `enabled`, `base_url` (https; http hanya localhost), `workspace`, `project_id`, `token_env` (nama variabel lingkungan; token tidak pernah di berkas), `marker`, `states` (status harness → nama state Plane; astra: `in-review` → `In Review`). Blok `plane` lama (`enabled:false, project_id:null`) tetap kompatibel; installer tidak lagi menandainya sebagai modul lama.
+- Pemicu: `audit` untuk peristiwa `status`/`approve`/`quick`/`promote` dan awal sesi menjalankan sync di proses latar (`planeKick`); tidak menunda hook, gagal diam, satu proses sekaligus (kunci `.harness/plane.lock`). Yang gagal dikirim diulang pada sync berikutnya.
+- Keamanan: tanpa redirect, timeout 10 dtk, galat disaring `redact`, pesan galat tanpa header; `doctor` GAGAL bila `enabled` tanpa konfigurasi/token lengkap.
+- Belum: Plane Wiki, polling dari Plane (Todo memulai Build), isi task di Plane.
+
 ## 1.8.5
 Ditemukan saat update yhpa di Windows: `gc --yes` mencetak "dihapus: 0 dari 1" tanpa alasan karena worktree-nya **terkunci** (Claude Code mengunci worktree buatannya selama sesi hidup: `claude session <nama> (pid N)`; git menolak menghapus yang terkunci).
 - `gc`: worktree root yang terkunci tidak masuk rencana hapus. Laporan "DITAHAN" menyebut alasan kunci dan cara menanganinya: tutup sesinya, atau bila sesi sudah mati, `git worktree unlock <path>` (keputusan manusia). Alasan lain (kotor, belum digabung, folder hilang) tetap disebut bersamaan.

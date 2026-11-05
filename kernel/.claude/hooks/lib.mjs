@@ -3,13 +3,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import os from 'node:os';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.8.5',
+  harness_version: '1.9.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -40,6 +40,12 @@ export const DEFAULT_CONFIG = {
   stop_gate: { enabled: true, max_blocks: 2, recent_hours: 12 },
   handoff: { max_chars: 6000 },
   update: { autoPush: false },  // `harness update`: push ke origin/root_branch hanya bila true
+  // Plane (opsional, mati bawaan): sinkron status satu arah work item → kartu Plane. Token HANYA dari variabel lingkungan `token_env`, tidak pernah di config.
+  // states: status harness → NAMA state di project Plane (astra: "in-review": "In Review").
+  plane: {
+    enabled: false, base_url: 'https://api.plane.so', workspace: null, project_id: null, token_env: 'PLANE_API_KEY', marker: '[harness]',
+    states: { draft: 'Backlog', approved: 'Todo', 'in-progress': 'In Progress', 'in-review': 'Review', done: 'Done', merged: 'Done' },
+  },
 };
 
 // True bila modul ini dijalankan sebagai skrip (bukan di-import). JANGAN membandingkan import.meta.url dengan
@@ -67,7 +73,8 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  cfg.plane.states = { ...DEFAULT_CONFIG.plane.states, ...((user.plane && user.plane.states) || {}) };
   return cfg;
 }
 
@@ -465,6 +472,18 @@ export function emit(root, rec) {
 export function readEvents(root, n = 15) {
   try { return fs.readFileSync(eventsPath(root), 'utf8').split('\n').filter(Boolean).slice(-n).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch { return []; }
 }
+// Kirim status tertunda ke Plane di proses latar (tidak menunda hook). Diam bila plane mati; kegagalan tercatat di event log oleh `plane sync`.
+export function planeKick(root) {
+  if (process.env.HARNESS_BENCH) return;
+  try {
+    if (!loadConfig(root).plane.enabled) return;
+    const c = spawn(process.execPath, [path.join(path.dirname(fileURLToPath(import.meta.url)), 'harness.mjs'), 'plane', 'sync', '--quiet'],
+      { cwd: root, env: { ...process.env, CLAUDE_PROJECT_DIR: root }, detached: true, stdio: 'ignore', windowsHide: true });
+    c.on('error', () => {}); c.unref();
+  } catch { /* sinkron Plane tidak boleh menjatuhkan hook */ }
+}
+const PLANE_EVENTS = new Set(['status', 'approve', 'quick', 'promote']);
+
 export function audit(root, entry) {
   if (process.env.HARNESS_BENCH) return;
   try {
@@ -476,6 +495,7 @@ export function audit(root, entry) {
     fs.appendFileSync(path.join(dir, ts.slice(0, 10) + '.jsonl'), JSON.stringify(rec) + '\n');
     if (!NOISY_EVENTS.has(entry.event)) emit(root, { ts, event: entry.event, slug: entry.slug, by: entry.by, to: entry.to, from: entry.from, tool: entry.tool, reason: entry.reason });
   } catch { /* audit tidak boleh menjatuhkan hook */ }
+  if (PLANE_EVENTS.has(entry.event)) planeKick(root);
 }
 
 // ---------- output helper ----------

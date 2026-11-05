@@ -70,7 +70,7 @@ test('existing: ganti penuh, tag cadangan, branch, yang lain dipertahankan', () 
   assert.equal(fs.existsSync(path.join(root, '.harness-staging')), false);
   const cfg = JSON.parse(fs.readFileSync(path.join(root, 'harness.config.json'), 'utf8'));
   assert.deepEqual(cfg.services, ['ce-api', 'ce-web']);
-  assert.equal(cfg.plane, undefined, 'blok plane tidak dibuat lagi');
+  assert.equal(cfg.plane.enabled, false, 'plane mati bawaan (1.9.0: sinkron status opsional)');
   const st = JSON.parse(fs.readFileSync(path.join(root, '.claude/settings.json'), 'utf8'));
   assert.equal(st.enabledPlugins, undefined, 'plugin global: tidak didaftarkan di settings project');
   assert.equal(st.extraKnownMarketplaces, undefined);
@@ -150,14 +150,14 @@ test('folder installer sendiri ditolak', () => {
 });
 
 // ---------- sisa modul lama & pasang ulang di atas v1 ----------
-test('tidak ada modul executor/plane yang dipasang; tidak ada .gitattributes baru', () => {
+test('tidak ada modul executor yang dipasang, plane mati bawaan; tidak ada .gitattributes baru', () => {
   const root = existingProject();
   assert.equal(install(root, '--yes').status, 0);
   assert.equal(fs.existsSync(path.join(root, '.gitattributes')), false);
   assert.equal(fs.existsSync(path.join(root, 'scripts/executor')), false);
   assert.equal(fs.existsSync(path.join(root, '.agents')), false);
   const cfg = JSON.parse(fs.readFileSync(path.join(root, 'harness.config.json'), 'utf8'));
-  assert.equal(cfg.executor, undefined); assert.equal(cfg.plane, undefined);
+  assert.equal(cfg.executor, undefined); assert.equal(cfg.plane.enabled, false);
 });
 
 test('pasang ulang di atas v1: sisa executor/plane dibiarkan, dilaporkan, dan datanya tidak hilang', () => {
@@ -170,7 +170,7 @@ test('pasang ulang di atas v1: sisa executor/plane dibiarkan, dilaporkan, dan da
   fs.writeFileSync(path.join(root, '.agents/agents/implementer/agent.md'), 'milik user');
   const cp = path.join(root, 'harness.config.json');
   const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
-  cfg.executor = { enabled: true, sandbox: false }; cfg.plane = { enabled: true, project_id: 'p1', workspace: 'w' };
+  cfg.executor = { enabled: true, sandbox: false }; cfg.plane = { enabled: false, project_id: 'p1', workspace: 'w' };
   fs.writeFileSync(cp, JSON.stringify(cfg, null, 2));
   sh('git', ['add', '-A'], root); sh('git', ['commit', '-qm', 'sisa modul lama'], root);
   const dry = install(root, '--dry-run');
@@ -182,7 +182,7 @@ test('pasang ulang di atas v1: sisa executor/plane dibiarkan, dilaporkan, dan da
   assert.equal(fs.readFileSync(path.join(root, '.agents/agents/implementer/agent.md'), 'utf8'), 'milik user');
   const after = JSON.parse(fs.readFileSync(cp, 'utf8'));
   assert.deepEqual(after.executor, { enabled: true, sandbox: false });
-  assert.deepEqual(after.plane, { enabled: true, project_id: 'p1', workspace: 'w' });
+  assert.equal(after.plane.project_id, 'p1'); assert.equal(after.plane.workspace, 'w'); assert.equal(after.plane.enabled, false); // nilai user menang; kunci baru dari kernel ikut masuk
   assert.match(r.stdout, /Catatan: sisa modul lama/);
   assert.equal(hx(root, 'doctor').status, 0);
 });
