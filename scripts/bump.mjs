@@ -40,4 +40,4 @@ if (!DRY && !process.argv.includes('--no-check')) {
   console.log((r.stdout || '').trim().split(/\r?\n/).slice(-1)[0]);
   if (r.status !== 0) { console.error(r.stdout + r.stderr); process.exit(1); }
 }
-if (!DRY) console.log(`\nBerikutnya: git commit -am "rilis ${next}" → PR → setelah merge: git tag v${next} <sha merge>`);
+if (!DRY) console.log(`\nBerikutnya: git commit -am "rilis ${next}" → PR → merge (merge commit): tag v${next} dan GitHub Release dibuat otomatis oleh workflow release (butuh bagian "## ${next}" di CHANGELOG.md)`);
