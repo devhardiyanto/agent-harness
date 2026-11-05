@@ -164,8 +164,8 @@ function render(det, mode) {
   cfg.harness_version = VERSION;
   cfg.project = opt('project-name') || (hadV1 && oldCfg.project) || path.basename(target);
   cfg.root_branch = opt('root-branch') || (hadV1 && oldCfg.root_branch) || 'main';
-  cfg.layout = det.layout;
-  cfg.services = det.services.map((s) => s.name);
+  cfg.services = [...(hadV1 && Array.isArray(oldCfg.services) ? oldCfg.services : []), ...det.services.map((s) => s.name).filter((n) => !(oldCfg.services || []).includes(n))];
+  cfg.layout = cfg.services.length ? 'multi-repo' : 'single';
   fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n');
   // peta draft
   const mapP = path.join(stage, 'docs', '_map.md');
@@ -263,6 +263,10 @@ const oldCfg = hadV1 ? (() => {
   try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { die(`harness.config.json tidak bisa dibaca (${e.message}). Perbaiki dulu; installer tidak menimpa config yang rusak.`); }
 })() : {};
 const det = detectServices();
+// Update tidak boleh menghapus diam-diam service yang tercatat di config hanya karena foldernya tidak ada di mesin ini (klon sebagian, repo belum di-clone, salah branch).
+// Service yang hilang dari disk tetap di config dan rule svc-*.md-nya tetap; doctor melaporkannya, user yang memutuskan membuangnya.
+const keptSvc = hadV1 && Array.isArray(oldCfg.services) ? oldCfg.services.filter((n) => !det.services.some((s) => s.name === n)) : [];
+if (keptSvc.length) warnings.push(`service di config tidak ditemukan di source-code/ pada mesin ini, DIPERTAHANKAN: ${keptSvc.join(', ')}. Hapus manual dari harness.config.json bila memang sudah tidak ada.`);
 // Root pra-v1: harness lama diganti penuh (ada tag cadangan), kecuali data user (PRESERVE).
 // Root ber-v1 (install ulang/--update): hanya berkas milik harness yang sudah usang yang dibuang; berkas buatan user di .claude/ dan semua dokumen tidak disentuh.
 const ownedNow = () => {
@@ -270,6 +274,7 @@ const ownedNow = () => {
   const walkK = (d) => { for (const e of fs.readdirSync(path.join(KERNEL, d), { withFileTypes: true })) { const r = `${d}/${e.name}`; if (e.isDirectory()) walkK(r); else out.add(r); } };
   walkK('.claude');
   for (const sv of det.services) out.add(`.claude/rules/svc-${sv.name}.md`);
+  for (const n of keptSvc) out.add(`.claude/rules/svc-${n}.md`);
   return out;
 };
 const obsoleteOwned = () => {
@@ -286,7 +291,7 @@ const LEFTOVER = ['scripts/executor', '.agents'].filter(exists);
 log(`\n## Deteksi\n- mode: **${mode}**${mode === 'existing' ? ' (harness lama ditemukan)' : ''}\n- git root project: ${isGit ? 'ya' : 'TIDAK (cadangan berupa salinan folder)'}\n- layout: ${det.layout}`);
 if (det.services.length) { log(''); table(['service', 'stack', 'branch', 'remote'], det.services.map((s) => [s.name, s.stack, s.branch, s.remote])); }
 if (det.skipped.length) log(`\nDilewati (bukan repo git): ${det.skipped.join(', ')}`);
-if (!det.services.length) log('\nPeringatan: tidak ada source-code/<repo git>. Layout "single": semua file di luar docs/ dan .claude/ dianggap kode yang di-gate.');
+if (!det.services.length && !keptSvc.length) log('\nPeringatan: tidak ada source-code/<repo git>. Layout "single": semua file di luar docs/ dan .claude/ dianggap kode yang di-gate.');
 
 log('\n## Rencana');
 table(['aksi', 'path'], [
@@ -339,9 +344,13 @@ try {
   for (const p of removable) fs.rmSync(path.join(target, p), { recursive: true, force: true });
   for (const d of ['scripts', 'docs', '.claude']) { const dp = path.join(target, d); try { if (fs.existsSync(dp) && !fs.readdirSync(dp).length) fs.rmdirSync(dp); } catch { /* abaikan */ } }
   const isUserData = (rel) => PRESERVE.some((d) => rel === d || rel.startsWith(d + '/'));
+  // Berkas bawaan harness di dalam folder data (templat dan README) diperbarui; berkas lain di PRESERVE yang sudah ada (mis. docs/knowledge/_init.md, log milik user) tidak pernah ditimpa.
+  const harnessDoc = (rel) => rel.startsWith('docs/work/_TEMPLATE/') || rel === 'docs/work/README.md' || rel === 'docs/knowledge/README.md';
   fs.cpSync(stage, target, { recursive: true, force: true, filter: (src, dest) => {
-    if (hadV1 || !fs.existsSync(dest) || !fs.statSync(dest).isFile()) return true;
-    return !isUserData(path.relative(target, dest).split(path.sep).join('/'));
+    if (!fs.existsSync(dest) || !fs.statSync(dest).isFile()) return true;
+    const rel = path.relative(target, dest).split(path.sep).join('/');
+    if (hadV1 && harnessDoc(rel)) return true;
+    return !isUserData(rel);
   } });
   for (const d of ['docs/knowledge', 'docs/work']) fs.mkdirSync(path.join(target, d), { recursive: true });
   applyGitignore(isGit);
