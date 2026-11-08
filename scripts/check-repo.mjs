@@ -99,6 +99,21 @@ check('kernel dan template work item lengkap', (bad) => {
     if (!has(`kernel/${f}`)) bad(`kernel/${f} tidak ada`);
   }
   for (const f of walk('kernel/.claude/rules')) if (!read(f).trim()) bad(`${f} kosong`);
+  // 1.11.0: ID rule (antislop R-xx): tiap butir rule ber-ID "X-NN.", unik lintas berkas; satu prefiks per berkas
+  const seen = new Map();
+  for (const f of walk('kernel/.claude/rules')) {
+    let code = false; const prefixes = new Set();
+    for (const l of read(f).split(/\r?\n/)) {
+      if (l.startsWith('```')) code = !code;
+      if (code || !/^- /.test(l)) continue;
+      const m = /^- ([A-Z])-(\d{2})\. /.exec(l);
+      if (!m) { bad(`${f}: butir tanpa ID "X-NN." → ${l.slice(0, 50)}`); continue; }
+      prefixes.add(m[1]);
+      const id = `${m[1]}-${m[2]}`;
+      if (seen.has(id)) bad(`ID rule ${id} ganda: ${seen.get(id)} dan ${f}`); else seen.set(id, f);
+    }
+    if (prefixes.size > 1) bad(`${f}: lebih dari satu prefiks ID (${[...prefixes].join(',')})`);
+  }
 });
 
 // 8. berkas yang selalu dimuat harus tetap kecil

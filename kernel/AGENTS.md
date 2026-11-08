@@ -25,10 +25,15 @@ Status: `draft → approved → in-progress → in-review → done → merged`. 
 User mengetik `/harness:quick <permintaan>`: hook membuat item `approved` (ketikan itu = persetujuan). Satu service, maks 5 file, bukan skema, dikerjakan di sesi yang sama, tanpa `in-review` (bukti AC + checks). Melebihi batas → `harness.mjs promote <slug>` lalu plan + approve. Bingung langkah berikutnya: `/harness:next`.
 
 ## Bahasa pendek user (1.10.0, diproses hook)
-"setuju <slug>" = approve · "align ok <slug> [terima C2]" · "push PR + merge [slug]" / "kirim <slug>" (= buka PR, merge saat check hijau, ringkasan; tanpa slug = satu-satunya item done) · "quick: <permintaan>" · "sisa" = tabel belum selesai · "ingat: <fakta>" / "ingat P1" / "lupakan M2" = memori project · "ref:<slug>" = muat ringkasan item lama. Slug boleh potongan unik.
+"setuju <slug>" = approve · "align ok <slug> [terima C2]" · "push PR + merge [slug]" / "kirim <slug>" (= buka PR, merge saat check hijau, ringkasan; tanpa slug = satu-satunya item done) · "quick: <permintaan>" · "sisa" = tabel belum selesai · "ingat: <fakta>" / "ingat P1" / "lupakan M2" = memori project · "ingat user: <preferensi>" / "lupakan U2" = profil user · "ref:<slug>" = muat ringkasan item lama. Slug boleh potongan unik.
 
 ## Memori project
 `docs/memory/MEMORY.md` (≤ `memory.max_chars`, disuntik di awal sesi): pakai. Simpan sendiri (gaya Hermes) bila kamu menemukan fakta yang awet: preferensi user, konvensi project, jebakan tool, koreksi dari user — `harness.mjs memory add "<satu fakta>"`. Jangan simpan hal sepele, sementara, atau mudah dicari ulang. Penuh = ditolak: rapikan dengan `harness.mjs memory forget M<n>` lalu ulangi. Jangan mengedit MEMORY.md langsung. Cari pekerjaan lama: `harness.mjs recall <kata>`.
+
+## Profil user dan playbook (1.11.0)
+- Profil user (`~/.harness/USER.md`, per orang, tidak di repo) disuntik di awal sesi: ikuti tanpa disebut. Bila user menyatakan preferensi cara kerja yang awet (bahasa, format, gaya), simpan: `harness.mjs memory add --user "<satu preferensi>"`.
+- Playbook (`docs/memory/playbooks/`): di awal sesi kamu hanya melihat nama + deskripsi; baca isinya bila tugasmu cocok. Setelah menyelesaikan alur multi-langkah yang layak diulang, menemukan jalan keluar dari galat, atau dikoreksi user tentang cara kerja, tulis/perbarui playbook (format: `.claude/rules/playbook.md`), lalu `harness.mjs playbook lint`.
+- Mengutip aturan: pakai ID (`S-02`, `M-06`, `W-03`, ...) dari `.claude/rules/*.md`.
 
 ## Batas keras (ditegakkan hook; jangan dicari celahnya)
 - Edit kode di service tanpa work item `approved/in-progress` yang mencakup service itu → diblokir.

@@ -5,8 +5,9 @@ reviewed: null
 ---
 # Review — {{title}}
 
-| # | severity | lokasi | temuan | saran |
-|---|---|---|---|---|
+| # | severity | aturan | lokasi | temuan | saran |
+|---|---|---|---|---|---|
+<!-- aturan = ID rule yang dilanggar (S-02, M-06, W-03, ...; lihat .claude/rules/*.md) atau "-" -->
 
 ## Blocker
 <!-- format: - [ ] [BLOCKER] deskripsi  (centang [x] setelah diperbaiki) -->

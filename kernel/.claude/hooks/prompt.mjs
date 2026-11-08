@@ -28,7 +28,7 @@ if (intent.kind) {
   const stop = (txt) => { process.stdout.write(JSON.stringify({ decision: 'block', reason: `[harness] ${txt}` })); process.exit(0); };
   if (intent.kind === 'open') say(`[harness] Tampilkan tabel ini APA ADANYA (tanpa narasi), lalu satu baris: langkah paling penting berikutnya.\n${formatOpen(openRows(root, cfg), cfg.recap.max_rows)}`);
   if (!cfg.memory.enabled) stop('memori mati (memory.enabled=false).');
-  if (intent.kind === 'remember') { const r = addEntry(root, cfg, intent.text, who0()); if (!r.ok) stop(`ingat ditolak: ${r.reason}`); say(`[harness] Memori ${r.id} disimpan oleh ${who0()} (ditulis hook; ${r.used}/${cfg.memory.max_chars} karakter). Berlaku mulai sesi berikutnya. Balas satu baris konfirmasi.`); }
+  if (intent.kind === 'remember') { const r = addEntry(root, cfg, intent.text, who0(), intent.target); if (!r.ok) stop(`ingat ditolak: ${r.reason}`); say(`[harness] ${intent.target === 'user' ? 'Profil user' : 'Memori'} ${r.id} disimpan oleh ${who0()} (ditulis hook; ${r.used}/${r.max} karakter). ${intent.target === 'user' ? 'Ikuti preferensi ini mulai sekarang; ' : ''}Dimuat otomatis mulai sesi berikutnya. Balas satu baris konfirmasi.`); }
   if (intent.kind === 'remember-approve') { const r = approvePending(root, cfg, intent.ids, who0()); if (!r.ok) stop(`ingat ditolak: ${r.reason}`); say(`[harness] Usulan memori diterapkan: ${r.applied.join(', ')}${r.failed.length ? `; gagal: ${r.failed.join('; ')}` : ''}. Balas satu baris.`); }
   if (intent.kind === 'forget') { const r = removeEntry(root, intent.key, who0()); if (!r.ok) stop(`lupakan ditolak: ${r.reason}`); say(`[harness] Memori dihapus: "${r.removed.slice(0, 80)}". Balas satu baris.`); }
 }

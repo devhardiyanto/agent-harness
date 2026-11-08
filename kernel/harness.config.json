@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.10.0",
+  "harness_version": "1.11.0",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -100,9 +100,16 @@
   "memory": {
     "enabled": true,
     "max_chars": 2200,
+    "user_enabled": true,
+    "user_max_chars": 1375,
     "write_approval": false,
     "learn_from_summary": true,
     "learn_max": 3,
     "ref_max_chars": 3000
+  },
+  "playbooks": {
+    "enabled": true,
+    "max_chars": 6000,
+    "index_max": 20
   }
 }
