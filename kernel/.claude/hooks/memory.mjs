@@ -1,6 +1,6 @@
 // Memori project berumur panjang (1.10.0), diadaptasi dari pola Hermes Agent: berkas kecil yang dibatasi karakter,
 // disuntik sebagai snapshot di awal sesi, tidak dipadatkan diam-diam (penuh = ditolak, manusia yang merapikan).
-// Beda dari Hermes: tulisan agent tidak langsung masuk; ia antre di pending.md dan manusia yang menerapkan (memory.write_approval).
+// Seperti Hermes (bawaan): agent menulis langsung. Opsional memory.write_approval=true: tulisan agent antre di pending.md.
 //   docs/memory/MEMORY.md  entri dipisah baris "§" (dilindungi dari Edit/Write agent)
 //   docs/memory/pending.md usulan P1, P2, ... (agent boleh menambah lewat CLI)
 //   docs/memory/INDEX.md   satu baris per item yang done/merged → summary.md (bahan recall dan "ref:<slug>")
@@ -117,7 +117,10 @@ export function learnFrom(root, cfg, item, decisions) {
   if (!cfg.memory.enabled || !cfg.memory.learn_from_summary) return [];
   const out = [];
   for (const d of decisions.map((x) => clean(x.replace(/^[-*]\s*/, ''))).filter((x) => x.length >= 12).slice(0, cfg.memory.learn_max)) {
-    const r = stage(root, cfg, d, `dari ${item.slug}`); if (r.ok) out.push(r.id);
+    // gaya Hermes: langsung masuk; penuh/ditolak -> antrean, supaya pelajaran tidak hilang dan terlihat di tabel Belum selesai
+    let r = cfg.memory.write_approval ? { ok: false } : addEntry(root, cfg, d, `dari ${item.slug}`);
+    if (!r.ok) r = stage(root, cfg, d, `dari ${item.slug}`);
+    if (r.ok) out.push(r.id);
   }
   return out;
 }

@@ -17,7 +17,7 @@ Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file
 5. Sesi baru: `/harness:build <slug>` → `in-progress`, catat bukti per AC di `progress.md`. Test dijalankan agent `runner` (bukti ditulis kode, bukan agent); sesi tidak bisa berhenti bila bukti test belum ada.
 6. `/harness:review <slug>` → `review.md` (`verdict: clean|blockers`, agent `reviewer`). Ada blocker → kembali ke build.
 7. `done` hanya bila tiap AC punya bukti + review `clean` (hook memeriksa). 
-8. `/harness:ship <slug>` — branch kerja, commit, push, PR via `gh`. `merged` setelah PR benar-benar MERGED.
+8. `/harness:ship <slug>` atau ketikan user "push PR + merge" — branch kerja, commit, push, PR via `gh`; dengan izin merge dari hook, `harness.mjs ship <slug>` setelah check hijau, lalu ringkasan. `merged` setelah PR benar-benar MERGED.
 
 Status: `draft → approved → in-progress → in-review → done → merged`. Plan beku setelah approved; revisi besar = `reopen` lalu approve ulang; tambahan AC kecil = `harness.mjs amend <slug> --ac "..."` (maks 3).
 
@@ -25,10 +25,10 @@ Status: `draft → approved → in-progress → in-review → done → merged`. 
 User mengetik `/harness:quick <permintaan>`: hook membuat item `approved` (ketikan itu = persetujuan). Satu service, maks 5 file, bukan skema, dikerjakan di sesi yang sama, tanpa `in-review` (bukti AC + checks). Melebihi batas → `harness.mjs promote <slug>` lalu plan + approve. Bingung langkah berikutnya: `/harness:next`.
 
 ## Bahasa pendek user (1.10.0, diproses hook)
-"setuju <slug>" = approve · "align ok <slug> [terima C2]" · "kirim <slug>" (= keputusan merge bila PR terbuka) · "quick: <permintaan>" · "sisa" = tabel belum selesai · "ingat: <fakta>" / "ingat P1" / "lupakan M2" = memori project · "ref:<slug>" = muat ringkasan item lama. Slug boleh potongan unik.
+"setuju <slug>" = approve · "align ok <slug> [terima C2]" · "push PR + merge [slug]" / "kirim <slug>" (= buka PR, merge saat check hijau, ringkasan; tanpa slug = satu-satunya item done) · "quick: <permintaan>" · "sisa" = tabel belum selesai · "ingat: <fakta>" / "ingat P1" / "lupakan M2" = memori project · "ref:<slug>" = muat ringkasan item lama. Slug boleh potongan unik.
 
 ## Memori project
-`docs/memory/MEMORY.md` (≤ `memory.max_chars`, disuntik di awal sesi) berisi fakta yang sudah disetujui manusia: pakai. Pelajaran baru dari kerjamu: `harness.mjs memory add "<satu fakta>"` (masuk antrean; manusia menerapkan). Jangan mengedit MEMORY.md langsung. Cari pekerjaan lama: `harness.mjs recall <kata>`.
+`docs/memory/MEMORY.md` (≤ `memory.max_chars`, disuntik di awal sesi): pakai. Simpan sendiri (gaya Hermes) bila kamu menemukan fakta yang awet: preferensi user, konvensi project, jebakan tool, koreksi dari user — `harness.mjs memory add "<satu fakta>"`. Jangan simpan hal sepele, sementara, atau mudah dicari ulang. Penuh = ditolak: rapikan dengan `harness.mjs memory forget M<n>` lalu ulangi. Jangan mengedit MEMORY.md langsung. Cari pekerjaan lama: `harness.mjs recall <kata>`.
 
 ## Batas keras (ditegakkan hook; jangan dicari celahnya)
 - Edit kode di service tanpa work item `approved/in-progress` yang mencakup service itu → diblokir.

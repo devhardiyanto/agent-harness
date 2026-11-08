@@ -121,13 +121,15 @@ Tidak perlu hafal `/harness:*` (bentuk lama tetap jalan). Ketik kalimat pendek; 
 |---|---|
 | `setuju <slug>` / `approve <slug>` | `/harness:approve <slug>` |
 | `align ok <slug>` · `align ok <slug> terima C2` | `/harness:align <slug> ok` (+ menerima risiko klaim bertentangan) |
-| `kirim <slug>` | `/harness:ship <slug>` saat PR terbuka (= keputusan merge) |
+| `push PR + merge [slug]` / `kirim <slug>` | satu keputusan: buka PR → merge begitu check hijau → ringkasan (`summary.md` + `docs/memory/INDEX.md`). Tanpa slug = satu-satunya item `done` |
 | `quick: <permintaan>` | `/harness:quick <permintaan>` |
 | `sisa` / `yang belum selesai?` | tabel Belum selesai (`harness.mjs open`) |
-| `ingat: <fakta>` · `ingat P1` · `ingat semua` · `lupakan M2` | memori project `docs/memory/MEMORY.md` |
+| `ingat: <fakta>` · `lupakan M2` | memori project `docs/memory/MEMORY.md` (agent juga menulis sendiri, gaya Hermes; `ingat P1` bila `memory.write_approval`) |
 | `... ref:<slug> ...` | ringkasan item lama dimuat sebagai konteks |
 
-Slug boleh potongan unik (`setuju export-csv`). Kalimat > `intent.max_chars` atau slug yang tidak cocok tepat satu item diteruskan sebagai chat biasa. Rekap Belum selesai muncul otomatis di akhir giliran yang menyentuh item (hanya bila berubah). Flag: `intent`, `recap`, `memory`, `align.accept_contradictions`. Rencana dan riset: [`ROADMAP.md`](ROADMAP.md).
+Slug boleh potongan unik (`setuju export-csv`). Kalimat > `intent.max_chars` atau slug yang tidak cocok tepat satu item diteruskan sebagai chat biasa. Rekap Belum selesai muncul otomatis di akhir giliran yang menyentuh item (hanya bila berubah). Flag: `intent`, `recap`, `memory`, `align.accept_contradictions`, `ship.merge_on_request`.
+
+Merge tetap aman: ketikan ship menjadi **izin merge tertunda** (`.claude/state/merge-tickets/intent-<slug>.json`, dilindungi, `ship.intent_ttl_min` 240 menit). `harness.mjs ship` memakai izin itu hanya bila gate PASS, tiap PR OPEN dan bukan draft, check hijau, dan akun gh punya akses; check masih berjalan atau merah = tidak merge, izin tetap. `ship.merge_on_request: false` = perilaku lama (ketik ulang setelah hijau). Rencana dan riset: [`ROADMAP.md`](ROADMAP.md).
 
 ## Memperbarui semua project
 Ada dua jalur, dan keduanya berasal dari repo-mu sendiri: **kernel** (hook, config, rules) ditulis `install.mjs --update` ke tiap project, **plugin** (skill) dipasang **global** (scope user, satu kali per mesin) dari marketplace `harness-marketplace` (repo GitHub installer) dan hanya berganti bila `version` di `plugin/.claude-plugin/plugin.json` naik (naikkan tiap rilis; `scripts/bump.mjs`). Installer tidak lagi mendaftarkan plugin di `.claude/settings.json` project.

@@ -14,7 +14,7 @@ const ALIGN = (rows) => `---\nverdict: open\nrounds: 1\n---\n# Align\n\n## Klaim
 test('kernel: flag intent/recap/memory ada; MEMORY.md dilindungi', () => {
   const root = project({ v1: true });
   const c = jr(root, 'harness.config.json');
-  assert.equal(c.intent.enabled, true); assert.equal(c.recap.on_stop, true); assert.equal(c.memory.write_approval, true); assert.equal(c.align.accept_contradictions, true);
+  assert.equal(c.intent.enabled, true); assert.equal(c.recap.on_stop, true); assert.equal(c.memory.write_approval, false); assert.equal(c.ship.merge_on_request, true); assert.equal(c.align.accept_contradictions, true);
   const r = hook(root, 'gate.mjs', { tool_name: 'Write', tool_input: { file_path: path.join(root, 'docs/memory/MEMORY.md'), content: 'x' } });
   assert.equal(r.status, 2, 'agent tidak boleh menulis MEMORY.md langsung');
 });
@@ -65,7 +65,7 @@ test('intent: "quick: ..." membuat item quick; "kirim <slug>" tanpa PR meminta /
   assert.match(add(r) + (ctx(r).reason || ''), /quick/);
   const slug = newItem(root, 'Kirim tes');
   r = hook(root, 'prompt.mjs', { prompt: 'kirim kirim-tes' });
-  assert.match(add(r), /\/harness:ship .*kirim-tes/);
+  assert.match(ctx(r).reason, /berstatus draft; ship hanya untuk item "done"/);
 });
 
 test('tabel belum selesai: pertanyaan terbuka, klaim, usulan memori; "sisa" dan CLI open', () => {
@@ -74,6 +74,7 @@ test('tabel belum selesai: pertanyaan terbuka, klaim, usulan memori; "sisa" dan 
   const bp = `docs/work/${slug}/brief.md`;
   wr(root, bp, rd(root, bp).replace(/## Open questions\n-/, '## Open questions\n- Format tanggal ikut zona waktu siapa?'));
   wr(root, `docs/work/${slug}/align.md`, ALIGN('| C1 | data harian ada | - | dugaan |'));
+  const c = jr(root, 'harness.config.json'); c.memory.write_approval = true; wr(root, 'harness.config.json', JSON.stringify(c)); commitAll(root);
   hx(root, 'memory', 'add', 'Laporan dikirim via email tiap tanggal 1');
   const r = hook(root, 'prompt.mjs', { prompt: 'yang belum selesai apa?' });
   const t = add(r);
@@ -83,9 +84,9 @@ test('tabel belum selesai: pertanyaan terbuka, klaim, usulan memori; "sisa" dan 
   assert.ok(JSON.parse(o.stdout).length >= 4);
 });
 
-test('memori: ingat langsung (manusia), antrean agent, batas karakter, lupakan, snapshot di SessionStart', () => {
+test('memori (write_approval=true): ingat langsung (manusia), antrean agent, batas karakter, lupakan, snapshot di SessionStart', () => {
   const root = project({ v1: true });
-  const c = jr(root, 'harness.config.json'); c.memory.max_chars = 120; wr(root, 'harness.config.json', JSON.stringify(c)); commitAll(root);
+  const c = jr(root, 'harness.config.json'); c.memory.max_chars = 120; c.memory.write_approval = true; wr(root, 'harness.config.json', JSON.stringify(c)); commitAll(root);
   let r = hook(root, 'prompt.mjs', { prompt: 'ingat: deploy staging tiap Kamis sore' });
   assert.match(add(r), /M1 disimpan/);
   r = hx(root, 'memory', 'add', 'Service web memakai Next.js 15 app router');
@@ -101,7 +102,7 @@ test('memori: ingat langsung (manusia), antrean agent, batas karakter, lupakan, 
   r = hook(root, 'prompt.mjs', { prompt: 'lupakan M1' });
   assert.match(add(r), /dihapus/);
   assert.doesNotMatch(rd(root, 'docs/memory/MEMORY.md'), /Kamis/);
-  r = hook(root, 'guard-bash.mjs', { tool_name: 'Bash', tool_input: { command: 'node .claude/hooks/harness.mjs memory rm 1' } });
+  r = hook(root, 'guard-bash.mjs', { tool_name: 'Bash', tool_input: { command: 'node .claude/hooks/harness.mjs memory forget 1' } });
   assert.equal(r.status, 2);
 });
 
@@ -109,7 +110,7 @@ test('done: INDEX.md + usulan pelajaran dari Decision log (modul memory terpasan
   const root = project({ v1: true });
   const slug = newItem(root, 'Paginasi produk');
   const m = await import(pathToFileURL(path.join(root, '.claude/hooks/memory.mjs')).href);
-  const cfg = { memory: { enabled: true, learn_from_summary: true, learn_max: 2, max_chars: 2200 } };
+  const cfg = { memory: { enabled: true, learn_from_summary: true, learn_max: 2, max_chars: 2200, write_approval: true } };
   const item = { slug, status: 'done' };
   m.indexItem(root, item, 'Daftar produk bisa dipaginasi');
   m.indexItem(root, item, 'Daftar produk bisa dipaginasi (ulang)');
@@ -119,6 +120,20 @@ test('done: INDEX.md + usulan pelajaran dari Decision log (modul memory terpasan
   assert.deepEqual(ids, ['P1', 'P2']);
   assert.match(rd(root, 'docs/memory/pending.md'), /P1 · .* · dari .*paginasi-produk · Pakai cursor pagination/);
   assert.equal(m.entries(root).length, 0, 'usulan tidak langsung masuk MEMORY.md');
+});
+
+test('memori gaya Hermes (bawaan): agent menulis dan menghapus sendiri; pelajaran done langsung masuk, penuh → antrean', async () => {
+  const root = project({ v1: true });
+  let r = hx(root, 'memory', 'add', 'Service web memakai Next.js 15 app router');
+  assert.match(r.stdout, /M1 disimpan/);
+  r = hook(root, 'guard-bash.mjs', { tool_name: 'Bash', tool_input: { command: 'node .claude/hooks/harness.mjs memory forget 1' } });
+  assert.equal(r.status, 0, 'agent boleh merapikan memori sendiri');
+  const m = await import(pathToFileURL(path.join(root, '.claude/hooks/memory.mjs')).href);
+  const cfg = { memory: { enabled: true, learn_from_summary: true, learn_max: 3, max_chars: 120, write_approval: false } };
+  const ids = m.learnFrom(root, cfg, { slug: 'x', status: 'done' }, ['- Pakai cursor pagination, bukan offset', '- ' + 'y'.repeat(90)]);
+  assert.deepEqual(ids, ['M2', 'P1'], 'yang muat langsung masuk; yang membuat penuh diantrekan');
+  r = hx(root, 'memory', 'forget', '1');
+  assert.equal(r.status, 0, r.stderr);
 });
 
 test('ref:<slug> menyuntik ringkasan; Stop menampilkan rekap sekali per perubahan', () => {

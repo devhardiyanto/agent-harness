@@ -45,7 +45,9 @@
   "ship": {
     "base": {},
     "merge_method": "merge",
-    "ticket_ttl_min": 30
+    "ticket_ttl_min": 30,
+    "merge_on_request": true,
+    "intent_ttl_min": 240
   },
   "store": {
     "backend": "local"
@@ -98,7 +100,7 @@
   "memory": {
     "enabled": true,
     "max_chars": 2200,
-    "write_approval": true,
+    "write_approval": false,
     "learn_from_summary": true,
     "learn_max": 3,
     "ref_max_chars": 3000

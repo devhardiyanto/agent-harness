@@ -47,7 +47,7 @@ Dibaca dari README dan `website/docs/.../memory.md`, `skills.md` di GitHub (situ
 | amati | tiru | modifikasi untuk harness | rilis |
 |---|---|---|---|
 | Hermes: memori berbatas + snapshot | `docs/memory/MEMORY.md`, batas karakter, disuntik SessionStart | disimpan di repo (bisa di-review di PR), bukan di home; penuh = ditolak | 1.10.0 |
-| Hermes: `write_approval` | antrean `pending.md` | **bawaan nyala**: agent hanya mengusulkan; manusia `ingat P1` | 1.10.0 |
+| Hermes: agent menulis memori sendiri | `memory add/forget` oleh agent | bawaan seperti Hermes; `write_approval: true` = antrean `pending.md` | 1.10.0 |
 | Hermes: session search | `recall <kata>` | grep berperingkat atas summary/brief/align/sesi; nol token | 1.10.0 |
 | Hermes: learning loop | usulan pelajaran saat `done` | deterministik dari `## Decision log` (tanpa model, tanpa fork) | 1.10.0 |
 | antislop: aturan ringkas, keluaran terperiksa | tabel keputusan, tabel Belum selesai | dihasilkan kode, bukan ditulis bebas oleh model | 1.10.0 |
@@ -122,7 +122,9 @@ flowchart LR
 | `recap.max_rows` | `12` | batas baris tabel | — |
 | `memory.enabled` | `true` | memori project, snapshot di awal sesi | tidak ingin konteks tambahan |
 | `memory.max_chars` | `2200` | batas MEMORY.md | — |
-| `memory.write_approval` | `true` | tulisan agent masuk antrean | (`false`) percaya penuh pada agent, seperti bawaan Hermes |
+| `memory.write_approval` | `false` | gaya Hermes: agent menulis sendiri | (`true`) ingin menyetujui tiap tulisan agent |
+| `ship.merge_on_request` | `true` | ketikan ship = PR + merge saat hijau + ringkasan | (`false`) merge butuh ketikan kedua setelah hijau |
+| `ship.intent_ttl_min` | `240` | umur izin merge tertunda | — |
 | `memory.learn_from_summary` | `true` | usulan pelajaran dari Decision log saat `done` | — |
 | `memory.learn_max` | `3` | maks usulan per item | — |
 | `memory.ref_max_chars` | `3000` | batas ringkasan yang disuntik `ref:` | — |
@@ -147,12 +149,30 @@ flowchart LR
 - [ ] uji di Claude Code asli: `systemMessage` dari hook Stop tampil ke user di versimu (belum terverifikasi di sandbox)
 - [ ] pilot di satu root (yhpa), lalu `harness-update.mjs --all`
 
-## 7. Keputusan terbuka (perlu jawabanmu)
+## 7. Keputusan
 
-| # | yang perlu diputuskan | opsi (rekomendasi dulu) | dampak |
+| # | pertanyaan | keputusan | implementasi |
 |---|---|---|---|
-| D1 | "push summary ke staging" | **a)** ringkasan tetap di root `main` (`docs/work/<slug>/summary.md` + `docs/memory/INDEX.md`), commit oleh manusia · b) flag `memory.auto_commit` commit+push root `main` otomatis · c) push ke branch `staging` | c) bertentangan dengan kebijakan 1.8.3 (root selalu `main`) dan `staging` adalah branch dilindungi; a) sudah jalan sekarang |
-| D2 | "sampai staging" = status apa? | **a)** `merged` (PR masuk base, mis. `staging`) · b) status baru `staged` sebelum `merged` | b) menambah transisi dan gerbang baru |
-| D3 | `kirim <slug>` sebelum ada PR | **a)** minta user mengetik `/harness:ship` (sekarang) · b) izinkan skill ship dipanggil model bila hook menerima ketikan | b) melonggarkan `disable-model-invocation` |
-| D4 | pelajaran ditulis tanpa persetujuan (gaya Hermes) | **a)** tetap antrean (`write_approval: true`) · b) langsung tulis | b) lebih "pintar sendiri", risiko memori salah tersuntik ke semua sesi |
-| D5 | model profil user (`USER.md`) | **a)** 1.11.0, diisi hanya dari `ingat user: ...` · b) dipelajari otomatis | b) butuh model/token tiap sesi |
+| D1+D2 | "push summary ke staging" / "sampai staging" | **"push PR + merge" = satu keputusan**: PR → merge saat hijau → ringkasan | izin merge tertunda dari hook (`ship.merge_on_request`); ringkasan di root `main` (`summary.md`, `INDEX.md`) |
+| D3 | `kirim <slug>` sebelum ada PR | langsung buat PR | skill `ship` boleh dipanggil model, hanya atas konteks hook |
+| D4 | pelajaran tanpa persetujuan | **gaya Hermes** | `memory.write_approval: false` bawaan |
+| D5 | model profil user (`USER.md`) | terbuka | rekomendasi: 1.11.0, diisi dari `ingat user: ...` |
+
+Alur ship sesudah D1–D3:
+
+```mermaid
+sequenceDiagram
+  actor U as user
+  participant H as hook prompt.mjs
+  participant A as agent
+  participant C as harness.mjs ship
+  U->>H: push PR + merge
+  H->>H: tulis intent-<slug>.json (izin merge)
+  H->>A: jalankan skill ship (Fase A)
+  A->>A: ship-plan, commit, push, gh pr create
+  A->>A: Monitor gh pr checks --watch
+  A->>C: ship <slug>
+  C->>C: gate PASS? OPEN? check hijau? akses? → tiket → merge --match-head-commit
+  C-->>A: merged + summary.md + INDEX.md
+  A-->>U: URL PR, hasil merge, path ringkasan
+```

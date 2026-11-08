@@ -29,7 +29,8 @@ export const DEFAULT_CONFIG = {
   quick: { max_files: 5 },   // lajur cepat: 1 service, bukan skema, maksimal N file
   amend: { max: 3 },         // tambahan AC kecil per work item tanpa approve ulang
   // pengiriman: base PR per service ({"api": "feat/s2"} = PR bertumpuk), metode merge, umur tiket merge. Data project, bukan bagian repo harness.
-  ship: { base: {}, merge_method: 'merge', ticket_ttl_min: 30 },
+  // merge_on_request (1.10.0): ketikan ship sebelum PR/check hijau = izin merge tertunda (berlaku intent_ttl_min); merge tetap hanya bila gate pass + check hijau.
+  ship: { base: {}, merge_method: 'merge', ticket_ttl_min: 30, merge_on_request: true, intent_ttl_min: 240 },
   context: { window_tokens: 1000000, warn_tokens: 400000 },
   knowledge: { summary_max_lines: 80, patterns_max_lines: 150, stale_warn_commits: 15 },
   baseline: {}, // override per service: { "ce-api": "production" } (bawaan: origin/HEAD → production → main → master)
@@ -51,9 +52,10 @@ export const DEFAULT_CONFIG = {
   intent: { enabled: true, max_chars: 120 },
   // recap: tabel "belum selesai" (item, pertanyaan terbuka, klaim, AC tanpa bukti, blocker, usulan memori). on_stop = tampil ke user di akhir giliran yang menyentuh item (hanya bila isinya berubah).
   recap: { enabled: true, on_stop: true, max_rows: 12 },
-  // memory: catatan project berumur panjang (docs/memory/MEMORY.md, dibatasi max_chars, disuntik di awal sesi). write_approval = tulisan agent masuk antrean pending, manusia yang menerapkan.
+  // memory: catatan project berumur panjang (docs/memory/MEMORY.md, dibatasi max_chars, disuntik di awal sesi). Gaya Hermes (bawaan): agent menulis/menghapus sendiri.
+  // write_approval: true = tulisan agent masuk antrean pending, manusia yang menerapkan.
   // learn_from_summary: saat done/merged, keputusan di Decision log diusulkan sebagai pelajaran (antrean, maks learn_max per item) dan item dicatat di docs/memory/INDEX.md.
-  memory: { enabled: true, max_chars: 2200, write_approval: true, learn_from_summary: true, learn_max: 3, ref_max_chars: 3000 },
+  memory: { enabled: true, max_chars: 2200, write_approval: false, learn_from_summary: true, learn_max: 3, ref_max_chars: 3000 },
   // align.accept_contradictions: manusia boleh menutup align dengan menerima risiko klaim "bertentangan" ("align ok <slug> terima C2").
 };
 

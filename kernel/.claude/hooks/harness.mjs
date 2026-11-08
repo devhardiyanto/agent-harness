@@ -25,7 +25,7 @@
 //   update [--all|--rollback]  perbarui harness di root ke main (HANYA dengan tiket: /harness:update atau "tolong root nya di update ke main")
 //   plane sync|check        Plane (plane.enabled): sync = kirim status work item ke kartu Plane (satu arah; --dry-run, --include-merged, <slug>); check = uji konfigurasi, token (env), koneksi, nama state
 //   open [--mine] [--json]  tabel "belum selesai": langkah per item, pertanyaan terbuka, klaim dugaan/bertentangan, AC tanpa bukti, blocker, usulan memori
-//   memory list|pending|add <teks>|approve <P1|all>|reject <P1|all>|rm <M2|teks>   memori project (docs/memory/MEMORY.md); approve/rm/reject hanya manusia
+//   memory list|pending|add <teks>|approve <P1|all>|reject <P1|all>|forget <M2|teks>   memori project (docs/memory/MEMORY.md); approve/forget/reject hanya manusia bila write_approval
 //   recall <kata kunci>     cari di ringkasan/brief/align/sesi/memori (lokal, nol token); muat hasilnya dengan "ref:<slug>" di prompt
 //   doctor                  periksa instalasi
 // Pengetahuan (tanpa token, deterministik):
@@ -259,9 +259,9 @@ switch (cmd) {
       console.log(`diterapkan: ${r.applied.join(', ')}${r.failed.length ? `\ngagal: ${r.failed.join('; ')}` : ''}`);
     } else if (sub === 'reject') {
       const r = rejectPending(root, ids(rest[0])); if (!r.ok) die('tidak ada usulan yang cocok.', 2); console.log(`dibuang: ${r.rejected.join(', ')}`);
-    } else if (sub === 'rm') {
+    } else if (sub === 'forget' || sub === 'rm') {
       const r = removeEntry(root, rest.join(' '), who); if (!r.ok) die(`DITOLAK: ${r.reason}`, 2); console.log(`dihapus: ${r.removed}`);
-    } else die('memory list | pending | add <teks> | approve <P1|all> | reject <P1|all> | rm <M2|teks>');
+    } else die('memory list | pending | add <teks> | approve <P1|all> | reject <P1|all> | forget <M2|teks>');
     break;
   }
   case 'recall': {
@@ -287,7 +287,7 @@ switch (cmd) {
     const p = checkTransition(root, cfg, readItem(root, i.slug), 'merged', { actor: 'agent' });
     if (p.length) die(`PR sudah merged tetapi item belum ditutup:\n- ${p.join('\n- ')}`, 2);
     write(readItem(root, i.slug), 'merged');
-    console.log(`${i.slug}: done → merged\nBerikutnya: ringkasan sesi (skill summarize ${i.slug}) → docs/sessions/`);
+    console.log(`${i.slug}: done → merged\nRingkasan: docs/work/${i.slug}/summary.md (indeks: docs/memory/INDEX.md)\nBerikutnya: ringkasan sesi (skill summarize ${i.slug}) → docs/sessions/`);
     break;
   }
   case 'run-checks': {

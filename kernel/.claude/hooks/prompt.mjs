@@ -3,12 +3,12 @@
 import fs from 'node:fs';
 import {
   readStdinJson, projectRoot, loadConfig, resolveSlug, readItem, checkTransition, setFmKey, context, audit, contextWarning, createQuick,
-  readAlign, alignExempt, updateTicketPath, CLAIM_ROW,
+  readAlign, alignExempt, updateTicketPath, CLAIM_ROW, nextStep, listItems,
 } from './lib.mjs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { verifyService, approveProposal, formatLint } from './knowledge.mjs';
-import { issueTicket } from './ship.mjs';
+import { issueTicket, writeIntent } from './ship.mjs';
 import { parseIntent } from './intent.mjs';
 import { addEntry, removeEntry, approvePending, refText } from './memory.mjs';
 import { openRows, formatOpen } from './recap.mjs';
@@ -19,7 +19,8 @@ const cfg = loadConfig(root);
 let prompt = String(payload.prompt || '');
 const who0 = () => spawnSync('git', ['config', 'user.email'], { cwd: root, encoding: 'utf8' }).stdout.trim() || 'unknown';
 // 1.10.0: kalimat pendek tanpa slash → perintah kanonik; "ref:<slug>" → ringkasan item sebagai konteks.
-const intent = parseIntent(prompt, cfg, (q) => resolveSlug(root, q));
+const soleDone = () => { const d = listItems(root).filter((i) => i.status === 'done'); return d.length === 1 ? d[0].slug : null; };
+const intent = parseIntent(prompt, cfg, (q) => resolveSlug(root, q), soleDone);
 const refCtx = intent.refs.map((r) => resolveSlug(root, r)).filter(Boolean).map((s) => refText(root, cfg, s)).filter(Boolean);
 if (intent.command) prompt = intent.command;
 if (intent.kind) {
@@ -104,15 +105,32 @@ if (mu) {
 if (ms) {
   const ss = resolveSlug(root, ms[1]);
   const it = ss ? readItem(root, ss) : null;
-  if (it && it.status === 'done' && String(it.fm.pr || '').replace(/null|\[\]/g, '').trim()) {
-    const r = issueTicket(root, cfg, it, who0());
-    if (!r.ok) block(`\n- ${r.problems.join('\n- ')}`);
-    if (r.allMerged) { context('UserPromptSubmit', `[harness] Semua PR ${ss} sudah MERGED. Jalankan "node .claude/hooks/harness.mjs set-status ${ss} merged" lalu jalankan skill summarize untuk ${ss} (ringkasan sesi ke docs/sessions/) dan balas ≤3 baris.`); process.exit(0); }
-    audit(root, { event: 'merge-ticket', session: payload.session_id, slug: ss, by: who0(), prs: r.ticket.prs.map((x) => x.url).join(' ') });
-    context('UserPromptSubmit', `[harness] ${who0()} memutuskan MERGE ${ss}. Tiket sekali pakai terbit (berlaku ${cfg.ship.ticket_ttl_min} menit) untuk: ${r.ticket.prs.map((x) => `${x.url} [${x.checks}]`).join('; ')}. Jalankan HANYA "node .claude/hooks/harness.mjs ship ${ss}"; jangan gh pr merge. Bila semua PR merged dan status menjadi merged, jalankan skill summarize untuk ${ss} (ringkasan sesi ke docs/sessions/). Balas ≤3 baris: hasil tiap PR, status akhir, path ringkasan.`);
+  if (!it) process.exit(0);
+  const ask = cfg.ship.merge_on_request !== false;
+  const done = `Setelah status merged: jalankan skill summarize untuk ${ss} dan tampilkan path docs/work/${ss}/summary.md.`;
+  if (it.status !== 'done') {
+    const n = nextStep(it, cfg);
+    block(`${ss} berstatus ${it.status}; ship hanya untuk item "done". Berikutnya (${n.who}): ${n.cmd}`);
   }
-  // Kalimat "kirim <slug>" tanpa PR terbuka: skill ship tidak bisa dipanggil model (disable-model-invocation), jadi beri tahu user.
-  if (intent.command && ss) context('UserPromptSubmit', `[harness] "${String(payload.prompt).trim()}" dibaca sebagai /harness:ship ${ss}, tetapi PR belum ada (status ${it ? it.status : '?'}). Membuka PR butuh skill ship: balas SATU baris meminta user mengetik "/harness:ship ${ss}". Jangan menjalankan git push sendiri.`);
+  const hasPr = String(it.fm.pr || '').replace(/null|\[\]/g, '').trim();
+  if (hasPr) {
+    const r = issueTicket(root, cfg, it, who0());
+    if (r.ok && r.allMerged) { context('UserPromptSubmit', `[harness] Semua PR ${ss} sudah MERGED. Jalankan "node .claude/hooks/harness.mjs set-status ${ss} merged". ${done} Balas ≤3 baris.`); process.exit(0); }
+    if (r.ok) {
+      audit(root, { event: 'merge-ticket', session: payload.session_id, slug: ss, by: who0(), prs: r.ticket.prs.map((x) => x.url).join(' ') });
+      context('UserPromptSubmit', `[harness] ${who0()} memutuskan MERGE ${ss}. Tiket sekali pakai terbit (berlaku ${cfg.ship.ticket_ttl_min} menit) untuk: ${r.ticket.prs.map((x) => `${x.url} [${x.checks}]`).join('; ')}. Jalankan HANYA "node .claude/hooks/harness.mjs ship ${ss}"; jangan gh pr merge. ${done} Balas ≤3 baris: hasil tiap PR, status akhir, path ringkasan.`);
+      process.exit(0);
+    }
+    if (!ask) block(`\n- ${r.problems.join('\n- ')}`);
+    // check belum hijau: ketikan ini tetap keputusan merge, dicatat sebagai izin tertunda
+    writeIntent(root, cfg, ss, who0());
+    audit(root, { event: 'merge-intent', session: payload.session_id, slug: ss, by: who0() });
+    context('UserPromptSubmit', `[harness] ${who0()} memutuskan MERGE ${ss} begitu syarat terpenuhi (izin tertunda ${cfg.ship.intent_ttl_min} menit). Sekarang belum bisa:\n- ${r.problems.join('\n- ')}\nCheck masih berjalan → tunggu dengan Monitor "gh pr checks <url> --watch", lalu jalankan HANYA "node .claude/hooks/harness.mjs ship ${ss}". Check merah / gate gagal → laporkan ke user, jangan memaksa. ${done} Balas ≤3 baris.`);
+    process.exit(0);
+  }
+  // Fase A: belum ada PR. Ketikan ini = buka PR + merge saat hijau + ringkasan (bila ship.merge_on_request).
+  if (ask) { writeIntent(root, cfg, ss, who0()); audit(root, { event: 'merge-intent', session: payload.session_id, slug: ss, by: who0() }); }
+  context('UserPromptSubmit', `[harness] ${who0()} meminta SHIP ${ss}${ask ? ' (PR + merge saat check hijau + ringkasan; izin merge tercatat oleh hook)' : ''}. Jalankan skill harness:ship untuk ${ss}: Fase A (ship-plan, commit, push, gh pr create, tulis pr: di plan.md).${ask ? ` Lalu tunggu check dengan Monitor "gh pr checks <url> --watch"; semua hijau → jalankan HANYA "node .claude/hooks/harness.mjs ship ${ss}" (merge memakai izin tadi). ${done}` : ` Lalu user mengetik /harness:ship ${ss} lagi setelah check hijau.`} Ada masalah di ship-plan → laporkan dan berhenti.`);
   process.exit(0);
 }
 // /harness:quick <permintaan>: ketikan manusia = persetujuan. Hook membuat item lajur quick berstatus approved (satu service, batas file di config).

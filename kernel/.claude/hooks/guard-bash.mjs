@@ -28,8 +28,9 @@ export function evaluate(root, cfg, payload) {
   // verifikasi knowledge dan persetujuan pola hanya manusia
   if (/harness\.mjs\s+(verify-knowledge|patterns-approve)\b/.test(flat)) return fail('verify-knowledge / patterns-approve hanya manusia: ketik /harness:knowledge verify <svc> atau /harness:knowledge patterns <slug> <P1,P3|all>, atau jalankan sendiri dengan awalan "!".');
 
-  // memori project: menerapkan/menghapus/menolak = keputusan manusia ("ingat P1", "lupakan M2"); agent hanya mengusulkan (memory add → antrean bila write_approval)
-  if (/harness\.mjs\s+memory\s+(approve|rm|reject)\b/.test(flat)) return fail('memory approve/rm/reject hanya manusia: ketik "ingat P1" / "ingat semua" / "lupakan M2", atau jalankan sendiri dengan awalan "!". Agent: pakai "memory add" (masuk antrean).');
+  if (!cfg.memory.write_approval && /^\s*node\s+\.claude\/hooks\/harness\.mjs\s+memory\s+(add|forget)\s[^;&|<>`$]*$/.test(flat)) return { ok: true };
+  // memori project (hanya bila write_approval=true): menerapkan/menghapus/menolak = keputusan manusia ("ingat P1", "lupakan M2"); agent hanya mengusulkan (memory add → antrean bila write_approval)
+  if (cfg.memory.write_approval && /harness\.mjs\s+memory\s+(approve|forget|rm|reject)\b/.test(flat)) return fail('memory approve/forget/reject hanya manusia: ketik "ingat P1" / "ingat semua" / "lupakan M2", atau jalankan sendiri dengan awalan "!". Agent: pakai "memory add" (masuk antrean).');
 
   // update harness di root butuh tiket dari ketikan manusia (/harness:update atau "tolong root nya di update ke main")
   if (/harness\.mjs\s+update\b/.test(flat)) {
