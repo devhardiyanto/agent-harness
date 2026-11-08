@@ -136,6 +136,24 @@ test('memori gaya Hermes (bawaan): agent menulis dan menghapus sendiri; pelajara
   assert.equal(r.status, 0, r.stderr);
 });
 
+test('upgrade dari 1.9: item merged lama diindeks sekali di SessionStart; docs lama terjangkau recall', () => {
+  const root = project({ v1: true });
+  const slug = newItem(root, 'Fitur lama sembilan');
+  const pp = `docs/work/${slug}/plan.md`;
+  wr(root, pp, rd(root, pp).replace(/^status: .*$/m, 'status: merged'));
+  wr(root, `docs/work/${slug}/summary.md`, '# Ringkasan — Fitur lama\n\nMemakai webhook Midtrans untuk status bayar.\n');
+  const bp = `docs/work/${slug}/brief.md`;
+  wr(root, bp, rd(root, bp).replace(/## Objective\n.*\n/, '## Objective\nStatus pembayaran tersinkron otomatis\n'));
+  assert.equal(fs.existsSync(path.join(root, 'docs/memory/INDEX.md')), false);
+  let r = hook(root, 'session.mjs', { source: 'startup' });
+  assert.match(add(r), /1 pekerjaan lama diindeks/);
+  assert.match(rd(root, 'docs/memory/INDEX.md'), new RegExp(`${slug} · merged · Status pembayaran tersinkron otomatis`));
+  r = hook(root, 'session.mjs', { source: 'startup' });
+  assert.doesNotMatch(add(r), /diindeks/, 'hanya sekali');
+  r = hx(root, 'recall', 'midtrans', 'webhook');
+  assert.match(r.stdout, /summary\.md/);
+});
+
 test('ref:<slug> menyuntik ringkasan; Stop menampilkan rekap sekali per perubahan', () => {
   const root = project({ v1: true });
   const slug = newItem(root, 'Cache katalog');

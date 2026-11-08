@@ -25,7 +25,7 @@
 //   update [--all|--rollback]  perbarui harness di root ke main (HANYA dengan tiket: /harness:update atau "tolong root nya di update ke main")
 //   plane sync|check        Plane (plane.enabled): sync = kirim status work item ke kartu Plane (satu arah; --dry-run, --include-merged, <slug>); check = uji konfigurasi, token (env), koneksi, nama state
 //   open [--mine] [--json]  tabel "belum selesai": langkah per item, pertanyaan terbuka, klaim dugaan/bertentangan, AC tanpa bukti, blocker, usulan memori
-//   memory list|pending|add <teks>|approve <P1|all>|reject <P1|all>|forget <M2|teks>   memori project (docs/memory/MEMORY.md); approve/forget/reject hanya manusia bila write_approval
+//   memory reindex|list|pending|add <teks>|approve <P1|all>|reject <P1|all>|forget <M2|teks>   memori project (docs/memory/MEMORY.md); approve/forget/reject hanya manusia bila write_approval
 //   recall <kata kunci>     cari di ringkasan/brief/align/sesi/memori (lokal, nol token); muat hasilnya dengan "ref:<slug>" di prompt
 //   doctor                  periksa instalasi
 // Pengetahuan (tanpa token, deterministik):
@@ -48,8 +48,8 @@ import { getStore } from './store.mjs';
 import { runChecks } from './evidence.mjs';
 import { handoffPath } from './handoff.mjs';
 import { measureTranscript, formatMetrics } from './metrics.mjs';
-import { writeSummary, section, bullets } from './summary.mjs';
-import { entries, pending, addEntry, stage, approvePending, rejectPending, removeEntry, indexItem, learnFrom, recall } from './memory.mjs';
+import { writeSummary, section, bullets, objectiveOf } from './summary.mjs';
+import { entries, pending, addEntry, stage, approvePending, rejectPending, removeEntry, indexItem, learnFrom, recall, reindex } from './memory.mjs';
 import { openRows, formatOpen } from './recap.mjs';
 import { planGc, applyGc, rootWorktrees, heldReason } from './gc.mjs';
 import { renderFrame, runWatch } from './watch.mjs';
@@ -261,7 +261,9 @@ switch (cmd) {
       const r = rejectPending(root, ids(rest[0])); if (!r.ok) die('tidak ada usulan yang cocok.', 2); console.log(`dibuang: ${r.rejected.join(', ')}`);
     } else if (sub === 'forget' || sub === 'rm') {
       const r = removeEntry(root, rest.join(' '), who); if (!r.ok) die(`DITOLAK: ${r.reason}`, 2); console.log(`dihapus: ${r.removed}`);
-    } else die('memory list | pending | add <teks> | approve <P1|all> | reject <P1|all> | forget <M2|teks>');
+    } else if (sub === 'reindex') {
+      console.log(`${reindex(root, objectiveOf)} item done/merged diindeks → docs/memory/INDEX.md`);
+    } else die('memory reindex | list | pending | add <teks> | approve <P1|all> | reject <P1|all> | forget <M2|teks>');
     break;
   }
   case 'recall': {

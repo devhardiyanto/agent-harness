@@ -15,6 +15,8 @@ export const section = (text, re) => {
 export const bullets = (lines) => lines.map((l) => l.replace(/<!--.*?-->/g, '').trim()).filter((l) => l && !/^[-*]$/.test(l) && !/^<!--/.test(l));
 const read = (p) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '');
 
+export const objectiveOf = (item) => bullets(section(splitFrontmatter(read(path.join(item.dir, 'brief.md'))).body, /^##\s+Objective/i)).filter((l) => !/^<.*>$/.test(l)).join(' ') || item.fm.title || item.slug;
+
 export function buildSummary(root, cfg, item) {
   const s = summarizeItem(item);
   const brief = splitFrontmatter(read(path.join(item.dir, 'brief.md'))).body;

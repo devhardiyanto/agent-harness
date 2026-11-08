@@ -113,6 +113,14 @@ export function indexItem(root, item, objective) {
   fs.mkdirSync(memDir(root), { recursive: true });
   fs.writeFileSync(p, `# Indeks pekerjaan selesai (otomatis; sebut "ref:<slug>" di prompt untuk memuat ringkasannya)\n\n${[line, ...old].join('\n')}\n`);
 }
+// Isi ulang INDEX.md dari item done/merged yang sudah ada (mis. dari versi < 1.10.0). Tidak menulis MEMORY.md.
+export function reindex(root, objectiveOf) {
+  const done = listItems(root).filter((i) => ['done', 'merged'].includes(i.status));
+  for (const it of done) indexItem(root, it, objectiveOf(it));
+  return done.length;
+}
+export const hasIndex = (root) => fs.existsSync(P(root, 'INDEX.md'));
+
 export function learnFrom(root, cfg, item, decisions) {
   if (!cfg.memory.enabled || !cfg.memory.learn_from_summary) return [];
   const out = [];
