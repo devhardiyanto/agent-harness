@@ -16,10 +16,11 @@ Periksa, urut:
 3. Keamanan: secret literal, input tak divalidasi, injeksi, otorisasi, log data sensitif, dependency baru yang tak perlu.
 4. Kompatibilitas lintas service: kontrak API/event/tabel yang dipakai service lain (lihat `impact.md`).
 5. Pola: menyimpang dari `patterns.md` tanpa alasan (temuan MAJOR/MINOR).
-6. Minimalis: kode/dependency berlebih yang bisa dibuang.
+6. Minimalis: kode/dependency berlebih yang bisa dibuang (tangga `M-01`..`M-07`).
 
 Format keluaran (tabel saja):
-| # | severity (BLOCKER/MAJOR/MINOR) | lokasi path:baris | temuan | saran |
+| # | severity (BLOCKER/MAJOR/MINOR) | aturan | lokasi path:baris | temuan | saran |
+Kolom `aturan` = ID rule yang dilanggar dari `.claude/rules/*.md` (mis. `S-02` secret, `M-06` minimalis, `W-03` bukti), atau `-` bila temuan tidak terkait rule tertulis. Jangan mengarang ID.
 Setelah tabel, blok `POLA` (hanya bila ada; maks 3): pola **baru** yang dipakai ≥2 tempat di diff dan belum ada di `patterns.md`, atau penyimpangan yang beralasan dari pola yang ada. Format: `POLA | <service> | tambah/ganti | <satu kalimat> | path:baris, path:baris`. Jangan mengusulkan dari kode yang masih bermasalah. Kamu hanya melapor; pemanggil menulis usulan dan manusia yang menyetujuinya.
 Akhiri dengan satu baris `VERDICT: clean` (tidak ada BLOCKER) atau `VERDICT: blockers`.
 Jangan memuji, jangan menulis ringkasan naratif. Bila tidak ada temuan, tulis tabel kosong dan `VERDICT: clean`.

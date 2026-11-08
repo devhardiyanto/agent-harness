@@ -26,6 +26,7 @@
 //   plane sync|check        Plane (plane.enabled): sync = kirim status work item ke kartu Plane (satu arah; --dry-run, --include-merged, <slug>); check = uji konfigurasi, token (env), koneksi, nama state
 //   open [--mine] [--json]  tabel "belum selesai": langkah per item, pertanyaan terbuka, klaim dugaan/bertentangan, AC tanpa bukti, blocker, usulan memori
 //   memory reindex|list|pending|add <teks>|approve <P1|all>|reject <P1|all>|forget <M2|teks>   memori project (docs/memory/MEMORY.md); approve/forget/reject hanya manusia bila write_approval
+//   playbook list|lint      prosedur yang dipelajari (docs/memory/playbooks); lint = frontmatter, ukuran, secret
 //   recall <kata kunci>     cari di ringkasan/brief/align/sesi/memori (lokal, nol token); muat hasilnya dengan "ref:<slug>" di prompt
 //   doctor                  periksa instalasi
 // Pengetahuan (tanpa token, deterministik):
@@ -51,6 +52,7 @@ import { measureTranscript, formatMetrics } from './metrics.mjs';
 import { writeSummary, section, bullets, objectiveOf } from './summary.mjs';
 import { entries, pending, addEntry, stage, approvePending, rejectPending, removeEntry, indexItem, learnFrom, recall, reindex } from './memory.mjs';
 import { openRows, formatOpen } from './recap.mjs';
+import { listPlaybooks } from './playbooks.mjs';
 import { planGc, applyGc, rootWorktrees, heldReason } from './gc.mjs';
 import { renderFrame, runWatch } from './watch.mjs';
 import { planeSync, planeCheck, planeProblems } from './plane.mjs';
@@ -242,28 +244,44 @@ switch (cmd) {
     const who = spawnSync('git', ['config', 'user.email'], { cwd: root, encoding: 'utf8' }).stdout.trim() || 'unknown';
     const ids = (a) => (/^(all|semua)$/i.test(a || '') ? 'all' : String(a || '').toUpperCase().split(/\s*,\s*/).filter(Boolean));
     if (!cfg.memory.enabled) die('memori mati (memory.enabled=false).');
+    const target = rest.includes('--user') ? 'user' : 'memory';
+    const text = rest.filter((x) => x !== '--user').join(' ');
     if (!sub || sub === 'list') {
       const e = entries(root); const used = e.join('\n§\n').length;
       console.log(`MEMORY.md ${used}/${cfg.memory.max_chars} karakter, ${e.length} entri${e.length ? '' : ' (kosong)'}`);
       e.forEach((x, i) => console.log(`M${i + 1}. ${x}`));
+      if (cfg.memory.user_enabled) { const u = entries(root, 'user'); console.log(`\nUSER.md (per orang) ${u.join('\n§\n').length}/${cfg.memory.user_max_chars} karakter, ${u.length} entri`); u.forEach((x, i) => console.log(`U${i + 1}. ${x}`)); }
       const p = pending(root); if (p.length) console.log(`\nUsulan menunggu (${p.length}): ${p.map((x) => x.id).join(', ')} → harness.mjs memory pending`);
     } else if (sub === 'pending') {
       const p = pending(root);
       console.log(p.length ? `| id | tanggal | sumber | usulan |\n|---|---|---|---|\n${p.map((x) => `| ${x.id} | ${x.date} | ${x.source} | ${x.text} |`).join('\n')}\n\nTerapkan: ketik "ingat P1" / "ingat semua".` : '(tidak ada usulan)');
     } else if (sub === 'add') {
-      const r = cfg.memory.write_approval ? stage(root, cfg, rest.join(' '), 'agent') : addEntry(root, cfg, rest.join(' '), who);
+      const r = cfg.memory.write_approval ? stage(root, cfg, (target === 'user' ? '[user] ' : '') + text, 'agent') : addEntry(root, cfg, text, who, target);
       if (!r.ok) die(`DITOLAK: ${r.reason}`, 2);
-      console.log(r.staged ? `${r.id} masuk antrean (memory.write_approval). User menerapkan dengan mengetik "ingat ${r.id}".` : `${r.id} disimpan (${r.used}/${cfg.memory.max_chars}).`);
+      console.log(r.staged ? `${r.id} masuk antrean (memory.write_approval). User menerapkan dengan mengetik "ingat ${r.id}".` : `${r.id} disimpan (${r.used}/${r.max}).`);
     } else if (sub === 'approve') {
       const r = approvePending(root, cfg, ids(rest[0]), who); if (!r.ok) die(`DITOLAK: ${r.reason}`, 2);
       console.log(`diterapkan: ${r.applied.join(', ')}${r.failed.length ? `\ngagal: ${r.failed.join('; ')}` : ''}`);
     } else if (sub === 'reject') {
       const r = rejectPending(root, ids(rest[0])); if (!r.ok) die('tidak ada usulan yang cocok.', 2); console.log(`dibuang: ${r.rejected.join(', ')}`);
     } else if (sub === 'forget' || sub === 'rm') {
-      const r = removeEntry(root, rest.join(' '), who); if (!r.ok) die(`DITOLAK: ${r.reason}`, 2); console.log(`dihapus: ${r.removed}`);
+      const r = removeEntry(root, text, who, rest.includes('--user') ? 'user' : null); if (!r.ok) die(`DITOLAK: ${r.reason}`, 2); console.log(`dihapus: ${r.removed}`);
     } else if (sub === 'reindex') {
       console.log(`${reindex(root, objectiveOf)} item done/merged diindeks → docs/memory/INDEX.md`);
     } else die('memory reindex | list | pending | add <teks> | approve <P1|all> | reject <P1|all> | forget <M2|teks>');
+    break;
+  }
+  case 'playbook': {
+    const [sub = 'list'] = args;
+    const all = listPlaybooks(root, cfg);
+    if (sub === 'list') {
+      if (!all.length) { console.log('(belum ada playbook: docs/memory/playbooks/<nama>.md, format di .claude/rules/playbook.md)'); break; }
+      console.log(`| playbook | karakter | status | kapan dipakai |\n|---|---|---|---|\n${all.map((p) => `| ${p.name} | ${p.chars} | ${p.ok ? 'OK' : 'GAGAL'} | ${p.description.replace(/\|/g, '/')} |`).join('\n')}`);
+    } else if (sub === 'lint') {
+      for (const p of all) { console.log(`${p.ok ? 'OK   ' : 'GAGAL'} ${p.name}`); for (const e of p.errors) console.log(`  ERROR ${e}`); for (const w of p.warnings) console.log(`  saran ${w}`); }
+      if (!all.length) console.log('(belum ada playbook)');
+      if (all.some((p) => !p.ok)) process.exit(2);
+    } else die('playbook list | lint');
     break;
   }
   case 'recall': {
@@ -571,5 +589,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('perintah: new | open | memory | recall | gate | run-checks | log | watch | gc | measure | update | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
+    die('perintah: new | open | memory | playbook | recall | gate | run-checks | log | watch | gc | measure | update | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
 }

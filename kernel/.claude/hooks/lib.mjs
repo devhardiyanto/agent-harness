@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.10.0',
+  harness_version: '1.11.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -55,7 +55,10 @@ export const DEFAULT_CONFIG = {
   // memory: catatan project berumur panjang (docs/memory/MEMORY.md, dibatasi max_chars, disuntik di awal sesi). Gaya Hermes (bawaan): agent menulis/menghapus sendiri.
   // write_approval: true = tulisan agent masuk antrean pending, manusia yang menerapkan.
   // learn_from_summary: saat done/merged, keputusan di Decision log diusulkan sebagai pelajaran (antrean, maks learn_max per item) dan item dicatat di docs/memory/INDEX.md.
-  memory: { enabled: true, max_chars: 2200, write_approval: false, learn_from_summary: true, learn_max: 3, ref_max_chars: 3000 },
+  memory: { enabled: true, max_chars: 2200, user_enabled: true, user_max_chars: 1375, write_approval: false, learn_from_summary: true, learn_max: 3, ref_max_chars: 3000 },
+  // playbooks (1.11.0): prosedur yang dipelajari agent (docs/memory/playbooks/<nama>.md, frontmatter name+description).
+  // Awal sesi hanya memuat daftar nama+deskripsi (index_max); isi dibaca saat relevan. Berkas > max_chars atau frontmatter rusak tidak didaftarkan.
+  playbooks: { enabled: true, max_chars: 6000, index_max: 20 },
   // align.accept_contradictions: manusia boleh menutup align dengan menerima risiko klaim "bertentangan" ("align ok <slug> terima C2").
 };
 
@@ -84,7 +87,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   cfg.plane.states = { ...DEFAULT_CONFIG.plane.states, ...((user.plane && user.plane.states) || {}) };
   return cfg;
 }

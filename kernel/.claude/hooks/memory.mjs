@@ -4,7 +4,10 @@
 //   docs/memory/MEMORY.md  entri dipisah baris "§" (dilindungi dari Edit/Write agent)
 //   docs/memory/pending.md usulan P1, P2, ... (agent boleh menambah lewat CLI)
 //   docs/memory/INDEX.md   satu baris per item yang done/merged → summary.md (bahan recall dan "ref:<slug>")
+//   ~/.harness/USER.md     (1.11.0) profil user PER ORANG, di luar repo: preferensi gaya kerja (ID U1, U2, ...)
+//   docs/memory/playbooks/ (1.11.0) prosedur yang dipelajari (padanan skill Hermes); lihat playbooks.mjs
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { findSecret, audit, listItems } from './lib.mjs';
 
@@ -14,13 +17,20 @@ const read = (p) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '');
 const HEAD = '<!-- Memori project (harness). Entri dipisah baris "§". Ubah lewat: ketik "ingat: <teks>", "lupakan M2", atau node .claude/hooks/harness.mjs memory ... -->';
 const clean = (t) => String(t || '').replace(/\s+/g, ' ').trim();
 
-export function entries(root) {
-  return read(P(root, 'MEMORY.md')).split(/\r?\n§\r?\n/).map((e) => e.replace(/<!--[\s\S]*?-->/g, '').trim()).filter(Boolean);
+// target: 'memory' (project, di repo) | 'user' (profil per orang, ~/.harness/USER.md; HARNESS_HOME untuk tes)
+export const userFile = () => path.join(process.env.HARNESS_HOME || path.join(os.homedir(), '.harness'), 'USER.md');
+const fileOf = (root, target) => (target === 'user' ? userFile() : P(root, 'MEMORY.md'));
+const limitOf = (cfg, target) => (target === 'user' ? cfg.memory.user_max_chars : cfg.memory.max_chars);
+const tag = (target) => (target === 'user' ? 'U' : 'M');
+const HEAD_USER = '<!-- Profil user (harness, per orang, tidak di repo). Entri dipisah "§". Ubah: "ingat user: <teks>", "lupakan U2". -->';
+export function entries(root, target = 'memory') {
+  return read(fileOf(root, target)).split(/\r?\n§\r?\n/).map((e) => e.replace(/<!--[\s\S]*?-->/g, '').trim()).filter(Boolean);
 }
 const used = (list) => list.join('\n§\n').length;
-function save(root, list) {
-  fs.mkdirSync(memDir(root), { recursive: true });
-  fs.writeFileSync(P(root, 'MEMORY.md'), `${HEAD}\n${list.join('\n§\n')}\n`);
+function save(root, list, target = 'memory') {
+  const f = fileOf(root, target);
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  fs.writeFileSync(f, `${target === 'user' ? HEAD_USER : HEAD}\n${list.join('\n§\n')}\n`);
 }
 
 function validate(text) {
@@ -32,27 +42,29 @@ function validate(text) {
 }
 
 // Tambah langsung (manusia, atau agent bila write_approval=false). Penuh = ditolak, tidak memotong entri lain.
-export function addEntry(root, cfg, text, who = 'unknown') {
+export function addEntry(root, cfg, text, who = 'unknown', target = 'memory') {
+  if (target === 'user' && !cfg.memory.user_enabled) return { ok: false, reason: 'profil user mati (memory.user_enabled=false).' };
   const v = validate(text); if (!v.ok) return v;
-  const list = entries(root);
+  const list = entries(root, target);
   if (list.some((e) => e.toLowerCase() === v.text.toLowerCase())) return { ok: false, reason: 'entri yang sama sudah ada.' };
-  const next = [...list, v.text];
-  if (used(next) > cfg.memory.max_chars) return { ok: false, reason: `memori penuh (${used(next)}/${cfg.memory.max_chars} karakter). Rapikan dulu: "lupakan M<n>" atau gabungkan entri, lalu ulangi.` };
-  save(root, next);
-  audit(root, { event: 'memory-add', by: who });
-  return { ok: true, id: `M${next.length}`, used: used(next) };
+  const next = [...list, v.text]; const max = limitOf(cfg, target);
+  if (used(next) > max) return { ok: false, reason: `${target === 'user' ? 'profil user' : 'memori'} penuh (${used(next)}/${max} karakter). Rapikan dulu: "lupakan ${tag(target)}<n>" atau gabungkan entri, lalu ulangi.` };
+  save(root, next, target);
+  audit(root, { event: target === 'user' ? 'user-add' : 'memory-add', by: who });
+  return { ok: true, id: `${tag(target)}${next.length}`, used: used(next), max };
 }
 
 // Hapus berdasarkan nomor (M2 / 2) atau potongan teks unik.
-export function removeEntry(root, key, who = 'unknown') {
-  const list = entries(root);
-  const n = /^M?(\d+)$/i.exec(String(key).trim());
+export function removeEntry(root, key, who = 'unknown', target = null) {
+  target = target || (/^U\d+$/i.test(String(key).trim()) ? 'user' : 'memory');
+  const list = entries(root, target);
+  const n = /^[MU]?(\d+)$/i.exec(String(key).trim());
   let idx = -1;
   if (n) idx = Number(n[1]) - 1;
   else { const hits = list.map((e, i) => (e.toLowerCase().includes(String(key).toLowerCase()) ? i : -1)).filter((i) => i >= 0); if (hits.length > 1) return { ok: false, reason: `"${key}" cocok dengan ${hits.length} entri; pakai nomor M<n>.` }; idx = hits[0] ?? -1; }
   if (idx < 0 || idx >= list.length) return { ok: false, reason: `entri "${key}" tidak ada (lihat: harness.mjs memory list).` };
   const [gone] = list.splice(idx, 1);
-  save(root, list);
+  save(root, list, target);
   audit(root, { event: 'memory-remove', by: who });
   return { ok: true, removed: gone };
 }
@@ -97,9 +109,12 @@ export function rejectPending(root, ids) {
 export function snapshot(root, cfg) {
   if (!cfg.memory.enabled) return '';
   const list = entries(root); const pend = pending(root).length;
-  if (!list.length && !pend) return '';
+  const ul = cfg.memory.user_enabled ? entries(root, 'user') : [];
+  if (!list.length && !pend && !ul.length) return '';
+  const L = [];
+  if (ul.length) { const u2 = used(ul); L.push(`PROFIL USER [${u2}/${cfg.memory.user_max_chars} karakter] (cara user ingin dilayani; ikuti tanpa disebut):`); ul.forEach((e, i) => L.push(`U${i + 1}. ${e}`)); }
   const u = used(list);
-  const L = [`MEMORI project [${Math.round((u / cfg.memory.max_chars) * 100)}% — ${u}/${cfg.memory.max_chars} karakter] (fakta yang sudah disetujui manusia; pakai, jangan diulang ke user):`];
+  if (list.length || pend) L.push(`MEMORI project [${Math.round((u / cfg.memory.max_chars) * 100)}% — ${u}/${cfg.memory.max_chars} karakter] (fakta project; pakai, jangan diulang ke user):`);
   list.forEach((e, i) => L.push(`M${i + 1}. ${e}`));
   if (pend) L.push(`(${pend} usulan memori menunggu: user mengetik "ingat P1" / "ingat semua")`);
   return L.join('\n');
@@ -139,7 +154,7 @@ export function recall(root, query, n = 5) {
   if (!terms.length) return [];
   const files = [];
   for (const it of listItems(root)) for (const f of ['summary.md', 'brief.md', 'align.md']) { const p = path.join(it.dir, f); if (fs.existsSync(p)) files.push(p); }
-  for (const d of [path.join(root, 'docs', 'sessions'), memDir(root)]) if (fs.existsSync(d)) for (const f of fs.readdirSync(d)) if (f.endsWith('.md')) files.push(path.join(d, f));
+  for (const d of [path.join(root, 'docs', 'sessions'), memDir(root), path.join(memDir(root), 'playbooks')]) if (fs.existsSync(d)) for (const f of fs.readdirSync(d)) if (f.endsWith('.md')) files.push(path.join(d, f));
   const hits = [];
   for (const f of files) {
     const lines = read(f).split(/\r?\n/);

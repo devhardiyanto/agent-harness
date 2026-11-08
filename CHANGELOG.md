@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.11.0
+Lanjutan ATM dari Hermes Agent dan antislop (`ROADMAP.md`). Aditif; semua di belakang flag.
+- **Profil user per orang** (`memory.user_enabled`, `user_max_chars` 1375): `~/.harness/USER.md`, di luar repo (root dipakai bersama tim). `ingat user: ...`, `lupakan U2`, agent `memory add --user`. Dimuat di awal sesi sebelum memori project; `memory list` menampilkan keduanya.
+- **Playbook** (`playbooks.enabled`, `max_chars` 6000, `index_max` 20): `docs/memory/playbooks/<nama>.md` dengan frontmatter `name` + `description`, ditulis agent (padanan skill dari pengalaman Hermes). Progressive disclosure: awal sesi hanya nama + deskripsi. `harness.mjs playbook list|lint` (error: nama ≠ berkas, deskripsi kosong/terlalu panjang, terlalu besar, secret; saran: tanpa `## Langkah`/`## Verifikasi`, berbentuk log PR). Yang gagal lint tidak dimuat. `recall` ikut mencari playbook. Rule baru path-scoped `.claude/rules/playbook.md`.
+- **ID aturan** (gaya R-01 antislop): tiap butir rule ber-ID (`O-`, `S-`, `W-`, `K-`, `M-`, `P-`). Reviewer dan `review.md` punya kolom `aturan`. `check-repo` menolak butir tanpa ID dan ID ganda.
+- README: tabel sebelum/sesudah.
+
 ## 1.10.0
 Fokus: **mudah dipakai, tidak mondar-mandir.** Semua aditif, perintah `/harness:*` lama tetap berlaku; tiap fitur punya flag di `harness.config.json`. Rencana lengkap dan riset (antislop, Hermes Agent): `ROADMAP.md`.
 - **Intent tanpa slash** (`intent.enabled`): hook `UserPromptSubmit` memetakan kalimat pendek (≤ `intent.max_chars`, 120) ke perintah: `setuju <slug>`, `align ok <slug> [terima C2]`, `kirim <slug>`, `quick: ...`, `sisa`, `ingat: ...`, `ingat P1`, `lupakan M2`. Slug boleh potongan unik; slug tak dikenal atau kalimat lebih panjang diteruskan sebagai chat biasa. Modul baru `intent.mjs`.

@@ -52,10 +52,10 @@ Dibaca dari README dan `website/docs/.../memory.md`, `skills.md` di GitHub (situ
 | Hermes: learning loop | usulan pelajaran saat `done` | deterministik dari `## Decision log` (tanpa model, tanpa fork) | 1.10.0 |
 | antislop: aturan ringkas, keluaran terperiksa | tabel keputusan, tabel Belum selesai | dihasilkan kode, bukan ditulis bebas oleh model | 1.10.0 |
 | antislop: mode tersimpan | flag di `harness.config.json` | per project | 1.10.0 |
-| Hermes: skill dari pengalaman | usulan skill/pola project dari item berulang | lewat `patterns-proposal` yang sudah ada + persetujuan manusia | 1.11.0 |
-| antislop: aturan bernomor | ID rule (H-01, Q-03) di `.claude/rules/*` + dirujuk di review | 1.11.0 |
-| Hermes: user model | `docs/memory/USER.md` (preferensi gaya kerja user) | 1.11.0 |
-| antislop: before/after | demo di README | 1.11.0 |
+| Hermes: skill dari pengalaman | playbook `docs/memory/playbooks/<nama>.md` | ditulis agent langsung (D4); awal sesi hanya nama + deskripsi; lint menolak yang rusak/terlalu besar | 1.11.0 ✔ |
+| antislop: aturan bernomor | ID rule (`O-`, `S-`, `W-`, `K-`, `M-`, `P-`) di `.claude/rules/*` | kolom `aturan` di review; `check-repo` menolak ID ganda | 1.11.0 ✔ |
+| Hermes: user model | profil user | per orang di `~/.harness/USER.md`, bukan di repo (root dipakai tim) | 1.11.0 ✔ |
+| antislop: before/after | tabel sebelum/sesudah di README | teks, bukan gambar | 1.11.0 ✔ |
 
 ## 3. Perubahan artefak
 
@@ -134,7 +134,7 @@ flowchart LR
 | versi | isi | alasan nomor |
 |---|---|---|
 | **1.10.0** (rilis ini) | intent, align terima, Belum selesai, memori, recall/ref | aditif, semua di belakang flag, tidak ada yang rusak → **minor** |
-| 1.11.0 | `USER.md`, ID rule, usulan skill/pola otomatis, demo before/after | aditif |
+| 1.11.0 (rilis) | profil user per orang, playbook (skill dari pengalaman), ID rule, before/after | aditif |
 | 2.0.0 | bahasa pendek jadi antarmuka utama (skill `/harness:*` dirampingkan), format align lama dibuang, hanya bila pilot 1.10–1.11 membuktikan tidak ada false positive | ada yang **dibuang** → major (semver) |
 
 ## 6. Target malam ini (1.10.0)
@@ -156,7 +156,7 @@ flowchart LR
 | D1+D2 | "push summary ke staging" / "sampai staging" | **"push PR + merge" = satu keputusan**: PR → merge saat hijau → ringkasan | izin merge tertunda dari hook (`ship.merge_on_request`); ringkasan di root `main` (`summary.md`, `INDEX.md`) |
 | D3 | `kirim <slug>` sebelum ada PR | langsung buat PR | skill `ship` boleh dipanggil model, hanya atas konteks hook |
 | D4 | pelajaran tanpa persetujuan | **gaya Hermes** | `memory.write_approval: false` bawaan |
-| D5 | model profil user (`USER.md`) | terbuka | rekomendasi: 1.11.0, diisi dari `ingat user: ...` |
+| D5 | model profil user (`USER.md`) | 1.11.0: per orang di `~/.harness/USER.md` | `ingat user: ...` + agent `memory add --user` (gaya Hermes, mengikuti D4) |
 
 Alur ship sesudah D1–D3:
 

@@ -9,6 +9,7 @@
 //   quick: <permintaan> | cepat: <permintaan>                    → /harness:quick <permintaan>
 //   sisa | lanjut | next | yang belum selesai | apa selanjutnya? → tabel "belum selesai"
 //   ingat: <fakta> | ingat P1,P2 | ingat semua | lupakan M2      → memori project
+//   ingat user: <preferensi> | lupakan U2                       → profil user (per orang, ~/.harness/USER.md)
 //   ref:<slug> (di mana pun dalam prompt, maks 3)               → ringkasan item dimuat sebagai konteks
 const SLUG = '([\\w][\\w.\\-]*)';
 const ACC = '(?:\\s+terima\\s+(semua|all|C\\d+(?:\\s*,\\s*C\\d+)*))?';
@@ -29,8 +30,9 @@ export function parseIntent(prompt, cfg, resolve, soleDone = () => null) {
   }
   if ((m = /^(?:quick|cepat)\s*:\s*(.{4,})$/is.exec(t))) return { command: `/harness:quick ${m[1].trim()}`, refs };
   if (/^(?:sisa(?:nya)?|lanjut|next|todo|apa\s+(?:lagi|selanjutnya)|(?:yang\s+)?belum\s+selesai(?:\s+apa)?|yang\s+belum)\s*\??$/i.test(t)) return { kind: 'open', refs };
-  if ((m = /^(?:ingat|remember)\s*:\s*(.+)$/is.exec(t))) return { kind: 'remember', text: m[1].trim(), refs };
+  if ((m = /^(?:ingat|remember)\s+(?:user|aku|saya|me)\s*:\s*(.+)$/is.exec(t))) return { kind: 'remember', target: 'user', text: m[1].trim(), refs };
+  if ((m = /^(?:ingat|remember)\s*:\s*(.+)$/is.exec(t))) return { kind: 'remember', target: 'memory', text: m[1].trim(), refs };
   if ((m = /^(?:ingat|remember)\s+(semua|all|P\d+(?:\s*,\s*P\d+)*)$/i.exec(t))) return { kind: 'remember-approve', ids: /^(semua|all)$/i.test(m[1]) ? 'all' : m[1].toUpperCase().split(/\s*,\s*/), refs };
-  if ((m = /^(?:lupakan|forget)\s+(M?\d+)$/i.exec(t))) return { kind: 'forget', key: m[1], refs };
+  if ((m = /^(?:lupakan|forget)\s+([MU]?\d+)$/i.exec(t))) return { kind: 'forget', key: m[1].toUpperCase(), refs };
   return { refs };
 }
