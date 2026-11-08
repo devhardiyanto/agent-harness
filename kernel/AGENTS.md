@@ -24,6 +24,12 @@ Status: `draft → approved → in-progress → in-review → done → merged`. 
 ## Lajur quick (perubahan kecil)
 User mengetik `/harness:quick <permintaan>`: hook membuat item `approved` (ketikan itu = persetujuan). Satu service, maks 5 file, bukan skema, dikerjakan di sesi yang sama, tanpa `in-review` (bukti AC + checks). Melebihi batas → `harness.mjs promote <slug>` lalu plan + approve. Bingung langkah berikutnya: `/harness:next`.
 
+## Bahasa pendek user (1.10.0, diproses hook)
+"setuju <slug>" = approve · "align ok <slug> [terima C2]" · "kirim <slug>" (= keputusan merge bila PR terbuka) · "quick: <permintaan>" · "sisa" = tabel belum selesai · "ingat: <fakta>" / "ingat P1" / "lupakan M2" = memori project · "ref:<slug>" = muat ringkasan item lama. Slug boleh potongan unik.
+
+## Memori project
+`docs/memory/MEMORY.md` (≤ `memory.max_chars`, disuntik di awal sesi) berisi fakta yang sudah disetujui manusia: pakai. Pelajaran baru dari kerjamu: `harness.mjs memory add "<satu fakta>"` (masuk antrean; manusia menerapkan). Jangan mengedit MEMORY.md langsung. Cari pekerjaan lama: `harness.mjs recall <kata>`.
+
 ## Batas keras (ditegakkan hook; jangan dicari celahnya)
 - Edit kode di service tanpa work item `approved/in-progress` yang mencakup service itu → diblokir.
 - Jangan commit/push ke branch utama/dilindungi, jangan force push, jangan `gh pr merge`.

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { knowledgeStatusAll, knowledgeCfg } from './knowledge.mjs';
 import { readStdinJson, projectRoot, loadConfig, listItems, context, audit, planeKick } from './lib.mjs';
 import { readHandoff } from './handoff.mjs';
+import { snapshot } from './memory.mjs';
 
 const payload = await readStdinJson();
 const root = projectRoot(payload);
@@ -35,6 +36,8 @@ try {
 } catch { /* abaikan */ }
 lines.push('Aturan: kode di service hanya boleh diedit lewat work item approved. Mulai dari /harness:impact. Balasan chat ≤5 baris + path file.');
 if (payload.source === 'compact' || payload.source === 'resume') lines.push('Sesi dilanjutkan: baca progress.md work item in-progress sebelum bertindak.');
+try { const mem = snapshot(root, cfg); if (mem) lines.push(mem.slice(0, cfg.memory.max_chars + 600)); } catch { /* abaikan */ }
+if (cfg.intent.enabled) lines.push('Kalimat pendek user = perintah (diproses hook): "setuju <slug>", "align ok <slug> [terima C2]", "kirim <slug>", "quick: ...", "sisa", "ingat: ...", "ref:<slug>". Di akhir giliran yang mengubah item, tutup dengan tabel "Belum selesai" (node .claude/hooks/harness.mjs open --mine bila perlu), bukan narasi.');
 try { const h = readHandoff(root, cfg); if (h) lines.push(h); } catch { /* abaikan */ }
 // additionalContext dibatasi 10.000 karakter oleh Claude Code
 context('SessionStart', lines.join('\n').slice(0, 9500));

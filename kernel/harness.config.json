@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.9.0",
+  "harness_version": "1.10.0",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -56,7 +56,8 @@
     "exempt_types": [
       "onboard",
       "analysis"
-    ]
+    ],
+    "accept_contradictions": true
   },
   "stop_gate": {
     "enabled": true,
@@ -84,5 +85,22 @@
       "done": "Done",
       "merged": "Done"
     }
+  },
+  "intent": {
+    "enabled": true,
+    "max_chars": 120
+  },
+  "recap": {
+    "enabled": true,
+    "on_stop": true,
+    "max_rows": 12
+  },
+  "memory": {
+    "enabled": true,
+    "max_chars": 2200,
+    "write_approval": true,
+    "learn_from_summary": true,
+    "learn_max": 3,
+    "ref_max_chars": 3000
   }
 }

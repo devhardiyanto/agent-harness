@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.9.0',
+  harness_version: '1.10.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -17,7 +17,7 @@ export const DEFAULT_CONFIG = {
   services: [],
   // 'single': semua path di luar allow_paths dianggap kode dan di-gate
   allow_paths: ['docs/**', '.claude/rules/**', '.claude/audit/**', '.harness/**', 'AGENTS.md', 'CLAUDE.md', '.gitignore'],
-  protected_paths: ['.claude/hooks/**', '.claude/settings.json', '.claude/agents/**', 'harness.config.json', '.claude/state/merge-tickets/**', '.claude/state/update-ticket.json', '.harness/evidence/**'],
+  protected_paths: ['.claude/hooks/**', '.claude/settings.json', '.claude/agents/**', 'harness.config.json', '.claude/state/merge-tickets/**', '.claude/state/update-ticket.json', '.harness/evidence/**', 'docs/memory/MEMORY.md'],
   schema_paths: ['**/migrations/**', '**/migration/**', '**/*.sql', '**/schema.prisma'],
   protected_branches: ['main', 'master', 'develop', 'production', 'staging', 'release/*'],
   deny_commands: [
@@ -35,7 +35,7 @@ export const DEFAULT_CONFIG = {
   baseline: {}, // override per service: { "ce-api": "production" } (bawaan: origin/HEAD → production → main → master)
   store: { backend: 'local' },  // penyimpanan work item: 'local' (docs/work). Backend lain didaftarkan di store.mjs.
   // align: gerbang sebelum approve. Item standard butuh align.md berverdict "aligned" (ditulis hook saat manusia mengetik /harness:align <slug> ok). Debat maks max_rounds ronde.
-  align: { required: true, max_rounds: 3, exempt_types: ['onboard', 'analysis'] },
+  align: { required: true, max_rounds: 3, exempt_types: ['onboard', 'analysis'], accept_contradictions: true },
   // gerbang Stop: sesi tidak boleh berhenti bila item yang baru dikerjakan siap review tetapi bukti test / review belum ada. max_blocks = batas penolakan per sesi (anti-loop).
   stop_gate: { enabled: true, max_blocks: 2, recent_hours: 12 },
   handoff: { max_chars: 6000 },
@@ -46,6 +46,15 @@ export const DEFAULT_CONFIG = {
     enabled: false, base_url: 'https://api.plane.so', workspace: null, project_id: null, token_env: 'PLANE_API_KEY', marker: '[harness]',
     states: { draft: 'Backlog', approved: 'Todo', 'in-progress': 'In Progress', 'in-review': 'Review', done: 'Done', merged: 'Done' },
   },
+  // 1.10.0 — feature flag. Semua aditif: perintah /harness:* lama tetap berlaku.
+  // intent: kalimat pendek tanpa slash ("setuju <slug>", "sisa", "ingat: ...") dipetakan ke perintah. Hanya prompt <= max_chars; slug harus cocok persis satu item.
+  intent: { enabled: true, max_chars: 120 },
+  // recap: tabel "belum selesai" (item, pertanyaan terbuka, klaim, AC tanpa bukti, blocker, usulan memori). on_stop = tampil ke user di akhir giliran yang menyentuh item (hanya bila isinya berubah).
+  recap: { enabled: true, on_stop: true, max_rows: 12 },
+  // memory: catatan project berumur panjang (docs/memory/MEMORY.md, dibatasi max_chars, disuntik di awal sesi). write_approval = tulisan agent masuk antrean pending, manusia yang menerapkan.
+  // learn_from_summary: saat done/merged, keputusan di Decision log diusulkan sebagai pelajaran (antrean, maks learn_max per item) dan item dicatat di docs/memory/INDEX.md.
+  memory: { enabled: true, max_chars: 2200, write_approval: true, learn_from_summary: true, learn_max: 3, ref_max_chars: 3000 },
+  // align.accept_contradictions: manusia boleh menutup align dengan menerima risiko klaim "bertentangan" ("align ok <slug> terima C2").
 };
 
 // True bila modul ini dijalankan sebagai skrip (bukan di-import). JANGAN membandingkan import.meta.url dengan
@@ -73,7 +82,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   cfg.plane.states = { ...DEFAULT_CONFIG.plane.states, ...((user.plane && user.plane.states) || {}) };
   return cfg;
 }

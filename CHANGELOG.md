@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.10.0
+Fokus: **mudah dipakai, tidak mondar-mandir.** Semua aditif, perintah `/harness:*` lama tetap berlaku; tiap fitur punya flag di `harness.config.json`. Rencana lengkap dan riset (antislop, Hermes Agent): `ROADMAP.md`.
+- **Intent tanpa slash** (`intent.enabled`): hook `UserPromptSubmit` memetakan kalimat pendek (≤ `intent.max_chars`, 120) ke perintah: `setuju <slug>`, `align ok <slug> [terima C2]`, `kirim <slug>`, `quick: ...`, `sisa`, `ingat: ...`, `ingat P1`, `lupakan M2`. Slug boleh potongan unik; slug tak dikenal atau kalimat lebih panjang diteruskan sebagai chat biasa. Modul baru `intent.mjs`.
+- **Align tidak lagi buntu pada klaim "bertentangan"**: pesan penolakan berupa tabel klaim + dua opsi. `align ok <slug> terima C2,C3|semua` = manusia menerima risikonya; baris diubah ke `diterima (manusia)` dan dicatat di `## Debat`. Matikan: `align.accept_contradictions: false`.
+- **Tabel "Belum selesai"** (`recap`): `harness.mjs open [--mine] [--json]` dan ketikan `sisa`. Isi: langkah per item, Open questions di `brief.md`, klaim dugaan/bertentangan, AC tanpa bukti, blocker review, usulan memori. Hook `Stop` menampilkannya ke user (`systemMessage`) untuk item yang disentuh sesi, hanya bila isinya berubah (`recap.on_stop`). Modul baru `recap.mjs`.
+- **Memori project** (`memory`, diadaptasi dari Hermes): `docs/memory/MEMORY.md` dibatasi `max_chars` (2200), disuntik sebagai snapshot di awal sesi; penuh = ditolak (tidak dipadatkan diam-diam). Manusia: `ingat: <fakta>`, `ingat P1|semua`, `lupakan M2`. Agent: `harness.mjs memory add` masuk antrean `pending.md` (`write_approval`); `memory approve|rm|reject` diblokir untuk agent. MEMORY.md dilindungi dari Edit/Write. Modul baru `memory.mjs`.
+- **Jejak dan rujukan pekerjaan lama**: saat `done`/`merged`, item dicatat di `docs/memory/INDEX.md` dan maks `learn_max` keputusan dari `## Decision log` diusulkan sebagai pelajaran (antrean). `harness.mjs recall <kata>` mencari di ringkasan/brief/align/sesi/memori (lokal, nol token). `ref:<slug>` di prompt menyuntik `summary.md` item itu.
+- Rule `output.md`: diskusi = tabel keputusan (maks 4 baris), giliran yang mengubah item ditutup tabel Belum selesai. Skill `align`: balasan berupa tabel klaim yang menunggu keputusan.
+- Belum di rilis ini (lihat `ROADMAP.md` → keputusan terbuka): push ringkasan otomatis ke branch `staging`, skill otomatis dari pola kerja, model profil user.
+
 ## 1.9.0
 Fase 1 integrasi Plane: **sinkron status satu arah**, work item lokal → kartu Plane. Mati bawaan; root yang tidak menyalakannya tidak berubah perilaku.
 - Baru: `.claude/hooks/plane.mjs` dan perintah `harness.mjs plane sync [slug] [--dry-run] [--include-merged]` / `plane check`. Kartu dibuat di state sesuai status (`external_id` = slug, `external_source` = `harness`), `plane_id` ditulis ke frontmatter `plan.md` (sudah diabaikan oleh pembekuan plan), tiap pemindahan kolom memberi komentar bertanda `[harness]`.

@@ -13,4 +13,4 @@ Jalankan dan tampilkan keluarannya apa adanya (tabel):
 node .claude/hooks/harness.mjs next $ARGUMENTS
 ```
 
-Tanpa argumen: semua item yang belum `merged`. Jangan menambah komentar; jangan menjalankan langkah yang ditandai untuk "kamu" (user).
+Tanpa argumen: semua item yang belum `merged`. Untuk daftar lengkap yang menggantung (pertanyaan terbuka, klaim, AC tanpa bukti, usulan memori): `node .claude/hooks/harness.mjs open` (user cukup mengetik "sisa"). Jangan menambah komentar; jangan menjalankan langkah yang ditandai untuk "kamu" (user).

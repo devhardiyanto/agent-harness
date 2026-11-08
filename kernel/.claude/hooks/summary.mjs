@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { splitFrontmatter, summarizeItem, readEvidence, readAlign, readGate, asList, isQuick, audit } from './lib.mjs';
 
-const section = (text, re) => {
+export const section = (text, re) => {
   const L = text.split(/\r?\n/); const i = L.findIndex((l) => re.test(l));
   if (i < 0) return [];
   const out = [];
@@ -12,7 +12,7 @@ const section = (text, re) => {
   return out;
 };
 // butir bermakna: tanpa komentar HTML, tanpa baris placeholder kosong ("-")
-const bullets = (lines) => lines.map((l) => l.replace(/<!--.*?-->/g, '').trim()).filter((l) => l && !/^[-*]$/.test(l) && !/^<!--/.test(l));
+export const bullets = (lines) => lines.map((l) => l.replace(/<!--.*?-->/g, '').trim()).filter((l) => l && !/^[-*]$/.test(l) && !/^<!--/.test(l));
 const read = (p) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '');
 
 export function buildSummary(root, cfg, item) {

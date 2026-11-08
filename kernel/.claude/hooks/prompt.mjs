@@ -3,30 +3,49 @@
 import fs from 'node:fs';
 import {
   readStdinJson, projectRoot, loadConfig, resolveSlug, readItem, checkTransition, setFmKey, context, audit, contextWarning, createQuick,
-  readAlign, alignExempt, updateTicketPath,
+  readAlign, alignExempt, updateTicketPath, CLAIM_ROW,
 } from './lib.mjs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { verifyService, approveProposal, formatLint } from './knowledge.mjs';
 import { issueTicket } from './ship.mjs';
+import { parseIntent } from './intent.mjs';
+import { addEntry, removeEntry, approvePending, refText } from './memory.mjs';
+import { openRows, formatOpen } from './recap.mjs';
 
 const payload = await readStdinJson();
 const root = projectRoot(payload);
 const cfg = loadConfig(root);
-const prompt = String(payload.prompt || '');
+let prompt = String(payload.prompt || '');
+const who0 = () => spawnSync('git', ['config', 'user.email'], { cwd: root, encoding: 'utf8' }).stdout.trim() || 'unknown';
+// 1.10.0: kalimat pendek tanpa slash → perintah kanonik; "ref:<slug>" → ringkasan item sebagai konteks.
+const intent = parseIntent(prompt, cfg, (q) => resolveSlug(root, q));
+const refCtx = intent.refs.map((r) => resolveSlug(root, r)).filter(Boolean).map((s) => refText(root, cfg, s)).filter(Boolean);
+if (intent.command) prompt = intent.command;
+if (intent.kind) {
+  const say = (txt) => { context('UserPromptSubmit', [...refCtx, txt].join('\n\n')); process.exit(0); };
+  const stop = (txt) => { process.stdout.write(JSON.stringify({ decision: 'block', reason: `[harness] ${txt}` })); process.exit(0); };
+  if (intent.kind === 'open') say(`[harness] Tampilkan tabel ini APA ADANYA (tanpa narasi), lalu satu baris: langkah paling penting berikutnya.\n${formatOpen(openRows(root, cfg), cfg.recap.max_rows)}`);
+  if (!cfg.memory.enabled) stop('memori mati (memory.enabled=false).');
+  if (intent.kind === 'remember') { const r = addEntry(root, cfg, intent.text, who0()); if (!r.ok) stop(`ingat ditolak: ${r.reason}`); say(`[harness] Memori ${r.id} disimpan oleh ${who0()} (ditulis hook; ${r.used}/${cfg.memory.max_chars} karakter). Berlaku mulai sesi berikutnya. Balas satu baris konfirmasi.`); }
+  if (intent.kind === 'remember-approve') { const r = approvePending(root, cfg, intent.ids, who0()); if (!r.ok) stop(`ingat ditolak: ${r.reason}`); say(`[harness] Usulan memori diterapkan: ${r.applied.join(', ')}${r.failed.length ? `; gagal: ${r.failed.join('; ')}` : ''}. Balas satu baris.`); }
+  if (intent.kind === 'forget') { const r = removeEntry(root, intent.key, who0()); if (!r.ok) stop(`lupakan ditolak: ${r.reason}`); say(`[harness] Memori dihapus: "${r.removed.slice(0, 80)}". Balas satu baris.`); }
+}
 const m = /^\s*\/(?:harness:)?approve\s+([\w.\-]+)/i.exec(prompt);
 // /harness:knowledge verify <svc> dan /harness:knowledge patterns <slug> <ids> (bentuk lama tanpa kata "knowledge" tetap diterima untuk kompatibilitas)
 const mv = /^\s*\/(?:harness:)?(?:knowledge\s+)?verify\s+([\w.\-]+)\s*$/i.exec(prompt);
 const mp = /^\s*\/(?:harness:)?(?:knowledge\s+)?patterns\s+([\w.\-]+)\s+(all|P\d+(?:\s*,\s*P\d+)*)\s*$/i.exec(prompt);
 const mq = /^\s*\/(?:harness:)?quick(?:\s+([\s\S]*))?$/i.exec(prompt);
 const ms = /^\s*\/(?:harness:)?ship\s+([\w.\-]+)\s*$/i.exec(prompt);
-const ma = /^\s*\/(?:harness:)?align\s+([\w.\-]+)\s+ok\s*$/i.exec(prompt);
+const ma = /^\s*\/(?:harness:)?align\s+([\w.\-]+)\s+ok(?:\s+terima\s+(semua|all|C\d+(?:\s*,\s*C\d+)*))?\s*$/i.exec(prompt);
 // /harness:update [all|rollback] atau kalimat "tolong root nya di update ke main": ketikan manusia = izin menjalankan `harness.mjs update` (tiket, 30 menit)
 const mu = /^\s*\/(?:harness:)?update(?:\s+(all|rollback))?\s*$/i.exec(prompt)
   || (prompt.trim().length <= 120 && /root\s*nya\s+di\s*update\s+ke\s+main/i.test(prompt) ? [prompt, undefined] : null);
 if (!m && !mv && !mp && !mq && !ms && !ma && !mu) {
   // Peringatan ambang konteks juga di sini (bukan hanya setelah tool): murah, sekali per prompt.
-  try { const w = contextWarning(root, cfg, payload); if (w) context('UserPromptSubmit', w); } catch { /* abaikan */ }
+  const extra = [...refCtx];
+  try { const w = contextWarning(root, cfg, payload); if (w) extra.push(w); } catch { /* abaikan */ }
+  if (extra.length) context('UserPromptSubmit', extra.join('\n\n'));
   process.exit(0);
 }
 
@@ -34,7 +53,6 @@ const block = (reason) => {
   process.stdout.write(JSON.stringify({ decision: 'block', reason: `[harness] ${mv ? 'verify' : mp ? 'patterns' : mq ? 'quick' : ms ? 'merge' : ma ? 'align' : 'approve'} ditolak: ${reason}` }));
   process.exit(0);
 };
-const who0 = () => spawnSync('git', ['config', 'user.email'], { cwd: root, encoding: 'utf8' }).stdout.trim() || 'unknown';
 
 // /harness:align <slug> ok: manusia menutup debat objective. Ditulis hook (agent tidak boleh menulis verdict aligned).
 if (ma) {
@@ -45,10 +63,25 @@ if (ma) {
   const a = readAlign(ia);
   if (!a) block(`align.md belum ada. Minta agent menjalankan /harness:align ${sa} dulu.`);
   if (a.claims < 1) block('tabel klaim kosong (baris "| C1 | klaim | bukti path:baris | status |").');
-  if (a.contradicted > 0) block(`${a.contradicted} klaim masih berstatus "bertentangan" dengan kode. Selesaikan dulu (ubah klaim atau minta penjelasan), lalu ulangi.`);
-  if (a.rounds > cfg.align.max_rounds) block(`ronde ${a.rounds} melewati batas ${cfg.align.max_rounds}.`);
   const ap = path.join(ia.dir, 'align.md');
   let t = fs.readFileSync(ap, 'utf8');
+  const conflictRows = () => t.split(/\r?\n/).filter((l) => CLAIM_ROW.test(l) && /bertentangan/i.test(l)).map((l) => l.split('|').map((x) => x.trim()));
+  // Manusia menerima risiko klaim "bertentangan": baris diubah ke "diterima (manusia)" dan dicatat di Debat.
+  if (ma[2] && conflictRows().length) {
+    if (!cfg.align.accept_contradictions) block('menerima klaim bertentangan dimatikan (align.accept_contradictions=false).');
+    const want = /^(semua|all)$/i.test(ma[2]) ? null : new Set(ma[2].toUpperCase().split(/\s*,\s*/));
+    const took = [];
+    t = t.split(/\r?\n/).map((l) => { if (!CLAIM_ROW.test(l) || !/bertentangan/i.test(l)) return l; const id = l.split('|')[1].trim().toUpperCase(); if (want && !want.has(id)) return l; took.push(id); return l.replace(/bertentangan/gi, 'diterima (manusia)'); }).join('\n');
+    if (!took.length) block(`klaim ${ma[2]} tidak ada atau tidak berstatus bertentangan.`);
+    const note = `- ${new Date().toISOString().slice(0, 10)} ${took.join(', ')}: bertentangan dengan kode, risikonya DITERIMA oleh ${who0()}.`;
+    t = /^##\s+Debat.*$/m.test(t) ? t.replace(/^(##\s+Debat.*)$/m, `$1\n${note}`) : `${t.trimEnd()}\n\n## Debat\n${note}\n`;
+  }
+  const left = conflictRows();
+  if (left.length) {
+    const ids = left.map((c) => c[1]).join(',');
+    block(`${left.length} klaim masih "bertentangan" dengan kode:\n| klaim | isi | bukti |\n|---|---|---|\n${left.map((c) => `| ${c[1]} | ${String(c[2]).slice(0, 80)} | ${String(c[3]).slice(0, 60)} |`).join('\n')}\nPilih salah satu:\n1. Koreksi klaimnya (minta agent: "ubah ${left[0][1]} jadi ..."), lalu ketik lagi "align ok ${sa}".\n2. Terima risikonya: ketik "align ok ${sa} terima ${ids}" (atau "... terima semua").`);
+  }
+  if (a.rounds > cfg.align.max_rounds) block(`ronde ${a.rounds} melewati batas ${cfg.align.max_rounds}.`);
   t = setFmKey(t, 'verdict', 'aligned'); t = setFmKey(t, 'aligned_at', new Date().toISOString()); t = setFmKey(t, 'aligned_by', who0());
   fs.writeFileSync(ap, t);
   audit(root, { event: 'align', session: payload.session_id, slug: sa, by: who0() });
@@ -78,6 +111,8 @@ if (ms) {
     audit(root, { event: 'merge-ticket', session: payload.session_id, slug: ss, by: who0(), prs: r.ticket.prs.map((x) => x.url).join(' ') });
     context('UserPromptSubmit', `[harness] ${who0()} memutuskan MERGE ${ss}. Tiket sekali pakai terbit (berlaku ${cfg.ship.ticket_ttl_min} menit) untuk: ${r.ticket.prs.map((x) => `${x.url} [${x.checks}]`).join('; ')}. Jalankan HANYA "node .claude/hooks/harness.mjs ship ${ss}"; jangan gh pr merge. Bila semua PR merged dan status menjadi merged, jalankan skill summarize untuk ${ss} (ringkasan sesi ke docs/sessions/). Balas ≤3 baris: hasil tiap PR, status akhir, path ringkasan.`);
   }
+  // Kalimat "kirim <slug>" tanpa PR terbuka: skill ship tidak bisa dipanggil model (disable-model-invocation), jadi beri tahu user.
+  if (intent.command && ss) context('UserPromptSubmit', `[harness] "${String(payload.prompt).trim()}" dibaca sebagai /harness:ship ${ss}, tetapi PR belum ada (status ${it ? it.status : '?'}). Membuka PR butuh skill ship: balas SATU baris meminta user mengetik "/harness:ship ${ss}". Jangan menjalankan git push sendiri.`);
   process.exit(0);
 }
 // /harness:quick <permintaan>: ketikan manusia = persetujuan. Hook membuat item lajur quick berstatus approved (satu service, batas file di config).

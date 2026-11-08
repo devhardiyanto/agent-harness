@@ -6,6 +6,25 @@ import path from 'node:path';
 import {
   readStdinJson, projectRoot, loadConfig, listItems, summarizeItem, readEvidence, codeFingerprint, isQuick, readJson, audit, isMain, touchedSlugs,
 } from './lib.mjs';
+import crypto from 'node:crypto';
+import { openRows, formatOpen } from './recap.mjs';
+
+// 1.10.0: rekap "belum selesai" untuk item yang disentuh sesi ini, ditampilkan ke USER (systemMessage), hanya bila isinya berubah
+// sejak rekap terakhir sesi ini (agar tidak berulang tiap giliran).
+export function recapFor(root, cfg, sid) {
+  if (!cfg.recap.enabled || !cfg.recap.on_stop) return null;
+  const mine = touchedSlugs(root, sid);
+  if (!mine.size) return null;
+  const rows = openRows(root, cfg, { slugs: mine });
+  const others = openRows(root, cfg).filter((r) => r.jenis === 'langkah' && !mine.has(r.item)).length;
+  const text = `${formatOpen(rows, cfg.recap.max_rows, 'Belum selesai (item sesi ini)')}${others ? `\n+${others} item lain terbuka → ketik "sisa"` : ''}`;
+  const mark = path.join(root, '.harness', 'state', `recap-${String(sid || 'x').replace(/\W/g, '')}.json`);
+  const h = crypto.createHash('sha1').update(text).digest('hex');
+  if (readJson(mark, {}).h === h) return null;
+  fs.mkdirSync(path.dirname(mark), { recursive: true });
+  fs.writeFileSync(mark, JSON.stringify({ h, at: new Date().toISOString() }));
+  return text;
+}
 
 export function problemsFor(root, cfg, sid) {
   const mine = touchedSlugs(root, sid);
@@ -49,5 +68,6 @@ if (isMain(import.meta.url)) {
     process.stderr.write(`[harness] ${r.reason}\n`);
     process.exit(2);
   }
+  try { const t = recapFor(root, cfg, payload.session_id); if (t) process.stdout.write(JSON.stringify({ systemMessage: `[harness] ${t}` })); } catch { /* rekap tidak boleh mengganggu */ }
   process.exit(0);
 }
