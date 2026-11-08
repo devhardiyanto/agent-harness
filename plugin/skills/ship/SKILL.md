@@ -1,8 +1,7 @@
 ---
 name: ship
-description: Kirim work item berstatus done. Panggilan pertama: commit, push, buka PR (mendukung PR bertumpuk). Panggilan berikutnya setelah check hijau: ketikanmu menjadi keputusan merge, dan hook menerbitkan tiket sekali pakai.
+description: Kirim work item berstatus done — commit, push, buka PR (mendukung PR bertumpuk), merge saat check hijau, ringkasan. Agent memanggilnya HANYA bila konteks memuat "[harness] ... meminta SHIP <slug>" dari hook (ketikan user "push PR + merge", "kirim <slug>", atau /harness:ship).
 argument-hint: "<slug>"
-disable-model-invocation: true
 ---
 # /harness:ship
 
@@ -16,6 +15,7 @@ Masukan: `$ARGUMENTS` (slug). Agent tidak pernah menjalankan `gh pr merge`. Merg
 5. `gh pr create -R <repo dari ship-plan> --base <base dari ship-plan> --head <branch> --title "<judul>" --body-file <file sementara>`. Body = tabel: ringkasan, AC + bukti (dari `progress.md`), risiko, rollback, dependency baru, `TIDAK DIPERIKSA` dari gate, tautan work item. Satu PR per service. Base yang bukan branch utama = PR bertumpuk: sebut urutan merge di body.
 6. Tulis `pr: [url1, url2]` ke frontmatter `plan.md` (Edit biasa).
 7. Menunggu CI: `Monitor` dengan `gh pr checks <url> --watch` (satu per PR). Begitu semua selesai, kirim `PushNotification` ("check PR <slug>: hijau/merah") agar user tahu tanpa memantau sesi.
+8. Bila konteks hook menyebut izin merge tercatat (`ship.merge_on_request`, bawaan): semua check hijau → `node .claude/hooks/harness.mjs ship <slug>` (kode menerbitkan tiket dari izin itu dan memeriksa ulang gate, check, akses, SHA), lalu skill `summarize <slug>` dan tampilkan `docs/work/<slug>/summary.md`. Check merah → laporkan; jangan memperbaiki di item `done` (perlu `reopen`).
 
 ## Fase B — `pr:` terisi
 User mengetik `/harness:ship <slug>` lagi setelah check hijau. Hook memeriksa gate, check tiap PR (merah atau berjalan = ditolak), draft, dan akun gh, lalu menerbitkan tiket. Bila konteksmu memuat "memutuskan MERGE":
@@ -25,5 +25,5 @@ User mengetik `/harness:ship <slug>` lagi setelah check hijau. Hook memeriksa ga
 4. Tanpa pesan "memutuskan MERGE" di konteksmu, hook menolak sendiri (alasan sudah tampil ke user): jangan mengulang, jangan mencari jalan lain.
 
 ## Balasan chat (maks 5 baris)
-Fase A: URL PR (satu per baris) · urutan merge · "tunggu check hijau, lalu ketik `/harness:ship <slug>` untuk merge".
+Fase A: URL PR (satu per baris) · urutan merge · status check · (izin tercatat) hasil merge + path ringkasan, atau (tanpa izin) "ketik `kirim <slug>` setelah hijau".
 Fase B: hasil tiap PR · status akhir · path ringkasan sesi.

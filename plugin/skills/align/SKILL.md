@@ -1,6 +1,6 @@
 ---
 name: align
-description: Menyepakati objective sebelum plan. Agent skeptis menguji tiap klaim permintaan ke kode (tabel klaim vs bukti), debat maks 3 ronde, temuan sampingan ke parking lot. User menutup dengan "/harness:align <slug> ok".
+description: Menyepakati objective sebelum plan. Agent skeptis menguji tiap klaim permintaan ke kode (tabel klaim vs bukti), debat maks 3 ronde, temuan sampingan ke parking lot. User menutup dengan "align ok <slug>" (atau "/harness:align <slug> ok"; "... terima C2" = menerima risiko klaim bertentangan).
 argument-hint: "<slug>"
 disable-model-invocation: true
 ---
@@ -19,5 +19,10 @@ Skeptis, bukan menurut: permintaan adalah klaim tentang sistem, bukan fakta. Tug
 5. Temuan di luar objective (bug lain, refactor yang menggoda, ide) → bagian "Parking lot" saja. Jangan dikerjakan, jangan masuk lingkup.
 6. Jangan menulis `verdict: aligned`: hook menolaknya. Hanya manusia yang menutup align.
 
-## Balasan chat (maks 5 baris)
-N klaim (t terverifikasi, d dugaan, b bertentangan) · ronde r/3 · path `align.md` · berikutnya (kamu): bila sepaham ketik `/harness:align <slug> ok`, lalu `/harness:plan <slug>`.
+## Balasan chat (tabel, bukan narasi)
+Satu baris angka: N klaim (t terverifikasi, d dugaan, b bertentangan) · ronde r/3 · `align.md`. Lalu HANYA tabel yang menunggu keputusan user (maks 4 baris):
+
+| klaim | status | pertanyaan (satu kalimat) | rekomendasi |
+|---|---|---|---|
+
+Penutup satu baris: sepaham → ketik `align ok <slug>`; menerima klaim bertentangan → `align ok <slug> terima C2`.

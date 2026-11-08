@@ -13,6 +13,21 @@ const git = (cwd, args) => { const r = run('git', args, cwd, 20000); return r.st
 const isProtected = (cfg, b) => [cfg.root_branch, ...(cfg.protected_branches || [])].some((g) => new RegExp(`^${g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`).test(b));
 
 export const ticketPath = (root, slug) => path.join(root, '.claude', 'state', 'merge-tickets', `${slug}.json`);
+// 1.10.0: izin merge tertunda. Ditulis HANYA oleh hook UserPromptSubmit dari ketikan manusia ("push PR + merge <slug>",
+// "kirim <slug>", /harness:ship) saat PR belum ada / check belum hijau. `harness.mjs ship` memakainya untuk menerbitkan tiket
+// sendiri begitu semua syarat terpenuhi (gate, check hijau, akses, SHA). Lokasinya dilindungi seperti tiket.
+export const intentPath = (root, slug) => path.join(root, '.claude', 'state', 'merge-tickets', `intent-${slug}.json`);
+export function writeIntent(root, cfg, slug, by) {
+  const ttl = Number(cfg.ship?.intent_ttl_min) || 240;
+  const p = intentPath(root, slug);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  const t = { slug, by, kind: 'merge-intent', issued_at: new Date().toISOString(), expires_at: new Date(Date.now() + ttl * 60000).toISOString() };
+  fs.writeFileSync(p, JSON.stringify(t, null, 2));
+  return t;
+}
+export function readIntent(root, slug) {
+  try { const t = JSON.parse(fs.readFileSync(intentPath(root, slug), 'utf8')); return t.slug === slug && Date.parse(t.expires_at) > Date.now() ? t : null; } catch { return null; }
+}
 
 // ---------- akun dan akses gh ----------
 // owner/repo dari remote origin. Alias SSH (git@github-pribadi:owner/repo.git) tidak dikenali gh sebagai host GitHub,
@@ -136,6 +151,16 @@ function accessProblems(root, cfg, item) {
 
 export function runShip(root, cfg, item, log = console.log) {
   const p = ticketPath(root, item.slug);
+  // Tanpa tiket tetapi ada izin merge tertunda dari ketikan manusia: terbitkan tiket sekarang (semua syarat diperiksa ulang).
+  if (!fs.existsSync(p) && cfg.ship?.merge_on_request !== false) {
+    const intent = readIntent(root, item.slug);
+    if (intent) {
+      const r = issueTicket(root, cfg, item, intent.by);
+      if (!r.ok) return { ok: false, waiting: true, problems: [...r.problems, `izin merge dari ${intent.by} tetap berlaku sampai ${intent.expires_at.slice(0, 16)}; jalankan "harness.mjs ship ${item.slug}" lagi setelah check hijau.`] };
+      fs.rmSync(intentPath(root, item.slug), { force: true });
+      if (r.allMerged) return { ok: true, merged: [], problems: [] };
+    }
+  }
   if (!fs.existsSync(p)) return { ok: false, problems: [`tidak ada tiket merge untuk ${item.slug}. Keputusan merge hanya dari ketikan manusia: /harness:ship ${item.slug} (setelah PR terbuka dan check hijau).`] };
   let t = null; try { t = JSON.parse(fs.readFileSync(p, 'utf8')); } catch { /* abaikan */ }
   fs.rmSync(p, { force: true }); // sekali pakai, apa pun hasilnya

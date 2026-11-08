@@ -47,7 +47,7 @@ Awal setiap sesi, hook melaporkan (tanpa token, git lokal saja): service tanpa k
 
 **Gerbang pengiriman (`gate.md`):** `harness.mjs gate <slug>` (otomatis saat `set-status done`) menjalankan `checks.<svc>` di `harness.config.json` (`lint`, `test`, `build`, atau kunci lain; contoh `"checks": {"api": {"lint": "npm run lint", "test": "npm test"}}`), memeriksa bukti AC, review (lajur standard), dan secret di diff terhadap baseline. Hasil per item: PASS / FAIL / TIDAK DIPERIKSA (service tanpa checks tetap boleh dikirim, tetapi tercatat). Satu FAIL menolak `done`; `gate.md` yang usang (kode/bukti berubah) juga menolak. Usulan checks: `harness.mjs propose-checks <svc>` (kamu yang menyalin ke config). `gate.require_checks: true` menjadikan checks kosong sebagai FAIL.
 
-Tambahan kecil setelah approve: `harness.mjs amend <slug> --ac "..."` (maks `amend.max`, bawaan 3; hanya menambah AC). Perubahan besar: `reopen` + approve ulang. Skill ada 14: `init impact align plan approve build review ship status knowledge next quick summarize update`. `summarize` menulis ringkasan serah-terima sesi ke `docs/sessions/` dan dijalankan otomatis setelah ship berstatus `merged`.
+Tambahan kecil setelah approve: `harness.mjs amend <slug> --ac "..."` (maks `amend.max`, bawaan 3; hanya menambah AC). Perubahan besar: `reopen` + approve ulang. Skill ada 14 (tidak bertambah di 1.10.0; bahasa pendek diproses hook): `init impact align plan approve build review ship status knowledge next quick summarize update`. `summarize` menulis ringkasan serah-terima sesi ke `docs/sessions/` dan dijalankan otomatis setelah ship berstatus `merged`.
 
 Tipe: `feature`, `improvement`, `hotfix` (plan 4 baris, gerbang tetap), `analysis`, `cross-repo`, `schema`, `onboard`.
 Status: `draft → approved → in-progress → in-review → done → merged`. Selesai = PR merged.
@@ -113,6 +113,23 @@ Menyalakan (per root):
 Cara kerja: tiap perubahan status (hook approve, `set-status`, `quick`, `promote`, awal sesi) memicu `plane sync` di proses latar, tanpa menunda apa pun. Kegagalan jaringan/API tidak menggagalkan transisi status; yang tertinggal dikirim pada sync berikutnya (rekonsiliasi: status lokal ≠ status terakhir terkirim, dicatat di `.harness/plane.json`). Tiap pemindahan kolom ditandai komentar `[harness] draft → approved` dan kartu dibuat dengan `external_source: harness`. Item `merged` tanpa kartu tidak dibuat (pakai `plane sync --include-merged` bila mau). `doctor` GAGAL bila `enabled` tetapi konfigurasi atau token tidak lengkap.
 
 Belum ada di fase ini: Plane Wiki, Monitor/polling dari Plane (kartu ke Todo memulai Build), dan memindahkan isi task ke Plane.
+
+## Bahasa pendek, tabel belum selesai, memori (1.10.0)
+Tidak perlu hafal `/harness:*` (bentuk lama tetap jalan). Ketik kalimat pendek; hook yang memprosesnya, jadi tetap keputusan manusia:
+
+| ketik | sama dengan |
+|---|---|
+| `setuju <slug>` / `approve <slug>` | `/harness:approve <slug>` |
+| `align ok <slug>` · `align ok <slug> terima C2` | `/harness:align <slug> ok` (+ menerima risiko klaim bertentangan) |
+| `push PR + merge [slug]` / `kirim <slug>` | satu keputusan: buka PR → merge begitu check hijau → ringkasan (`summary.md` + `docs/memory/INDEX.md`). Tanpa slug = satu-satunya item `done` |
+| `quick: <permintaan>` | `/harness:quick <permintaan>` |
+| `sisa` / `yang belum selesai?` | tabel Belum selesai (`harness.mjs open`) |
+| `ingat: <fakta>` · `lupakan M2` | memori project `docs/memory/MEMORY.md` (agent juga menulis sendiri, gaya Hermes; `ingat P1` bila `memory.write_approval`) |
+| `... ref:<slug> ...` | ringkasan item lama dimuat sebagai konteks |
+
+Slug boleh potongan unik (`setuju export-csv`). Kalimat > `intent.max_chars` atau slug yang tidak cocok tepat satu item diteruskan sebagai chat biasa. Rekap Belum selesai muncul otomatis di akhir giliran yang menyentuh item (hanya bila berubah). Flag: `intent`, `recap`, `memory`, `align.accept_contradictions`, `ship.merge_on_request`.
+
+Merge tetap aman: ketikan ship menjadi **izin merge tertunda** (`.claude/state/merge-tickets/intent-<slug>.json`, dilindungi, `ship.intent_ttl_min` 240 menit). `harness.mjs ship` memakai izin itu hanya bila gate PASS, tiap PR OPEN dan bukan draft, check hijau, dan akun gh punya akses; check masih berjalan atau merah = tidak merge, izin tetap. `ship.merge_on_request: false` = perilaku lama (ketik ulang setelah hijau). Rencana dan riset: [`ROADMAP.md`](ROADMAP.md).
 
 ## Memperbarui semua project
 Ada dua jalur, dan keduanya berasal dari repo-mu sendiri: **kernel** (hook, config, rules) ditulis `install.mjs --update` ke tiap project, **plugin** (skill) dipasang **global** (scope user, satu kali per mesin) dari marketplace `harness-marketplace` (repo GitHub installer) dan hanya berganti bila `version` di `plugin/.claude-plugin/plugin.json` naik (naikkan tiap rilis; `scripts/bump.mjs`). Installer tidak lagi mendaftarkan plugin di `.claude/settings.json` project.

@@ -123,8 +123,8 @@ test('ketikan ship dengan PR hijau menerbitkan tiket; ship merge lalu menutup it
   assert.equal(fs.existsSync(ticket(root, slug)), false);
 });
 
-test('check merah, check berjalan, atau draft: tiket tidak terbit dan ketikan ditolak dengan alasan', () => {
-  const root = mkProject();
+test('check merah, check berjalan, atau draft (merge_on_request=false): tiket tidak terbit dan ketikan ditolak dengan alasan', () => {
+  const root = mkProject({ ship: { merge_on_request: false } });
   const slug = doneItem(root);
   const url = 'https://github.com/o/r/pull/1';
   for (const [pr, re] of [[mkPr({ checks: RED }), /1 check MERAH/], [mkPr({ checks: RUN }), /masih berjalan/], [mkPr({ draft: true }), /masih draft/]]) {
@@ -194,12 +194,48 @@ test('agent tidak bisa menulis tiket (Edit/Write maupun shell) dan tidak bisa me
   assert.equal(b('node .claude/hooks/harness.mjs ship x').status, 0, 'ship tanpa tiket tidak berbuat apa pun, jadi boleh dijalankan');
 });
 
-test('fase A: ketikan ship tanpa PR diteruskan ke skill (tanpa tiket, tanpa blokir)', () => {
+const intent = (root, slug) => path.join(root, '.claude/state/merge-tickets', `intent-${slug}.json`);
+test('fase A: ketikan ship tanpa PR → agent diminta menjalankan skill ship; izin merge tercatat, tanpa tiket', () => {
   const root = mkProject();
   const slug = doneItem(root, ['null']);
   fs.writeFileSync(path.join(root, 'docs/work', slug, 'plan.md'), fs.readFileSync(path.join(root, 'docs/work', slug, 'plan.md'), 'utf8').replace(/^pr: .*$/m, 'pr: null'));
+  const r = prompt(root, 'push PR + merge');
+  assert.equal(r.status, 0);
+  assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /meminta SHIP .*skill harness:ship[\s\S]*summary\.md/);
+  assert.equal(fs.existsSync(ticket(root, slug)), false); assert.equal(fs.existsSync(intent(root, slug)), true);
+});
+
+test('fase A dengan merge_on_request=false: skill ship tanpa izin merge', () => {
+  const root = mkProject({ ship: { merge_on_request: false } });
+  const slug = doneItem(root, ['null']);
+  fs.writeFileSync(path.join(root, 'docs/work', slug, 'plan.md'), fs.readFileSync(path.join(root, 'docs/work', slug, 'plan.md'), 'utf8').replace(/^pr: .*$/m, 'pr: null'));
   const r = prompt(root, `/harness:ship ${slug}`);
-  assert.equal(r.status, 0); assert.equal(r.stdout, ''); assert.equal(fs.existsSync(ticket(root, slug)), false);
+  assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /mengetik \/harness:ship .* lagi/);
+  assert.equal(fs.existsSync(intent(root, slug)), false);
+});
+
+test('izin merge tertunda: check berjalan → tidak merge, izin tetap; hijau → ship menerbitkan tiket sendiri dan merge; izin habis dipakai', () => {
+  const root = mkProject();
+  const slug = doneItem(root);
+  const url = 'https://github.com/o/r/pull/1';
+  fake(root, { [url]: mkPr({ checks: RUN }) });
+  const r = prompt(root, `kirim ${slug}`);
+  assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /izin tertunda[\s\S]*masih berjalan/);
+  assert.equal(fs.existsSync(intent(root, slug)), true); assert.equal(fs.existsSync(ticket(root, slug)), false);
+  let s2 = cli(root, 'ship', slug);
+  assert.equal(s2.status, 2); assert.match(s2.stderr, /masih berjalan[\s\S]*izin merge dari/); assert.deepEqual(merges(root), []);
+  assert.equal(fs.existsSync(intent(root, slug)), true);
+  fake(root, { [url]: mkPr() });
+  s2 = cli(root, 'ship', slug);
+  assert.equal(s2.status, 0, s2.stderr); assert.match(s2.stdout, /MERGED/); assert.match(s2.stdout, /summary\.md/);
+  assert.equal(merges(root).length, 1); assert.equal(fs.existsSync(intent(root, slug)), false);
+  assert.match(fs.readFileSync(path.join(root, 'docs/work', slug, 'summary.md'), 'utf8'), /Ringkasan/);
+});
+
+test('izin merge tidak bisa ditulis agent (Write diblokir)', () => {
+  const root = mkProject();
+  const r = run(root, 'gate.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path: intent(root, 'x'), content: '{}' } });
+  assert.equal(r.status, 2);
 });
 
 test('remote beralias SSH: repo diberikan eksplisit ke gh (owner/repo), tanpa itu gh menolak', () => {

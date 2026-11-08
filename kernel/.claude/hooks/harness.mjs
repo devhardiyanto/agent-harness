@@ -24,6 +24,9 @@
 //   measure <transcript.jsonl> [--json] [--label x]   token per model, panggilan tool/subagent, durasi → .harness/metrics/ (baseline sebelum/sesudah routing)
 //   update [--all|--rollback]  perbarui harness di root ke main (HANYA dengan tiket: /harness:update atau "tolong root nya di update ke main")
 //   plane sync|check        Plane (plane.enabled): sync = kirim status work item ke kartu Plane (satu arah; --dry-run, --include-merged, <slug>); check = uji konfigurasi, token (env), koneksi, nama state
+//   open [--mine] [--json]  tabel "belum selesai": langkah per item, pertanyaan terbuka, klaim dugaan/bertentangan, AC tanpa bukti, blocker, usulan memori
+//   memory reindex|list|pending|add <teks>|approve <P1|all>|reject <P1|all>|forget <M2|teks>   memori project (docs/memory/MEMORY.md); approve/forget/reject hanya manusia bila write_approval
+//   recall <kata kunci>     cari di ringkasan/brief/align/sesi/memori (lokal, nol token); muat hasilnya dengan "ref:<slug>" di prompt
 //   doctor                  periksa instalasi
 // Pengetahuan (tanpa token, deterministik):
 //   inventory [--json]                  service di source-code/, stack, baseline, status checkout
@@ -45,7 +48,9 @@ import { getStore } from './store.mjs';
 import { runChecks } from './evidence.mjs';
 import { handoffPath } from './handoff.mjs';
 import { measureTranscript, formatMetrics } from './metrics.mjs';
-import { writeSummary } from './summary.mjs';
+import { writeSummary, section, bullets, objectiveOf } from './summary.mjs';
+import { entries, pending, addEntry, stage, approvePending, rejectPending, removeEntry, indexItem, learnFrom, recall, reindex } from './memory.mjs';
+import { openRows, formatOpen } from './recap.mjs';
 import { planGc, applyGc, rootWorktrees, heldReason } from './gc.mjs';
 import { renderFrame, runWatch } from './watch.mjs';
 import { planeSync, planeCheck, planeProblems } from './plane.mjs';
@@ -103,7 +108,16 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 const write = (item, to, extra = {}) => {
   store.setStatus(item, to, extra);
-  if (to === 'done' || to === 'merged') { try { writeSummary(root, cfg, readItem(root, item.slug)); } catch { /* ringkasan tidak boleh menggagalkan transisi */ } }
+  if (to === 'done' || to === 'merged') {
+    try { writeSummary(root, cfg, readItem(root, item.slug)); } catch { /* ringkasan tidak boleh menggagalkan transisi */ }
+    // 1.10.0: jejak di docs/memory/INDEX.md + keputusan Decision log diusulkan sebagai pelajaran (antrean; manusia yang menerapkan)
+    if (cfg.memory.enabled) try {
+      const it = readItem(root, item.slug);
+      const rd = (f) => { const p = path.join(it.dir, f); return fs.existsSync(p) ? splitFrontmatter(fs.readFileSync(p, 'utf8')).body : ''; };
+      indexItem(root, it, bullets(section(rd('brief.md'), /^##\s+Objective/i)).filter((l) => !/^<.*>$/.test(l)).join(' ') || it.fm.title || it.slug);
+      if (to === 'done') learnFrom(root, cfg, it, bullets(section(rd('progress.md'), /^##\s+Decision log/i)));
+    } catch { /* memori tidak boleh menggagalkan transisi */ }
+  }
 };
 
 switch (cmd) {
@@ -215,6 +229,49 @@ switch (cmd) {
     for (const i of items) { const n = nextStep(i, cfg); console.log(`| ${i.slug} | ${isQuick(i) ? 'quick' : 'standard'} | ${i.status} | ${n.who} | ${n.cmd} |`); }
     break;
   }
+  case 'open': {
+    let slugs = null;
+    if (args.includes('--mine')) { const ev = readEvents(root, 200).filter((e) => e.slug); slugs = new Set(ev.slice(-20).map((e) => e.slug)); }
+    const rows = openRows(root, cfg, { slugs });
+    if (args.includes('--json')) { console.log(JSON.stringify(rows, null, 2)); break; }
+    console.log(formatOpen(rows, args.includes('--all') ? 999 : cfg.recap.max_rows));
+    break;
+  }
+  case 'memory': {
+    const [sub, ...rest] = args;
+    const who = spawnSync('git', ['config', 'user.email'], { cwd: root, encoding: 'utf8' }).stdout.trim() || 'unknown';
+    const ids = (a) => (/^(all|semua)$/i.test(a || '') ? 'all' : String(a || '').toUpperCase().split(/\s*,\s*/).filter(Boolean));
+    if (!cfg.memory.enabled) die('memori mati (memory.enabled=false).');
+    if (!sub || sub === 'list') {
+      const e = entries(root); const used = e.join('\n§\n').length;
+      console.log(`MEMORY.md ${used}/${cfg.memory.max_chars} karakter, ${e.length} entri${e.length ? '' : ' (kosong)'}`);
+      e.forEach((x, i) => console.log(`M${i + 1}. ${x}`));
+      const p = pending(root); if (p.length) console.log(`\nUsulan menunggu (${p.length}): ${p.map((x) => x.id).join(', ')} → harness.mjs memory pending`);
+    } else if (sub === 'pending') {
+      const p = pending(root);
+      console.log(p.length ? `| id | tanggal | sumber | usulan |\n|---|---|---|---|\n${p.map((x) => `| ${x.id} | ${x.date} | ${x.source} | ${x.text} |`).join('\n')}\n\nTerapkan: ketik "ingat P1" / "ingat semua".` : '(tidak ada usulan)');
+    } else if (sub === 'add') {
+      const r = cfg.memory.write_approval ? stage(root, cfg, rest.join(' '), 'agent') : addEntry(root, cfg, rest.join(' '), who);
+      if (!r.ok) die(`DITOLAK: ${r.reason}`, 2);
+      console.log(r.staged ? `${r.id} masuk antrean (memory.write_approval). User menerapkan dengan mengetik "ingat ${r.id}".` : `${r.id} disimpan (${r.used}/${cfg.memory.max_chars}).`);
+    } else if (sub === 'approve') {
+      const r = approvePending(root, cfg, ids(rest[0]), who); if (!r.ok) die(`DITOLAK: ${r.reason}`, 2);
+      console.log(`diterapkan: ${r.applied.join(', ')}${r.failed.length ? `\ngagal: ${r.failed.join('; ')}` : ''}`);
+    } else if (sub === 'reject') {
+      const r = rejectPending(root, ids(rest[0])); if (!r.ok) die('tidak ada usulan yang cocok.', 2); console.log(`dibuang: ${r.rejected.join(', ')}`);
+    } else if (sub === 'forget' || sub === 'rm') {
+      const r = removeEntry(root, rest.join(' '), who); if (!r.ok) die(`DITOLAK: ${r.reason}`, 2); console.log(`dihapus: ${r.removed}`);
+    } else if (sub === 'reindex') {
+      console.log(`${reindex(root, objectiveOf)} item done/merged diindeks → docs/memory/INDEX.md`);
+    } else die('memory reindex | list | pending | add <teks> | approve <P1|all> | reject <P1|all> | forget <M2|teks>');
+    break;
+  }
+  case 'recall': {
+    const hits = recall(root, args.join(' '), 8);
+    if (!hits.length) { console.log('(tidak ada hasil)'); break; }
+    console.log(`| skor | file | baris terbaik |\n|---|---|---|\n${hits.map((h) => `| ${h.score} | ${h.file} | ${h.line.replace(/\|/g, '/')} |`).join('\n')}\n\nMuat ke percakapan: tulis "ref:<slug>" di prompt.`);
+    break;
+  }
   case 'ship-plan': {
     const i = need(args[0]);
     const rows = shipPlan(root, cfg, i);
@@ -232,7 +289,7 @@ switch (cmd) {
     const p = checkTransition(root, cfg, readItem(root, i.slug), 'merged', { actor: 'agent' });
     if (p.length) die(`PR sudah merged tetapi item belum ditutup:\n- ${p.join('\n- ')}`, 2);
     write(readItem(root, i.slug), 'merged');
-    console.log(`${i.slug}: done → merged\nBerikutnya: ringkasan sesi (skill summarize ${i.slug}) → docs/sessions/`);
+    console.log(`${i.slug}: done → merged\nRingkasan: docs/work/${i.slug}/summary.md (indeks: docs/memory/INDEX.md)\nBerikutnya: ringkasan sesi (skill summarize ${i.slug}) → docs/sessions/`);
     break;
   }
   case 'run-checks': {
@@ -514,5 +571,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('perintah: new | gate | run-checks | log | watch | gc | measure | update | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
+    die('perintah: new | open | memory | recall | gate | run-checks | log | watch | gc | measure | update | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
 }
