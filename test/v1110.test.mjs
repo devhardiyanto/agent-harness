@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { project, hx, hook, wr, rd, jr, commitAll, sh } from './helpers.mjs';
 
 const ctx = (r) => (r.stdout ? JSON.parse(r.stdout) : {});
@@ -88,6 +89,8 @@ test('kernel: rule playbook path-scoped, ID rule unik, reviewer mengutip kolom a
   assert.match(rd(root, 'docs/work/_TEMPLATE/review.md'), /\| severity \| aturan \|/);
   const c = jr(root, 'harness.config.json');
   assert.equal(c.playbooks.enabled, true); assert.equal(c.memory.user_enabled, true); assert.equal(c.memory.user_max_chars, 1375);
-  const chk = sh('node', [path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'scripts', 'check-repo.mjs')], process.cwd());
+  // fileURLToPath, bukan URL.pathname: di Windows pathname = "/D:/..." (path tidak valid)
+  const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const chk = sh('node', [path.join(repo, 'scripts', 'check-repo.mjs')], repo);
   assert.equal(chk.status, 0, chk.stdout);
 });
