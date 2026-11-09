@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.11.0',
+  harness_version: '1.12.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -36,7 +36,9 @@ export const DEFAULT_CONFIG = {
   baseline: {}, // override per service: { "ce-api": "production" } (bawaan: origin/HEAD → production → main → master)
   store: { backend: 'local' },  // penyimpanan work item: 'local' (docs/work). Backend lain didaftarkan di store.mjs.
   // align: gerbang sebelum approve. Item standard butuh align.md berverdict "aligned" (ditulis hook saat manusia mengetik /harness:align <slug> ok). Debat maks max_rounds ronde.
-  align: { required: true, max_rounds: 3, exempt_types: ['onboard', 'analysis'], accept_contradictions: true },
+  // decision_table (1.12.0): Stop menahan giliran yang menyentuh item belum-aligned sampai tabel keputusan (dibuat kode) ditampilkan, sekali per perubahan isi.
+  // block_plan_before_aligned (1.12.0): Edit/Write yang menambah AC ke plan.md ditolak selama align belum aligned.
+  align: { required: true, max_rounds: 3, exempt_types: ['onboard', 'analysis'], accept_contradictions: true, decision_table: true, block_plan_before_aligned: true },
   // gerbang Stop: sesi tidak boleh berhenti bila item yang baru dikerjakan siap review tetapi bukti test / review belum ada. max_blocks = batas penolakan per sesi (anti-loop).
   stop_gate: { enabled: true, max_blocks: 2, recent_hours: 12 },
   handoff: { max_chars: 6000 },
@@ -280,12 +282,57 @@ export function updateTicket(root, mode, ttlMin = 30) {
 // ---------- align: kesepahaman objective sebelum plan ----------
 // align.md: frontmatter `verdict: open|aligned`, `rounds: N`; tabel klaim `| C1 | klaim | bukti path:baris | status |`.
 export const CLAIM_ROW = /^\|\s*C\d+\s*\|/;
+export const DECISION_ROW = /^\|\s*D\d+\s*\|/;
+const cells = (l) => l.split('|').slice(1, -1).map((x) => x.trim());
+const EMPTY_ANSWER = /^(|-|\?+|<.*>|belum|tbd)$/i;
 export function readAlign(item) {
   const p = path.join(item.dir, 'align.md');
   if (!fs.existsSync(p)) return null;
   const { fm, body } = splitFrontmatter(fs.readFileSync(p, 'utf8'));
-  return { fm, body, verdict: String(fm.verdict || 'open').toLowerCase(), rounds: Number(fm.rounds || 0), claims: body.split(/\r?\n/).filter((l) => CLAIM_ROW.test(l)).length,
-    contradicted: body.split(/\r?\n/).filter((l) => CLAIM_ROW.test(l) && /bertentangan/i.test(l)).length };
+  const L = body.split(/\r?\n/);
+  const claimRows = L.filter((l) => CLAIM_ROW.test(l)).map(cells);
+  // 1.12.0: "## Keputusan terbuka" | D1 | pertanyaan | opsi (rekomendasi dulu) | jawaban |; jawaban kosong = masih terbuka
+  const decisions = L.filter((l) => DECISION_ROW.test(l)).map(cells).map((c) => ({ id: c[0], question: c[1] || '', options: c[2] || '', answer: c[3] || '' }));
+  return { fm, body, verdict: String(fm.verdict || 'open').toLowerCase(), rounds: Number(fm.rounds || 0), claims: claimRows.length,
+    claimRows: claimRows.map((c) => ({ id: c[0], claim: c[1] || '', evidence: c[2] || '', status: (c[3] || '').toLowerCase() })),
+    contradicted: claimRows.filter((c) => /bertentangan/i.test(c[3] || '')).length,
+    doubtful: claimRows.filter((c) => /dugaan/i.test(c[3] || '')).length,
+    decisions, openDecisions: decisions.filter((d) => EMPTY_ANSWER.test(d.answer)).length };
+}
+
+// Slug pendek untuk perintah yang diketik user: tanpa awalan tanggal, bila tetap unik (resolveSlug menerima potongan unik).
+export function shortSlug(root, slug) {
+  const s = slug.replace(/^\d{4}-\d{2}-\d{2}-/, '');
+  if (s === slug) return slug;
+  try { return resolveSlug(root, s) === slug ? s : slug; } catch { return slug; }
+}
+
+// 1.12.0: tabel keputusan DIBUAT KODE dari align.md (bukan ditulis bebas model). Baris: klaim bertentangan, klaim dugaan,
+// keputusan terbuka (D tanpa jawaban). Baris terakhir = satu-satunya langkah berikutnya yang sah.
+export function decisionRows(item) {
+  const a = readAlign(item);
+  if (!a || a.verdict === 'aligned') return [];
+  const rows = [];
+  const sl = item.dir ? shortSlug(path.resolve(item.dir, '..', '..', '..'), item.slug) : item.slug;
+  for (const c of a.claimRows.filter((x) => /bertentangan/.test(x.status))) rows.push({ id: c.id, kind: 'bertentangan', ask: `Kode berkata lain: "${c.claim}"${c.evidence && c.evidence !== '-' ? ` (bukti ${c.evidence})` : ''}`, options: 'a) klaim dikoreksi · b) terima risikonya', answer: `"${c.id}: <koreksi>" atau "align ok ${sl} terima ${c.id}"` });
+  for (const c of a.claimRows.filter((x) => /dugaan/.test(x.status))) rows.push({ id: c.id, kind: 'dugaan', ask: `Belum ada bukti di kode: "${c.claim}"`, options: 'a) benar · b) salah', answer: `"${c.id} benar" / "${c.id} salah: <yang benar>"` });
+  for (const d of a.decisions.filter((x) => EMPTY_ANSWER.test(x.answer))) rows.push({ id: d.id, kind: 'keputusan', ask: d.question, options: d.options || '-', answer: `"${d.id}: <pilihan>"` });
+  return rows;
+}
+export function formatDecision(root, item) {
+  const rows = decisionRows(item);
+  const sl = shortSlug(root, item.slug);
+  const a = readAlign(item);
+  const hard = rows.filter((r) => r.kind === 'bertentangan').map((r) => r.id);
+  const head = rows.length
+    ? ['| # | jenis | yang perlu kamu putuskan | opsi (rekomendasi dulu) | jawab dengan |', '|---|---|---|---|---|',
+      ...rows.map((r) => `| ${r.id} | ${r.kind} | ${String(r.ask).replace(/\|/g, '/').slice(0, 160)} | ${String(r.options).replace(/\|/g, '/').slice(0, 100)} | ${r.answer} |`)]
+    : [];
+  const next = !a ? `Berikutnya (agent): /harness:align ${sl}`
+    : hard.length ? `Berikutnya (kamu): jawab tabel di atas. "align ok ${sl}" baru diterima setelah ${hard.join(', ')} dikoreksi, atau ketik "align ok ${sl} terima ${hard.join(',')}".`
+    : rows.length ? `Berikutnya (kamu): jawab tabel di atas (cukup kode + jawaban, mis. "${rows[0].id} a"), lalu ketik "align ok ${sl}".`
+    : `Berikutnya (kamu): bila sepaham, ketik "align ok ${sl}".`;
+  return [`Keputusan untuk ${item.slug} (${rows.length} terbuka):`, ...head, next].join('\n');
 }
 export const alignExempt = (item, cfg) => isQuick(item) || !cfg.align.required || (cfg.align.exempt_types || []).includes(item.type);
 export function alignProblems(item, cfg) {
@@ -555,7 +602,13 @@ export function contextWarning(root, cfg, payload) {
 
 // ---------- langkah berikutnya (untuk /harness:next dan pesan blokir) ----------
 function alignNext(item, cfg) {
-  const sl = item.slug;
+  const sl = item.dir ? shortSlug(path.resolve(item.dir, '..', '..', '..'), item.slug) : item.slug;
+  // 1.12.0: langkah dibuat dari isi align.md, bukan dikarang model
+  const a0 = readAlign(item);
+  if (a0 && a0.verdict !== 'aligned' && !(cfg ? alignExempt(item, cfg) : false)) {
+    if (a0.contradicted) return ['kamu', `jawab tabel keputusan (harness.mjs decide ${sl}): koreksi klaim bertentangan, atau "align ok ${sl} terima <Cn>"`];
+    if (a0.doubtful || a0.openDecisions) return ['kamu', `jawab tabel keputusan (harness.mjs decide ${sl}), lalu "align ok ${sl}"`];
+  }
   const hasPlan = parseAcs(item.body).length > 0;
   const a = readAlign(item);
   const needAlign = cfg ? alignProblems(item, cfg).length > 0 : !a || a.verdict !== 'aligned';

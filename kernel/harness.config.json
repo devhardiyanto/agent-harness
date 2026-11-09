@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.11.0",
+  "harness_version": "1.12.0",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -59,7 +59,9 @@
       "onboard",
       "analysis"
     ],
-    "accept_contradictions": true
+    "accept_contradictions": true,
+    "decision_table": true,
+    "block_plan_before_aligned": true
   },
   "stop_gate": {
     "enabled": true,

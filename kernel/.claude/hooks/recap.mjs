@@ -3,7 +3,7 @@
 // yang belum aligned, AC tanpa bukti, blocker review terbuka, usulan memori yang menunggu. Deterministik, nol token.
 import fs from 'node:fs';
 import path from 'node:path';
-import { listItems, nextStep, summarizeItem, readAlign, splitFrontmatter, CLAIM_ROW, isQuick } from './lib.mjs';
+import { listItems, nextStep, summarizeItem, splitFrontmatter, isQuick, decisionRows } from './lib.mjs';
 import { section, bullets } from './summary.mjs';
 import { pending } from './memory.mjs';
 
@@ -22,14 +22,8 @@ export function openRows(root, cfg, { slugs = null } = {}) {
       const qs = bullets(section(splitFrontmatter(fs.readFileSync(bp, 'utf8')).body, /^##\s+Open questions/i)).map((q) => q.replace(/^[-*]\s*/, '')).filter((q) => q && !PH.test(q));
       for (const q of qs.slice(0, 3)) rows.push({ item: it.slug, jenis: 'pertanyaan', apa: q, siapa: 'kamu', aksi: 'jawab di chat; agent mencatat di brief.md' });
     }
-    const a = readAlign(it);
-    if (a && a.verdict !== 'aligned') {
-      for (const l of a.body.split(/\r?\n/).filter((x) => CLAIM_ROW.test(x) && /bertentangan|dugaan/i.test(x)).slice(0, 4)) {
-        const c = l.split('|').map((x) => x.trim());
-        const st = /bertentangan/i.test(l) ? 'bertentangan' : 'dugaan';
-        rows.push({ item: it.slug, jenis: `klaim ${st}`, apa: `${c[1]}: ${c[2]}`, siapa: 'kamu', aksi: st === 'bertentangan' ? `koreksi klaim, atau "align ok ${it.slug} terima ${c[1]}"` : 'konfirmasi atau minta agent cari bukti' });
-      }
-    }
+    // 1.12.0: sumber yang sama dengan tabel keputusan (klaim bertentangan/dugaan + keputusan D terbuka)
+    for (const d of decisionRows(it).slice(0, 6)) rows.push({ item: it.slug, jenis: d.kind === 'keputusan' ? 'keputusan' : `klaim ${d.kind}`, apa: `${d.id}: ${d.ask}`, siapa: 'kamu', aksi: d.answer });
     if (['in-progress', 'in-review'].includes(it.status)) {
       const s = summarizeItem(it);
       const miss = s.ac.filter((x) => x.evidence !== 'ok').map((x) => x.id);

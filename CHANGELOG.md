@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.12.0
+Menutup sisa tujuan T2 (tidak mondar-mandir) dan T3 (tabel, bukan narasi) dari `ROADMAP.md`. Aditif, di belakang flag.
+- **Tabel keputusan dibuat kode** (F1): `harness.mjs decide [slug]`, ketikan `keputusan` / `apa yang harus aku jawab?`. Sumber: klaim `bertentangan`/`dugaan` di `align.md` + bagian baru `## Keputusan terbuka` (`| D1 | pertanyaan | opsi | jawaban |`, jawaban kosong = terbuka). Tiap baris berisi cara menjawab; baris terakhir = satu langkah berikutnya yang sah. `sisa` dan pesan tolak `align ok` memakai sumber yang sama.
+- **Hook Stop menahan giliran** yang menyentuh item draft belum-aligned sampai tabel itu ditampilkan, sekali per isi tabel per sesi; `stop_hook_active` tidak ditahan lagi (`align.decision_table`).
+- **Plan setelah aligned** (F2): `gate` menolak AC baru/berubah di `plan.md` sebelum `aligned` (`align.block_plan_before_aligned`); bagian plan lain tetap bisa diedit. Dikecualikan: quick, `analysis`/`onboard`, `align.required: false`.
+- **Langkah berikutnya dari kode** (F3): `next` membedakan klaim bertentangan / dugaan atau D terbuka / siap `align ok`; perintah memakai slug pendek (tanpa awalan tanggal) bila unik. Rule baru `O-07`: langkah untuk user disalin dari `next`/`decide`.
+- **`terima Cn` tersimpan segera** di `align.md` (dan audit) walau align belum bisa ditutup karena klaim lain.
+- **`doctor`: versi plugin skill** (F4) dibandingkan dengan kernel lewat `claude plugin list`; beda = GAGAL dengan perintah perbaikan; tak terbaca = TIDAK DIPERIKSA.
+- Skill `align`, `impact`, `plan`: pertanyaan sebagai baris D, balasan = keluaran `decide`/`next`; template `align.md` punya `## Keputusan terbuka`.
+
 ## 1.11.0
 Lanjutan ATM dari Hermes Agent dan antislop (`ROADMAP.md`). Aditif; semua di belakang flag.
 - **Profil user per orang** (`memory.user_enabled`, `user_max_chars` 1375): `~/.harness/USER.md`, di luar repo (root dipakai bersama tim). `ingat user: ...`, `lupakan U2`, agent `memory add --user`. Dimuat di awal sesi sebelum memori project; `memory list` menampilkan keduanya.

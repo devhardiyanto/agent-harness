@@ -25,14 +25,16 @@ test('align: pesan blok berbentuk tabel + opsi; "align ok <slug> terima C2" menu
   wr(root, `docs/work/${slug}/align.md`, ALIGN('| C1 | a | x.ts:1 | terverifikasi |\n| C2 | data kecil | y.ts:9 | bertentangan |\n| C3 | admin | - | bertentangan |'));
   let r = hook(root, 'prompt.mjs', { prompt: `align ok ${slug}` });
   const reason = ctx(r).reason;
-  assert.match(reason, /\| C2 \| data kecil/); assert.match(reason, /terima C2,C3/);
+  assert.match(reason, /\| C2 \| bertentangan \| Kode berkata lain: "data kecil" \(bukti y\.ts:9\)/); assert.match(reason, /terima C2,C3/);
   r = hook(root, 'prompt.mjs', { prompt: `/harness:align ${slug} ok terima C2` });
-  assert.match(ctx(r).reason, /C3/, 'C3 masih bertentangan → tetap ditolak');
+  assert.match(ctx(r).reason, /\| C3 \| bertentangan/, 'C3 masih bertentangan → tetap ditolak');
+  assert.doesNotMatch(ctx(r).reason, /\| C2 \|/, 'C2 sudah diterima');
   assert.match(rd(root, `docs/work/${slug}/align.md`), /verdict: open/);
+  assert.match(rd(root, `docs/work/${slug}/align.md`), /\| C2 \| data kecil \| y\.ts:9 \| diterima \(manusia\) \|/, 'penerimaan C2 tersimpan walau align belum ditutup');
   r = hook(root, 'prompt.mjs', { prompt: `align ok ekspor-csv terima semua` });
   assert.match(add(r), /ALIGNED/);
   const t = rd(root, `docs/work/${slug}/align.md`);
-  assert.match(t, /verdict: aligned/); assert.match(t, /C2, C3: bertentangan dengan kode, risikonya DITERIMA/); assert.doesNotMatch(t, /\| bertentangan \|/);
+  assert.match(t, /verdict: aligned/); assert.match(t, /C2: bertentangan dengan kode, risikonya DITERIMA/); assert.match(t, /C3: bertentangan dengan kode, risikonya DITERIMA/); assert.doesNotMatch(t, /\| bertentangan \|/);
 });
 
 test('align: accept_contradictions=false menolak "terima"', () => {

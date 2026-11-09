@@ -9,7 +9,7 @@ disable-model-invocation: true
 Masukan: `$ARGUMENTS` (slug work item). Sesi ini adalah sesi **planning**: tidak ada perubahan kode.
 
 ## Langkah
-1. `node .claude/hooks/harness.mjs show <slug>`; status harus `draft`. Item standard (bukan quick/analysis/onboard) wajib sudah `aligned` (`docs/work/<slug>/align.md`, ditutup user lewat `/harness:align <slug> ok`); bila belum, berhenti dan arahkan ke `/harness:align <slug>`. Bila sudah `approved`+, plan beku: gunakan `reopen` hanya atas permintaan user.
+1. `node .claude/hooks/harness.mjs show <slug>`; status harus `draft`. Item standard (bukan quick/analysis/onboard) wajib sudah `aligned` (`docs/work/<slug>/align.md`, ditutup user lewat `/harness:align <slug> ok`); bila belum, berhenti dan tampilkan keluaran `node .claude/hooks/harness.mjs decide <slug>` apa adanya (hook juga menolak AC di `plan.md` sebelum aligned). Bila sudah `approved`+, plan beku: gunakan `reopen` hanya atas permintaan user.
 2. Baca `brief.md`, `align.md` (klaim terverifikasi = dasar; parking lot BUKAN lingkup), `impact.md`. Pertanyaan blokir yang belum dijawab → tanyakan lewat `AskUserQuestion` (maks 4 sekaligus, opsi konkret), jangan menebak.
 3. Baca `patterns.md` service yang disentuh agar langkah mengikuti pola nyata.
 4. Isi `plan.md` (frontmatter: `services: [..]` dari impact; `status: draft` jangan diubah):
