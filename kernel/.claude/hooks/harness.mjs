@@ -24,6 +24,7 @@
 //   measure <transcript.jsonl> [--json] [--label x]   token per model, panggilan tool/subagent, durasi → .harness/metrics/ (baseline sebelum/sesudah routing)
 //   update [--all|--rollback]  perbarui harness di root ke main (HANYA dengan tiket: /harness:update atau "tolong root nya di update ke main")
 //   plane sync|check        Plane (plane.enabled): sync = kirim status work item ke kartu Plane (satu arah; --dry-run, --include-merged, <slug>); check = uji konfigurasi, token (env), koneksi, nama state
+//   decide [slug]           tabel keputusan align (klaim bertentangan/dugaan + D terbuka), dibuat kode; baris terakhir = langkah berikutnya
 //   open [--mine] [--json]  tabel "belum selesai": langkah per item, pertanyaan terbuka, klaim dugaan/bertentangan, AC tanpa bukti, blocker, usulan memori
 //   memory reindex|list|pending|add <teks>|approve <P1|all>|reject <P1|all>|forget <M2|teks>   memori project (docs/memory/MEMORY.md); approve/forget/reject hanya manusia bila write_approval
 //   playbook list|lint      prosedur yang dipelajari (docs/memory/playbooks); lint = frontmatter, ukuran, secret
@@ -64,7 +65,7 @@ import {
 import {
   projectRoot, loadConfig, checkTransition, checkDone, setFmKey, STATUSES,
   splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli, globToRegex,
-  updateTicket, updateTicketPath, readEvents,
+  updateTicket, updateTicketPath, readEvents, readAlign, formatDecision,
 } from './lib.mjs';
 
 const root = projectRoot();
@@ -229,6 +230,12 @@ switch (cmd) {
     if (!items.length) { console.log('(tidak ada work item terbuka) Mulai: /harness:quick <permintaan> untuk perubahan kecil, atau /harness:impact <tipe> <permintaan>.'); break; }
     console.log('| slug | lajur | status | siapa | langkah berikutnya |\n|---|---|---|---|---|');
     for (const i of items) { const n = nextStep(i, cfg); console.log(`| ${i.slug} | ${isQuick(i) ? 'quick' : 'standard'} | ${i.status} | ${n.who} | ${n.cmd} |`); }
+    break;
+  }
+  case 'decide': {
+    const q = args.find((a) => !a.startsWith('--'));
+    const its = (q ? [need(q)] : listItems().filter((i) => i.status === 'draft')).filter((i) => { const a = readAlign(i); return a && a.verdict !== 'aligned'; });
+    console.log(its.length ? its.map((i) => formatDecision(root, i)).join('\n\n') : 'Tidak ada keputusan align yang terbuka.');
     break;
   }
   case 'open': {
@@ -413,6 +420,15 @@ switch (cmd) {
     const clv = /(\d+)\.(\d+)\.(\d+)/.exec(cl.stdout || '');
     const verOk = clv && (Number(clv[1]) > 2 || (Number(clv[1]) === 2 && (Number(clv[2]) > 1 || (Number(clv[2]) === 1 && Number(clv[3]) >= 295))));
     ok('claude >= 2.1.295 (onFailure: block)', !!verOk, cl.stdout ? `terpasang ${cl.stdout.trim()}` : 'claude tidak ditemukan di PATH');
+    // 1.12.0 (F4): skill /harness:* datang dari plugin global yang diperbarui terpisah dari kernel; versi beda = skill lama (format balasan lama).
+    if (cl.stdout) {
+      const pl = runCli('claude', ['plugin', 'list'], { timeout: 15000 });
+      const out = `${pl.stdout || ''}\n${pl.stderr || ''}`;
+      // format umum: "❯ harness@harness-marketplace" lalu "Version: X.Y.Z" di baris berikut; juga versi di baris yang sama
+      const pm = /harness@[\w.-]+[^\n]*\n(?:[^\n❯]*\n){0,4}?[^\n❯]*Version:\s*(\d+\.\d+\.\d+)/i.exec(out) || /harness@[\w.-]+[^\n]*?(\d+\.\d+\.\d+)/.exec(out) || /^\s*[^\w\n]*harness\b[^\n]*?\b(\d+\.\d+\.\d+)\b/m.exec(out);
+      if (pl.status === 0 && pm) ok('plugin skill harness sama versinya dengan kernel', pm[1] === cfg.harness_version, `plugin ${pm[1]} ≠ kernel ${cfg.harness_version}: claude plugin marketplace update harness-marketplace && claude plugin update harness@harness-marketplace --scope user (atau node ~/agent-harness/scripts/update-all.mjs --no-pull), lalu buka sesi baru`);
+      else rows.push('| plugin skill harness sama versinya dengan kernel | TIDAK DIPERIKSA | "claude plugin list" tidak menampilkan versi harness; cek manual dengan /plugin |');
+    }
     const ver = readJson(path.join(root, '.claude', 'harness.version'));
     ok('.claude/harness.version terbaca', !!(ver && ver.version), 'jalankan: node <installer>/install.mjs . --update');
     ok('versi config sama dengan versi terpasang', !ver || cfg.harness_version === ver.version, `config ${cfg.harness_version} ≠ terpasang ${ver && ver.version}; jalankan install --update`);
@@ -589,5 +605,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('perintah: new | open | memory | playbook | recall | gate | run-checks | log | watch | gc | measure | update | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
+    die('perintah: new | decide | open | memory | playbook | recall | gate | run-checks | log | watch | gc | measure | update | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
 }

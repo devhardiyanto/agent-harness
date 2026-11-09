@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import {
   readStdinJson, projectRoot, loadConfig, resolveSlug, readItem, checkTransition, setFmKey, context, audit, contextWarning, createQuick,
-  readAlign, alignExempt, updateTicketPath, CLAIM_ROW, nextStep, listItems,
+  readAlign, alignExempt, updateTicketPath, CLAIM_ROW, nextStep, listItems, formatDecision,
 } from './lib.mjs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -26,6 +26,10 @@ if (intent.command) prompt = intent.command;
 if (intent.kind) {
   const say = (txt) => { context('UserPromptSubmit', [...refCtx, txt].join('\n\n')); process.exit(0); };
   const stop = (txt) => { process.stdout.write(JSON.stringify({ decision: 'block', reason: `[harness] ${txt}` })); process.exit(0); };
+  if (intent.kind === 'decide') {
+    const its = (intent.slug ? [readItem(root, intent.slug)] : listItems(root).filter((i) => i.status === 'draft' && !alignExempt(i, cfg))).filter(Boolean).filter((i) => { const a = readAlign(i); return a && a.verdict !== 'aligned'; });
+    say(`[harness] Tampilkan tabel ini APA ADANYA, tanpa narasi tambahan.\n${its.length ? its.map((i) => formatDecision(root, i)).join('\n\n') : 'Tidak ada keputusan align yang terbuka.'}`);
+  }
   if (intent.kind === 'open') say(`[harness] Tampilkan tabel ini APA ADANYA (tanpa narasi), lalu satu baris: langkah paling penting berikutnya.\n${formatOpen(openRows(root, cfg), cfg.recap.max_rows)}`);
   if (!cfg.memory.enabled) stop('memori mati (memory.enabled=false).');
   if (intent.kind === 'remember') { const r = addEntry(root, cfg, intent.text, who0(), intent.target); if (!r.ok) stop(`ingat ditolak: ${r.reason}`); say(`[harness] ${intent.target === 'user' ? 'Profil user' : 'Memori'} ${r.id} disimpan oleh ${who0()} (ditulis hook; ${r.used}/${r.max} karakter). ${intent.target === 'user' ? 'Ikuti preferensi ini mulai sekarang; ' : ''}Dimuat otomatis mulai sesi berikutnya. Balas satu baris konfirmasi.`); }
@@ -76,12 +80,11 @@ if (ma) {
     if (!took.length) block(`klaim ${ma[2]} tidak ada atau tidak berstatus bertentangan.`);
     const note = `- ${new Date().toISOString().slice(0, 10)} ${took.join(', ')}: bertentangan dengan kode, risikonya DITERIMA oleh ${who0()}.`;
     t = /^##\s+Debat.*$/m.test(t) ? t.replace(/^(##\s+Debat.*)$/m, `$1\n${note}`) : `${t.trimEnd()}\n\n## Debat\n${note}\n`;
+    fs.writeFileSync(ap, t); // penerimaan risiko = keputusan manusia; tetap tercatat walau align belum bisa ditutup
+    audit(root, { event: 'align-accept', session: payload.session_id, slug: sa, by: who0(), claims: took.join(',') });
   }
   const left = conflictRows();
-  if (left.length) {
-    const ids = left.map((c) => c[1]).join(',');
-    block(`${left.length} klaim masih "bertentangan" dengan kode:\n| klaim | isi | bukti |\n|---|---|---|\n${left.map((c) => `| ${c[1]} | ${String(c[2]).slice(0, 80)} | ${String(c[3]).slice(0, 60)} |`).join('\n')}\nPilih salah satu:\n1. Koreksi klaimnya (minta agent: "ubah ${left[0][1]} jadi ..."), lalu ketik lagi "align ok ${sa}".\n2. Terima risikonya: ketik "align ok ${sa} terima ${ids}" (atau "... terima semua").`);
-  }
+  if (left.length) block(`${left.length} klaim masih "bertentangan" dengan kode.\n${formatDecision(root, readItem(root, sa))}`);
   if (a.rounds > cfg.align.max_rounds) block(`ronde ${a.rounds} melewati batas ${cfg.align.max_rounds}.`);
   t = setFmKey(t, 'verdict', 'aligned'); t = setFmKey(t, 'aligned_at', new Date().toISOString()); t = setFmKey(t, 'aligned_by', who0());
   fs.writeFileSync(ap, t);

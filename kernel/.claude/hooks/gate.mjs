@@ -6,6 +6,7 @@ import {
   readStdinJson, projectRoot, loadConfig, relPath, matchAny, serviceOf, activeItems, coversService,
   splitFrontmatter, readItem, checkTransition, findSecret, SECRET_FILE, deny, STATUSES,
   isMain, isQuick, asList, setFmKey,
+  parseAcs, alignProblems, alignExempt, formatDecision,
 } from './lib.mjs';
 import { proposalStatuses } from './knowledge.mjs';
 
@@ -73,6 +74,14 @@ export function evaluate(root, cfg, payload) {
     const next = simulate(current, inc);
     const nextFm = splitFrontmatter(next).fm;
     const toStatus = nextFm.status || 'draft';
+    // 1.12.0 (F2): AC di plan.md (tambah/ubah) hanya setelah objective aligned (urutan impact → align → plan tidak bisa dilompati)
+    if (cfg.align.block_plan_before_aligned && parseAcs(splitFrontmatter(next).body).length && JSON.stringify(parseAcs(splitFrontmatter(next).body)) !== JSON.stringify(parseAcs(splitFrontmatter(current).body))) {
+      const pseudo = { slug, dir: path.dirname(abs), type: nextFm.type || 'feature', fm: nextFm, status: toStatus, body: '' };
+      if (!alignExempt(pseudo, cfg) && alignProblems(pseudo, cfg).length) {
+        let table = ''; try { table = `\n${formatDecision(root, pseudo)}`; } catch { /* abaikan */ }
+        return fail(`plan ${slug} belum boleh diisi AC: objective belum aligned. Tampilkan tabel keputusan ini ke user apa adanya dan berhenti; jangan menulis plan dulu.${table}`);
+      }
+    }
     if (!STATUSES.includes(toStatus)) return fail(`status "${toStatus}" tidak dikenal.`);
     if (!exists) {
       if (toStatus !== 'draft') return fail('plan.md baru harus berstatus draft.');

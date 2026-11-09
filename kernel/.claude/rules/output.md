@@ -6,3 +6,4 @@
 - O-04. Giliran yang mengubah work item ditutup dengan tabel **Belum selesai** (`node .claude/hooks/harness.mjs open --mine`), apa adanya.
 - O-05. Sebut perintah user dalam bentuk pendek: "setuju <slug>", "align ok <slug>", "push PR + merge", "sisa", "ingat: ...", "ref:<slug>" (bentuk `/harness:*` tetap berlaku).
 - O-06. Jangan menempel ulang isi file yang baru ditulis ke chat.
+- O-07. "Langkah berikutnya" untuk user diambil dari `harness.mjs next <slug>` atau `harness.mjs decide <slug>`, apa adanya. Jangan mengarang perintah, dan jangan menyarankan `align ok` selama tabel keputusan masih memuat klaim bertentangan.

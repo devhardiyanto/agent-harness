@@ -5,12 +5,35 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   readStdinJson, projectRoot, loadConfig, listItems, summarizeItem, readEvidence, codeFingerprint, isQuick, readJson, audit, isMain, touchedSlugs,
+  readAlign, alignExempt, formatDecision,
 } from './lib.mjs';
 import crypto from 'node:crypto';
 import { openRows, formatOpen } from './recap.mjs';
 
 // 1.10.0: rekap "belum selesai" untuk item yang disentuh sesi ini, ditampilkan ke USER (systemMessage), hanya bila isinya berubah
 // sejak rekap terakhir sesi ini (agar tidak berulang tiap giliran).
+// 1.12.0 (F1): giliran yang menyentuh item draft belum-aligned harus ditutup dengan tabel keputusan buatan kode.
+// Menahan sekali per isi tabel per sesi (anti-loop: stop_hook_active + sidik isi), bukan tiap giliran.
+export function decisionFor(root, cfg, payload) {
+  if (!cfg.align.decision_table || payload.stop_hook_active) return null;
+  const mine = touchedSlugs(root, payload.session_id);
+  const parts = [];
+  for (const it of listItems(root)) {
+    if (!mine.has(it.slug) || it.status !== 'draft' || alignExempt(it, cfg)) continue;
+    const a = readAlign(it);
+    if (!a || a.verdict === 'aligned' || !a.claims) continue;
+    parts.push(formatDecision(root, it));
+  }
+  if (!parts.length) return null;
+  const text = parts.join('\n\n');
+  const mark = path.join(root, '.harness', 'state', `decision-${String(payload.session_id || 'x').replace(/\W/g, '')}.json`);
+  const h = crypto.createHash('sha1').update(text).digest('hex');
+  if (readJson(mark, {}).h === h) return null;
+  fs.mkdirSync(path.dirname(mark), { recursive: true });
+  fs.writeFileSync(mark, JSON.stringify({ h, at: new Date().toISOString() }));
+  return `tutup giliran ini dengan tabel keputusan berikut, APA ADANYA (dibuat kode dari align.md). Jangan menambah narasi, jangan menyarankan perintah lain selain baris "Berikutnya". Pertanyaan baru untuk user ditulis dulu sebagai baris D di "## Keputusan terbuka" align.md.\n\n${text}`;
+}
+
 export function recapFor(root, cfg, sid) {
   if (!cfg.recap.enabled || !cfg.recap.on_stop) return null;
   const mine = touchedSlugs(root, sid);
@@ -66,6 +89,12 @@ if (isMain(import.meta.url)) {
   if (!r.ok) {
     audit(root, { event: 'stop-block', session: payload.session_id, reason: r.reason });
     process.stderr.write(`[harness] ${r.reason}\n`);
+    process.exit(2);
+  }
+  let dec = null; try { dec = decisionFor(root, cfg, payload); } catch { /* tidak boleh menjebak sesi */ }
+  if (dec) {
+    audit(root, { event: 'stop-decision', session: payload.session_id });
+    process.stderr.write(`[harness] ${dec}\n`);
     process.exit(2);
   }
   try { const t = recapFor(root, cfg, payload.session_id); if (t) process.stdout.write(JSON.stringify({ systemMessage: `[harness] ${t}` })); } catch { /* rekap tidak boleh mengganggu */ }

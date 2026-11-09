@@ -11,8 +11,8 @@ Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file
 
 ## Alur (satu work item = satu alur penuh)
 1. `/harness:impact <permintaan>` — dampak dari prompt pertama → `brief.md` (objective saja), `impact.md`.
-2. `/harness:align <slug>` — uji klaim permintaan ke kode secara skeptis → `align.md`. Debat maks 3 ronde; user menutup dengan `/harness:align <slug> ok` (hook menulis `aligned`). Temuan sampingan → parking lot, bukan dikerjakan.
-3. `/harness:plan <slug>` — `plan.md` berstatus `draft` (AC bernomor `- AC1: ...`). **Sesi planning berhenti di sini.**
+2. `/harness:align <slug>` — uji klaim permintaan ke kode secara skeptis → `align.md`. Pertanyaan untuk user = baris D di `## Keputusan terbuka`, bukan narasi. Tutup giliran dengan keluaran `harness.mjs decide <slug>` apa adanya (hook Stop menahan sampai itu ditampilkan). Debat maks 3 ronde; user menutup dengan `align ok <slug>` (hook menulis `aligned`). Temuan sampingan → parking lot.
+3. `/harness:plan <slug>` — hanya setelah `aligned` (hook menolak AC di `plan.md` sebelumnya). `plan.md` berstatus `draft` (AC bernomor `- AC1: ...`). **Sesi planning berhenti di sini.**
 4. User mengetik `/harness:approve <slug>` → hook menulis `approved` (butuh `aligned`). Agent tidak boleh.
 5. Sesi baru: `/harness:build <slug>` → `in-progress`, catat bukti per AC di `progress.md`. Test dijalankan agent `runner` (bukti ditulis kode, bukan agent); sesi tidak bisa berhenti bila bukti test belum ada.
 6. `/harness:review <slug>` → `review.md` (`verdict: clean|blockers`, agent `reviewer`). Ada blocker → kembali ke build.
@@ -25,7 +25,7 @@ Status: `draft → approved → in-progress → in-review → done → merged`. 
 User mengetik `/harness:quick <permintaan>`: hook membuat item `approved` (ketikan itu = persetujuan). Satu service, maks 5 file, bukan skema, dikerjakan di sesi yang sama, tanpa `in-review` (bukti AC + checks). Melebihi batas → `harness.mjs promote <slug>` lalu plan + approve. Bingung langkah berikutnya: `/harness:next`.
 
 ## Bahasa pendek user (1.10.0, diproses hook)
-"setuju <slug>" = approve · "align ok <slug> [terima C2]" · "push PR + merge [slug]" / "kirim <slug>" (= buka PR, merge saat check hijau, ringkasan; tanpa slug = satu-satunya item done) · "quick: <permintaan>" · "sisa" = tabel belum selesai · "ingat: <fakta>" / "ingat P1" / "lupakan M2" = memori project · "ingat user: <preferensi>" / "lupakan U2" = profil user · "ref:<slug>" = muat ringkasan item lama. Slug boleh potongan unik.
+"setuju <slug>" = approve · "align ok <slug> [terima C2]" · "push PR + merge [slug]" / "kirim <slug>" (= buka PR, merge saat check hijau, ringkasan; tanpa slug = satu-satunya item done) · "quick: <permintaan>" · "sisa" = tabel belum selesai · "keputusan [slug]" / "apa yang harus aku jawab?" = tabel keputusan align · "ingat: <fakta>" / "ingat P1" / "lupakan M2" = memori project · "ingat user: <preferensi>" / "lupakan U2" = profil user · "ref:<slug>" = muat ringkasan item lama. Slug boleh potongan unik.
 
 ## Memori project
 `docs/memory/MEMORY.md` (≤ `memory.max_chars`, disuntik di awal sesi): pakai. Simpan sendiri (gaya Hermes) bila kamu menemukan fakta yang awet: preferensi user, konvensi project, jebakan tool, koreksi dari user — `harness.mjs memory add "<satu fakta>"`. Jangan simpan hal sepele, sementara, atau mudah dicari ulang. Penuh = ditolak: rapikan dengan `harness.mjs memory forget M<n>` lalu ulangi. Jangan mengedit MEMORY.md langsung. Cari pekerjaan lama: `harness.mjs recall <kata>`.

@@ -17,7 +17,7 @@ Perubahan kecil (satu service, ≤5 file, bukan skema)? Sarankan user mengetik `
 4. Pilih service kandidat dari peta. Baca **hanya** `docs/knowledge/<svc>/summary.md` service kandidat. Jangan membaca seluruh knowledge. Knowledge berstatus `draft` dikutip dengan label `[draft]` di `impact.md` dan dicek ke kode sebelum jadi dasar; `verified` boleh dikutip tanpa label.
 5. Verifikasi relasi yang meragukan dengan agent `explorer` (paralel bila lintas service). Untuk simbol yang dirujuk lintas file, minta explorer memakai `LSP` (definisi/referensi) bila tersedia; bila tidak, `Grep`. Relasi antar-service dari graph AST tidak lengkap: cek env var base URL, klien HTTP, queue, tabel bersama.
 6. Isi `brief.md` (HANYA objective: objective, success criteria, out of scope, open questions; tanpa solusi atau nama file) dan `impact.md` (tabel). Dugaan diberi `?`, fakta diberi `path:baris`.
-7. Tulis pertanyaan yang memblokir plan di bagian "Pertanyaan yang harus dijawab user". Bila ada pilihan yang jawabannya mengubah lingkup (mis. service mana, kompatibel mundur atau tidak), tanyakan langsung dengan `AskUserQuestion` (maks 4 pertanyaan, opsi konkret, rekomendasi di opsi pertama), lalu catat jawabannya di `brief.md`. Jangan menebak.
+7. Tulis pertanyaan yang memblokir plan di bagian "Pertanyaan yang harus dijawab user". Bila ada pilihan yang jawabannya mengubah lingkup (mis. service mana, kompatibel mundur atau tidak), tanyakan langsung dengan `AskUserQuestion` (maks 4 pertanyaan, opsi konkret, rekomendasi di opsi pertama), lalu catat jawabannya di `brief.md`. Jangan menebak. Default yang kamu ambil sendiri tidak dinarasikan di chat: tulis sebagai baris D di `## Keputusan terbuka` `align.md` saat align.
 
 ## Fokus per tipe
 | type | tambahan wajib di impact.md |
@@ -31,4 +31,4 @@ Perubahan kecil (satu service, ≤5 file, bukan skema)? Sarankan user mengetik `
 | onboard | service yang belum ber-knowledge; arahkan ke `/harness:init` |
 
 ## Balasan chat (maks 5 baris)
-`docs/work/<slug>` dibuat · service terdampak: ... · N pertanyaan terbuka · berikutnya: `/harness:align <slug>` (lalu `/harness:plan <slug>`)
+`docs/work/<slug>` dibuat · service terdampak: ... · N pertanyaan terbuka · lalu baris terakhir keluaran `node .claude/hooks/harness.mjs next <slug>` apa adanya. Jangan menulis plan di sesi ini sebelum align ditutup user (hook menolak).

@@ -12,7 +12,13 @@ Tujuan: agent dan user sepaham tentang objective SEBELUM plan. Agent bersikap sk
 ## Klaim vs bukti kode
 | # | klaim (dari permintaan) | bukti kode (path:baris) | status |
 |---|---|---|---|
-<!-- baris: | C1 | ... | src/x.ts:12 | terverifikasi / dugaan / bertentangan | -->
+<!-- baris: | C1 | ... | src/x.ts:12 | terverifikasi / dugaan / bertentangan | . Setelah user menjawab: koreksi teks klaim dan ubah status ke "dikoreksi (user)" atau "dikonfirmasi (user)". -->
+
+## Keputusan terbuka
+<!-- Pertanyaan untuk user, SATU baris per keputusan; jangan menulis pertanyaan sebagai narasi di chat. Isi kolom jawaban setelah user menjawab.
+     Tabel keputusan yang dilihat user dibuat kode dari bagian ini + klaim bertentangan/dugaan (harness.mjs decide <slug>). -->
+| # | pertanyaan (satu kalimat) | opsi (rekomendasi dulu) | jawaban |
+|---|---|---|---|
 
 ## Debat
 <!-- Ronde N: titik beda → jawaban user → hasil. Naikkan "rounds" di frontmatter tiap ronde (maks 3). -->

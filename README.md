@@ -148,6 +148,17 @@ Merge tetap aman: ketikan ship menjadi **izin merge tertunda** (`.claude/state/m
 | konteks di sesi baru | mulai dari nol | profil user + memori project + daftar playbook + indeks pekerjaan lama |
 | rujukan pekerjaan lama | cari manual di `docs/work` | `recall <kata>`, lalu `ref:<slug>` |
 
+## Tabel keputusan, plan setelah aligned (1.12.0)
+| bagian | perilaku |
+|---|---|
+| tabel keputusan | Dibuat **kode** dari `align.md`: klaim `bertentangan`, klaim `dugaan`, dan baris `D` tanpa jawaban di `## Keputusan terbuka`. Kolom terakhir = cara menjawab (`C2: <koreksi>`, `C3 benar`, `D1 a`). Baris terakhir = satu langkah berikutnya yang sah. Lihat: `harness.mjs decide [slug]`, ketik `keputusan` atau `sisa`. |
+| giliran ditutup tabel | Hook Stop menahan giliran agent yang menyentuh item draft belum-aligned sampai tabel itu ditampilkan, sekali per perubahan isi (`align.decision_table`). |
+| plan setelah aligned | `gate` menolak Edit/Write yang menambah/mengubah AC di `plan.md` selama align belum `aligned`, dengan tabel keputusan di pesannya (`align.block_plan_before_aligned`). Tipe `analysis`/`onboard`, lajur quick, dan `align.required: false` dikecualikan. |
+| langkah berikutnya | `next` membaca isi `align.md`: ada klaim bertentangan → jawab tabel atau `terima Cn`; ada dugaan/D terbuka → jawab tabel lalu `align ok`; selain itu → `align ok`. Perintah memakai slug pendek (tanpa tanggal) bila unik. |
+| versi skill | `doctor` membandingkan versi plugin `harness` (`claude plugin list`) dengan kernel; beda = GAGAL dengan perintah perbaikan; format tak terbaca = TIDAK DIPERIKSA. |
+
+`terima C2` kini langsung tersimpan di `align.md` walaupun align belum bisa ditutup karena klaim lain.
+
 ## Memperbarui semua project
 Ada dua jalur, dan keduanya berasal dari repo-mu sendiri: **kernel** (hook, config, rules) ditulis `install.mjs --update` ke tiap project, **plugin** (skill) dipasang **global** (scope user, satu kali per mesin) dari marketplace `harness-marketplace` (repo GitHub installer) dan hanya berganti bila `version` di `plugin/.claude-plugin/plugin.json` naik (naikkan tiap rilis; `scripts/bump.mjs`). Installer tidak lagi mendaftarkan plugin di `.claude/settings.json` project.
 
