@@ -7,18 +7,21 @@ import { readHandoff } from './handoff.mjs';
 import { snapshot, hasIndex, reindex } from './memory.mjs';
 import { playbookIndex } from './playbooks.mjs';
 import { objectiveOf } from './summary.mjs';
+import { fixAlign } from './migrate.mjs';
+import { mirrorPath } from './plane.mjs';
 
 const payload = await readStdinJson();
 const root = projectRoot(payload);
 const cfg = loadConfig(root);
 audit(root, { event: 'SessionStart', session: payload.session_id, source: payload.source });
 planeKick(root); // kejar status yang tertunda (jaringan mati, sesi lain)
+if (cfg.plane.enabled && cfg.plane.pull_comments) planeKick(root, ['pull', '--auto', '--quiet']); // 1.13.0: komentar Plane -> cermin + inbox
 
 const items = listItems(root).filter((i) => i.status !== 'merged');
 const lines = [`[harness v${cfg.harness_version}] project: ${cfg.project || path.basename(root)} · root branch: ${cfg.root_branch}`];
 if (items.length) {
   lines.push('Work item terbuka:');
-  for (const i of items.slice(0, 12)) lines.push(`- ${i.slug} · ${i.type} · ${i.status} · services: ${i.services.join(',') || '-'}`);
+  for (const i of items.slice(0, 12)) lines.push(`- ${i.slug} · ${i.type} · ${i.status} · services: ${i.services.join(',') || '-'}${i.fm.plane_id && fs.existsSync(mirrorPath(root, i.slug)) ? ` · cermin Plane: .harness/plane/${i.slug}.md` : ''}`);
   if (items.length > 12) lines.push(`- ... +${items.length - 12} lagi (node .claude/hooks/harness.mjs list)`);
 } else lines.push('Belum ada work item terbuka.');
 if (!fs.existsSync(path.join(root, 'docs', '_map.md'))) lines.push('PERINGATAN: docs/_map.md belum ada. Jalankan /harness:init.');
@@ -44,5 +47,8 @@ try { const mem = snapshot(root, cfg); if (mem) lines.push(mem.slice(0, cfg.memo
 try { const pb = playbookIndex(root, cfg); if (pb) lines.push(pb.slice(0, 2500)); } catch { /* abaikan */ }
 if (cfg.intent.enabled) lines.push('Kalimat pendek user = perintah (diproses hook): "keputusan", "ingat user: ...", "setuju <slug>", "align ok <slug> [terima C2]", "push PR + merge [slug]", "quick: ...", "sisa", "ingat: ...", "ref:<slug>". Di akhir giliran yang mengubah item, tutup dengan tabel "Belum selesai" (node .claude/hooks/harness.mjs open --mine bila perlu), bukan narasi.');
 try { const h = readHandoff(root, cfg); if (h) lines.push(h); } catch { /* abaikan */ }
+// 1.13.0 (D10): align.md format lama dimigrasi otomatis (hanya menambah bagian "## Keputusan terbuka")
+try { const f = fixAlign(root); if (f.length) lines.push(`Migrasi: ${f.length} align.md diberi bagian "Keputusan terbuka" (${f.slice(0, 5).join(', ')}).`); } catch { /* abaikan */ }
+if (cfg.plane.enabled) lines.push('Plane = pintu diskusi: komentar user di kartu muncul sebagai konteks; balas dengan "harness.mjs plane comment <slug> <teks>". Keputusan yang menahan pekerjaan: "harness.mjs plane ask <slug> --decide" (me-@ user). User mengetik "tarik" untuk menarik Plane sekarang.');
 // additionalContext dibatasi 10.000 karakter oleh Claude Code
 context('SessionStart', lines.join('\n').slice(0, 9500));

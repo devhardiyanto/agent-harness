@@ -48,7 +48,12 @@ export const DEFAULT_CONFIG = {
   plane: {
     enabled: false, base_url: 'https://api.plane.so', workspace: null, project_id: null, token_env: 'PLANE_API_KEY', marker: '[harness]',
     states: { draft: 'Backlog', approved: 'Todo', 'in-progress': 'In Progress', 'in-review': 'Review', done: 'Done', merged: 'Done' },
+    // 1.13.0 (jembatan ke 2.0 "satu pintu"): isi kartu (tujuan, konteks, keputusan, checklist AC) ditulis ke Plane; komentar ditarik ke
+    // cermin lokal .harness/plane/<slug>.md (hanya dibaca hook). mention_user_id = UUID member Plane yang di-@ saat keputusan menahan pekerjaan.
+    push_content: true, pull_comments: true, mention_user_id: null, pull_min_interval_s: 60,
   },
+  // 1.13.0: log intent lokal (.harness/state/intent-log.jsonl) untuk mengukur kesiapan 2.0 (`harness.mjs pilot`).
+  pilot: { enabled: true, days: 14, max_misfires: 0, min_ships: 1 },
   // 1.10.0 — feature flag. Semua aditif: perintah /harness:* lama tetap berlaku.
   // intent: kalimat pendek tanpa slash ("setuju <slug>", "sisa", "ingat: ...") dipetakan ke perintah. Hanya prompt <= max_chars; slug harus cocok persis satu item.
   intent: { enabled: true, max_chars: 120 },
@@ -89,7 +94,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks', 'pilot']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   cfg.plane.states = { ...DEFAULT_CONFIG.plane.states, ...((user.plane && user.plane.states) || {}) };
   return cfg;
 }
@@ -534,11 +539,11 @@ export function readEvents(root, n = 15) {
   try { return fs.readFileSync(eventsPath(root), 'utf8').split('\n').filter(Boolean).slice(-n).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch { return []; }
 }
 // Kirim status tertunda ke Plane di proses latar (tidak menunda hook). Diam bila plane mati; kegagalan tercatat di event log oleh `plane sync`.
-export function planeKick(root) {
+export function planeKick(root, args = ['sync', '--quiet']) {
   if (process.env.HARNESS_BENCH) return;
   try {
     if (!loadConfig(root).plane.enabled) return;
-    const c = spawn(process.execPath, [path.join(path.dirname(fileURLToPath(import.meta.url)), 'harness.mjs'), 'plane', 'sync', '--quiet'],
+    const c = spawn(process.execPath, [path.join(path.dirname(fileURLToPath(import.meta.url)), 'harness.mjs'), 'plane', ...args],
       { cwd: root, env: { ...process.env, CLAUDE_PROJECT_DIR: root }, detached: true, stdio: 'ignore', windowsHide: true });
     c.on('error', () => {}); c.unref();
   } catch { /* sinkron Plane tidak boleh menjatuhkan hook */ }
@@ -632,7 +637,21 @@ export function nextStep(item, cfg = null) {
 }
 
 // ---------- lajur quick: dibuat hook dari ketikan manusia ----------
-const slugify = (t) => String(t).toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 48) || 'item';
+// 1.13.0: judul/slug diringkas dari kalimat prompt ("oke, ada feedback dariku untuk formfield ..." → "feedback-formfield-...").
+const FILLER = new Set('oke ok okay okey sip tolong dong ya yah yuk nih sih deh kok disini sini aku saya kamu kita gue ingin mau minta coba ada dariku darimu untuk buat buatkan bisa please pls can you i want to we the a jadi gitu begitu btw'.split(' '));
+export function cleanTitle(t, max = 60) {
+  const words = String(t || '').replace(/\s+/g, ' ').trim().split(' ');
+  while (words.length > 1 && FILLER.has(words[0].toLowerCase().replace(/[^\w]/g, ''))) words.shift();
+  let out = '';
+  for (const w of words) { if ((out + ' ' + w).trim().length > max) break; out = (out + ' ' + w).trim(); }
+  return (out || words.join(' ').slice(0, max)).replace(/[\s,;:\-–]+$/, '');
+}
+export const slugify = (t) => {
+  const words = String(t).toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, ' ').split(/\s+/).filter((w) => w && !FILLER.has(w));
+  let s = '';
+  for (const w of words.slice(0, 7)) { if ((s ? `${s}-${w}` : w).length > 40) break; s = s ? `${s}-${w}` : w; }
+  return s.replace(/-+/g, '-').replace(/^-|-$/g, '') || 'item';
+};
 export function createQuick(root, text, who) {
   const raw = String(text || '').replace(/\s+/g, ' ').trim();
   if (raw.length < 8) return { ok: false, reason: 'uraikan permintaan (minimal 8 karakter): apa yang harus berubah dan bagaimana dibuktikan.' };
@@ -640,12 +659,12 @@ export function createQuick(root, text, who) {
   const type = m ? m[1].toLowerCase() : 'hotfix';
   const body = (m ? m[2] : raw).slice(0, 240);
   const day = new Date().toISOString().slice(0, 10);
-  let slug = `${day}-${slugify(body.split(' ').slice(0, 7).join(' '))}`;
+  let slug = `${day}-${slugify(body)}`;
   for (let n = 2; fs.existsSync(path.join(workDir(root), slug)); n++) slug = `${slug.replace(/-\d+$/, '')}-${n}`;
   const dir = path.join(workDir(root), slug);
   fs.mkdirSync(dir, { recursive: true });
   const now = new Date().toISOString();
-  const title = body.slice(0, 80);
+  const title = cleanTitle(body, 80);
   fs.writeFileSync(path.join(dir, 'plan.md'), `---\ntitle: ${title.replace(/:/g, ' -')}\ntype: ${type}\nlane: quick\nstatus: approved\nservices: []\nfiles: []\ncreated: ${day}\nupdated: ${day}\napproved_at: ${now}\napproved_by: ${who}\ntest_command: null\npr: null\n---\n# Plan (quick) — ${title}\n\nLajur quick: satu service (terikat pada edit pertama), maksimal file sesuai config, bukan skema, tanpa review subagent.\n\n## Acceptance criteria\n- AC1: ${body}\n`);
   fs.writeFileSync(path.join(dir, 'progress.md'), `# Progress — ${title}\n\n## Verifikasi\n- AC1:\n\n## Status terkini\n- dibuat oleh /harness:quick (${day})\n`);
   return { ok: true, slug, type };

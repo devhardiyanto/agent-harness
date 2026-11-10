@@ -85,7 +85,7 @@ test('sync: perubahan status → PATCH state yang benar + komentar bertanda; sta
     wr(root, `docs/work/${slug}/plan.md`, rd(root, `docs/work/${slug}/plan.md`).replace(/^status: .*$/m, 'status: in-review'));
     const r = await hxa(root, env, 'plane', 'sync');
     assert.equal(r.status, 0, r.stderr + r.stdout);
-    const patch = m.reqs.find((x) => x.method === 'PATCH');
+    const patch = m.reqs.find((x) => x.method === 'PATCH' && x.body.state); // 1.13: PATCH isi kartu (tanpa state) terpisah
     assert.deepEqual(patch.body, { state: 'sid-Review' });
     const cm = m.reqs.find((x) => x.url.endsWith('/comments/'));
     assert.match(cm.body.comment_html, /\[harness\].*draft.*in-review/);
@@ -191,7 +191,7 @@ test('status berubah lewat hook/CLI memicu sinkron di latar (planeKick)', async 
     assert.equal(q.status, 0, q.stderr);
     assert.ok(m.reqs.length >= n);
     const deadline = Date.now() + 8000;
-    while (Date.now() < deadline && !m.reqs.some((x) => x.method === 'PATCH')) await new Promise((ok) => setTimeout(ok, 100));
+    while (Date.now() < deadline && !m.reqs.some((x) => x.method === 'PATCH' && x.body.state)) await new Promise((ok) => setTimeout(ok, 100));
     assert.ok(m.reqs.some((x) => x.method === 'PATCH' && x.body.state === 'sid-Backlog'), 'sinkron latar tidak terjadi');
   } finally { m.close(); }
 });
