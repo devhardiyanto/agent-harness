@@ -196,3 +196,36 @@ test('Stop: penahanan tabel keputusan dicatat untuk pilot (S3)', () => {
   assert.equal(log(root).filter((x) => x.type === 'stop-hold').length, 1);
   assert.match(hx(root, 'pilot').stdout, /\| S3 \| .* \| 1 penahanan \| OK \|/);
 });
+
+test('D20: deskripsi yang diubah di Plane tidak ditimpa (DITAHAN + inbox); centang checklist bukan ubahan; --force menimpa', async () => {
+  const m = await mock(); const { root, slug } = setup(m.url);
+  try {
+    await hxa(root, 'plane', 'sync');
+    const card = m.items.get('wi-1');
+    card.description_html = card.description_html.replace('data-checked="false"><label><input type="checkbox">', 'data-checked="true"><label><input type="checkbox" checked="">');
+    wr(root, `docs/work/${slug}/plan.md`, rd(root, `docs/work/${slug}/plan.md`).replace('- AC2: QR bisa dipindai di gerbang', '- AC2: QR bisa dipindai di gerbang\n- AC3: email ulang tersedia'));
+    let r = await hxa(root, 'plane', 'push');
+    assert.match(r.stdout, /\| isi \| OK \|/, 'hanya centang yang berubah → tetap dikirim');
+    assert.match(m.items.get('wi-1').description_html, /AC3: email ulang tersedia/);
+    m.items.get('wi-1').description_html += '<p>catatan dari user di Plane</p>';
+    wr(root, `docs/work/${slug}/plan.md`, rd(root, `docs/work/${slug}/plan.md`).replace('- AC3: email ulang tersedia', '- AC3: email ulang tersedia dari halaman status'));
+    const patches = m.reqs.filter((x) => x.method === 'PATCH').length;
+    r = await hxa(root, 'plane', 'push');
+    assert.match(r.stdout, /DITAHAN: deskripsi diubah di Plane/);
+    assert.equal(m.reqs.filter((x) => x.method === 'PATCH').length, patches, 'tidak ada PATCH');
+    assert.match(m.items.get('wi-1').description_html, /catatan dari user di Plane/);
+    assert.match(add(hook(root, 'prompt.mjs', { prompt: 'lanjut kerja' })), /deskripsi kartu diubah di Plane; tidak ditimpa/);
+    r = await hxa(root, 'plane', 'push', slug, '--force');
+    assert.match(r.stdout, /\| isi \| OK \|/);
+    assert.match(m.items.get('wi-1').description_html, /dari halaman status/);
+  } finally { m.close(); }
+});
+
+test('pilot: jendela bawaan 6 jam; --days dan --hours bisa dipilih', () => {
+  const root = project({ v1: true });
+  assert.equal(jr(root, 'harness.config.json').pilot.hours, 6);
+  wr(root, '.harness/state/intent-log.jsonl', `${JSON.stringify({ ts: new Date(Date.now() - 8 * 3600000).toISOString(), type: 'intent', kind: 'open' })}\n${JSON.stringify({ ts: new Date().toISOString(), type: 'intent', kind: 'open' })}\n`);
+  assert.match(hx(root, 'pilot').stdout, /^Pilot 6 jam terakhir \(1 catatan\)/);
+  assert.match(hx(root, 'pilot', '--hours', '12').stdout, /^Pilot 12 jam terakhir \(2 catatan\)/);
+  assert.match(hx(root, 'pilot', '--days', '2').stdout, /^Pilot 2 hari terakhir \(2 catatan\)/);
+});

@@ -123,10 +123,10 @@ Kartu kini berisi **Tujuan, Konteks, Keputusan, dan Checklist AC** (to-do list P
 | kirim isi kartu sekarang | `harness.mjs plane push [slug]` (juga setelah tiap `plane sync`) |
 | migrasi semua item ke Plane | `plane migrate` (rencana) → `plane migrate --apply` → `plane migrate --verify` |
 
-Komentar manusia yang baru muncul sekali sebagai konteks agent di prompt berikutnya. Webhook ke laptop tidak mungkin, jadi tidak real-time. Di 1.13 folder `docs/work` **tidak dihapus**. Penghapusan per root (setelah `--verify` COCOK) dan knowledge → Plane Pages dikerjakan di 2.0 (`ROADMAP.md` §8).
+Deskripsi yang kamu ubah langsung di Plane tidak ditimpa: kiriman berikutnya DITAHAN dan agent diminta menyelaraskan lokal dulu (`plane push <slug> --force`). Mencentang checklist di Plane boleh. Komentar manusia yang baru muncul sekali sebagai konteks agent di prompt berikutnya. Webhook ke laptop tidak mungkin, jadi tidak real-time. Di 1.13 folder `docs/work` **tidak dihapus**. Penghapusan per root (setelah `--verify` COCOK) dan knowledge → Plane Pages dikerjakan di 2.0 (`ROADMAP.md` §8).
 
 ### Kesiapan 2.0
-- `harness.mjs pilot`: frasa vs slash, salah tangkap, penahanan Stop, "push PR + merge" yang sampai merged (14 hari). Ketik `bukan itu` saat hook salah menangkap kalimatmu.
+- `harness.mjs pilot`: frasa vs slash, salah tangkap, penahanan Stop, "push PR + merge" yang sampai merged (jendela `pilot.hours`, bawaan 6 jam; `--hours N` / `--days N`). Ketik `bukan itu` saat hook salah menangkap kalimatmu.
 - `harness.mjs migrate`: align format lama (diperbaiki otomatis di awal sesi), flag yang dikunci di 2.0, Plane siap, item yang belum dimigrasi. `doctor` menampilkannya sebagai baris info "siap 2.0".
 
 ## Bahasa pendek, tabel belum selesai, memori (1.10.0)

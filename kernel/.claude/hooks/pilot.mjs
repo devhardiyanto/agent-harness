@@ -1,6 +1,6 @@
 // 1.13.0: bukti kesiapan 2.0. Tiap kalimat pendek yang ditangkap hook, tiap slash /harness:*, tiap penahanan Stop, dan tiap
 // koreksi "bukan itu" dicatat LOKAL di .harness/state/intent-log.jsonl (tidak di-commit; prompt dipotong 60 karakter).
-// `harness.mjs pilot` merangkumnya dan menilai ambang D9: 0 salah tangkap + minimal 1 "push PR + merge" yang sampai merged.
+// `harness.mjs pilot` merangkumnya dan menilai ambang D9 (jendela pilot.hours, bawaan 6 jam): 0 salah tangkap + minimal 1 "push PR + merge" yang sampai merged.
 import fs from 'node:fs';
 import path from 'node:path';
 import { listItems } from './lib.mjs';
@@ -30,15 +30,15 @@ export function markMisfire(root, cfg, sid) {
   return last;
 }
 
-export function pilotReport(root, cfg, { days = cfg.pilot.days } = {}) {
-  const since = Date.now() - days * 86400000;
+export function pilotReport(root, cfg, { hours = cfg.pilot.hours || (cfg.pilot.days || 14) * 24 } = {}) {
+  const since = Date.now() - hours * 3600000;
   const rows = readLog(root).filter((r) => Date.parse(r.ts) >= since);
   const count = (f) => rows.filter(f).length;
   const intents = count((r) => r.type === 'intent');
   const slash = count((r) => r.type === 'slash');
   const misfires = count((r) => r.type === 'misfire');
   const holds = count((r) => r.type === 'stop-hold');
-  const ships = listItems(root).filter((i) => i.status === 'merged' && i.fm.pr && Date.parse(String(i.fm.updated || '')) >= since - 86400000).length;
+  const ships = listItems(root).filter((i) => i.status === 'merged' && i.fm.pr && Date.parse(String(i.fm.updated || '')) >= since - 86400000).length; // updated = tanggal saja: toleransi satu hari
   const kinds = {};
   for (const r of rows.filter((x) => x.type === 'intent')) kinds[r.kind] = (kinds[r.kind] || 0) + 1;
   const deprecated = {};
@@ -50,11 +50,11 @@ export function pilotReport(root, cfg, { days = cfg.pilot.days } = {}) {
     ['S4', `"push PR + merge" sampai merged ≥ ${cfg.pilot.min_ships}`, `${ships} item`, ships >= cfg.pilot.min_ships],
   ];
   const ready = checks.every((c) => c[3]);
-  return { days, rows: rows.length, kinds, deprecated, checks, ready };
+  return { hours, rows: rows.length, kinds, deprecated, checks, ready };
 }
 
 export function formatPilot(r) {
-  const out = [`Pilot ${r.days} hari terakhir (${r.rows} catatan):`, '| # | ukuran | hasil | status |', '|---|---|---|---|',
+  const out = [`Pilot ${r.hours >= 48 && r.hours % 24 === 0 ? `${r.hours / 24} hari` : `${r.hours} jam`} terakhir (${r.rows} catatan):`, '| # | ukuran | hasil | status |', '|---|---|---|---|',
     ...r.checks.map((c) => `| ${c[0]} | ${c[1]} | ${c[2]} | ${c[3] ? 'OK' : 'BELUM'} |`)];
   const k = Object.entries(r.kinds).map(([a, b]) => `${a} ${b}`).join(', ');
   if (k) out.push(`Frasa: ${k}`);

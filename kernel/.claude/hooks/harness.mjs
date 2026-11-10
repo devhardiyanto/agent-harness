@@ -30,7 +30,7 @@
 //   memory reindex|list|pending|add <teks>|approve <P1|all>|reject <P1|all>|forget <M2|teks>   memori project (docs/memory/MEMORY.md); approve/forget/reject hanya manusia bila write_approval
 //   playbook list|lint      prosedur yang dipelajari (docs/memory/playbooks); lint = frontmatter, ukuran, secret
 //   recall <kata kunci>     cari di ringkasan/brief/align/sesi/memori (lokal, nol token); muat hasilnya dengan "ref:<slug>" di prompt
-//   pilot [--days N] [--json]  rangkuman log intent lokal: frasa vs slash, salah tangkap, penahanan Stop, ship → siap 2.0?
+//   pilot [--hours N|--days N] [--json]  rangkuman log intent lokal (bawaan pilot.hours = 6): frasa vs slash, salah tangkap, penahanan Stop, ship → siap 2.0?
 //   migrate [--apply]       kesiapan 2.0 per root (align format lama, flag dikunci, Plane, migrasi); --apply = migrasi align.md
 //   doctor                  periksa instalasi
 // Pengetahuan (tanpa token, deterministik):
@@ -448,9 +448,9 @@ switch (cmd) {
     break;
   }
   case 'pilot': {
-    const di = args.indexOf('--days');
+    const di = args.indexOf('--days'); const hi = args.indexOf('--hours');
     const { formatPilot } = await import('./pilot.mjs');
-    const r = pilotReport(root, cfg, di >= 0 ? { days: Math.max(1, Number(args[di + 1]) || cfg.pilot.days) } : {});
+    const r = pilotReport(root, cfg, hi >= 0 ? { hours: Math.max(1, Number(args[hi + 1]) || 6) } : di >= 0 ? { hours: Math.max(1, Number(args[di + 1]) || 1) * 24 } : {});
     if (args.includes('--json')) console.log(JSON.stringify(r, null, 2)); else console.log(formatPilot(r));
     break;
   }

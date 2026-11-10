@@ -156,6 +156,7 @@ function writeJson(f, o) { fs.mkdirSync(path.dirname(f), { recursive: true }); f
 const readMd = (it, f) => { const p = path.join(it.dir, f); return fs.existsSync(p) ? splitFrontmatter(fs.readFileSync(p, 'utf8')).body : ''; };
 const real = (l) => l && !/^<.*>$/.test(l) && !/^(-|\.{3}|todo|tbd)$/i.test(l);
 const inline = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
+const remoteHash = (h) => hash(String(h || '').replace(/\s*data-checked="(?:true|false)"/g, '').replace(/\s*checked(?:="[^"]*")?/g, ''));
 const hash = (s) => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(36); };
 export const stripHtml = (h) => String(h || '').replace(/<mention-component[^>]*entity_identifier="([^"]+)"[^>]*>(?:<\/mention-component>)?/g, '@$1')
   .replace(/<br\s*\/?>|<\/(p|li|h\d|tr|div)>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&')
@@ -201,8 +202,24 @@ export async function planePush(root, cfg, { slug = null, dryRun = false, force 
     const h = hash(card.name + card.description_html);
     if (!force && c.hash === h) { rows.push([it.slug, 'isi', 'sama']); continue; }
     if (dryRun) { rows.push([it.slug, it.fm.plane_id ? 'perbarui isi' : 'buat kartu + isi', `${card.description_html.length} karakter`]); continue; }
-    const r = await api(cfg, 'PATCH', `/work-items/${enc(String(it.fm.plane_id))}/`, card);
-    if (r.ok) { content[it.slug] = { ...c, hash: h }; rows.push([it.slug, 'isi', 'OK']); } else { failed++; rows.push([it.slug, 'isi', `GAGAL: ${r.error}`]); }
+    const url = `/work-items/${enc(String(it.fm.plane_id))}/`;
+    // D20: deskripsi yang diubah manusia di Plane sejak kiriman terakhir TIDAK ditimpa (centang checklist tidak dihitung sebagai ubahan)
+    if (!force && c.remote) {
+      const cur = await api(cfg, 'GET', url);
+      if (cur.ok && remoteHash(cur.json && cur.json.description_html) !== c.remote) {
+        rows.push([it.slug, 'isi', 'DITAHAN: deskripsi diubah di Plane sejak kiriman terakhir']);
+        const inbox = readJson(inboxPath(root), []) || [];
+        inbox.push({ slug: it.slug, id: `desc-${Date.now()}`, at: new Date().toISOString().slice(0, 16).replace('T', ' '), text: `[deskripsi kartu diubah di Plane; tidak ditimpa] Selaraskan brief/plan lokal dengan kartu (lihat .harness/plane/${it.slug}.md setelah "tarik"), lalu: harness.mjs plane push ${it.slug} --force` });
+        writeJson(inboxPath(root), inbox.slice(-50));
+        continue;
+      }
+    }
+    const r = await api(cfg, 'PATCH', url, card);
+    if (r.ok) {
+      const back = await api(cfg, 'GET', url); // Plane menormalkan HTML: simpan hash versi yang tersimpan di sana
+      content[it.slug] = { ...c, hash: h, remote: back.ok ? remoteHash(back.json && back.json.description_html) : null };
+      rows.push([it.slug, 'isi', 'OK']);
+    } else { failed++; rows.push([it.slug, 'isi', `GAGAL: ${r.error}`]); }
     if (!r.ok && r.status === 429) break;
   }
   if (!dryRun) writeJson(contentPath(root), content);
@@ -312,7 +329,7 @@ export async function planeMigrate(root, cfg, { dryRun = true, verify = false } 
     return { ok: rows.every((r) => r[2] === 'COCOK'), rows, knowledge: [], problems: [] };
   }
   await planeSync(root, cfg, { includeMerged: true });
-  const pushed = await planePush(root, cfg, { force: true });
+  const pushed = await planePush(root, cfg, {});
   rows.push(...pushed.rows);
   const content = readContent(root);
   for (const it of listItems(root).filter((i) => i.fm.plane_id)) {

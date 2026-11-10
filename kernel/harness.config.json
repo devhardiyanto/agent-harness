@@ -120,7 +120,7 @@
   },
   "pilot": {
     "enabled": true,
-    "days": 14,
+    "hours": 6,
     "max_misfires": 0,
     "min_ships": 1
   }

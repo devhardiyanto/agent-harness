@@ -53,7 +53,8 @@ export const DEFAULT_CONFIG = {
     push_content: true, pull_comments: true, mention_user_id: null, pull_min_interval_s: 60,
   },
   // 1.13.0: log intent lokal (.harness/state/intent-log.jsonl) untuk mengukur kesiapan 2.0 (`harness.mjs pilot`).
-  pilot: { enabled: true, days: 14, max_misfires: 0, min_ships: 1 },
+  // hours: jendela pilot (bawaan 6 jam, keputusan user 2026-11-10); `pilot --hours N` / `--days N` untuk melihat jendela lain.
+  pilot: { enabled: true, hours: 6, max_misfires: 0, min_ships: 1 },
   // 1.10.0 — feature flag. Semua aditif: perintah /harness:* lama tetap berlaku.
   // intent: kalimat pendek tanpa slash ("setuju <slug>", "sisa", "ingat: ...") dipetakan ke perintah. Hanya prompt <= max_chars; slug harus cocok persis satu item.
   intent: { enabled: true, max_chars: 120 },
