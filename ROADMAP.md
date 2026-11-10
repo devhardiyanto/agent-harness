@@ -136,7 +136,8 @@ flowchart LR
 | **1.10.0** (rilis ini) | intent, align terima, Belum selesai, memori, recall/ref | aditif, semua di belakang flag, tidak ada yang rusak → **minor** |
 | 1.11.0 (rilis) | profil user per orang, playbook (skill dari pengalaman), ID rule, before/after | aditif |
 | 1.12.0 (rilis) | tabel keputusan dibuat kode + ditahan Stop, plan setelah aligned, langkah berikutnya dari kode, versi plugin di doctor | aditif; menutup T2/T3 |
-| 2.0.0 | bahasa pendek jadi antarmuka utama (skill `/harness:*` dirampingkan), format align lama dibuang, hanya bila pilot 1.10–1.11 membuktikan tidak ada false positive | ada yang **dibuang** → major (semver) |
+| 1.13.0 (rilis) | jembatan: Plane berisi kartu + checklist + diskusi (cermin lokal), `plane migrate` dry-run/apply/verify, log pilot + `bukan itu`, slash usang, `migrate` + doctor "siap 2.0", slug ringkas | aditif; folder lokal belum dihapus |
+| 2.0.0 | **satu pintu**: work item, diskusi, knowledge di Plane; lokal hanya cermin; folder `docs/work/*` dihapus per root setelah `migrate --verify` COCOK; slash tinggal `init`/`update`; format align lama dibuang. Hanya bila `pilot` S1–S4 OK | ada yang **dibuang** → major |
 
 ## 6. Target malam ini (1.10.0)
 
@@ -177,3 +178,46 @@ sequenceDiagram
   C-->>A: merged + summary.md + INDEX.md
   A-->>U: URL PR, hasil merge, path ringkasan
 ```
+
+## 8. Menuju 2.0.0: satu pintu (keputusan D6–D19)
+
+Objective: **work item, diskusi, dan knowledge tinggal di Plane; lokal hanya cermin untuk hook; user cukup membuka Plane dan menjawab @mention.**
+
+| # | keputusan | jawaban |
+|---|---|---|
+| D6 | rilis jembatan dulu | ya: 1.13 mengukur + memperingatkan, 2.0 membuang |
+| D7 | flag yang dikunci | bawaan dikunci, flag tetap ada sebagai escape hatch |
+| D8 | slash yang tampil di 2.0 | hanya `init` dan `update` |
+| D9 | ambang pilot | 0 salah tangkap + ≥1 "push PR + merge" sampai merged; jendela **6 jam** (diubah user dari 14 hari; `pilot.hours`), lalu user menyimpulkan naik ke 2.0 atau tidak |
+| D10 | align format lama | migrasi otomatis |
+| D14 | checklist AC | to-do list di deskripsi kartu |
+| D15 | "agent di cloud" | sesi Claude (cloud/lokal) yang berkomentar di kartu |
+| D16 | project yhpa | project baru **YHPA** di Plane (dibuat 2026-11-10) |
+| D17 | knowledge | Plane Pages sebagai sumber, cermin lokal untuk hook |
+| D18 | kapan folder dihapus | di 2.0, per root, setelah baca-balik cocok |
+| D19 | kapan @mention | hanya saat keputusan menahan pekerjaan |
+| D20 | deskripsi yang diedit di Plane | tidak ditimpa: `push` DITAHAN bila deskripsi di Plane berubah sejak kiriman terakhir (centang checklist tidak dihitung); agent diberi tahu lewat inbox; `push --force` setelah diselaraskan |
+| D21 | approve di 2.0 | tetap dari ketikan user ("setuju EVENT-15"); kolom Plane hanya tampilan. Alasan: agent memakai API key user, jadi Plane tidak bisa membedakan siapa yang memindahkan kartu |
+| D22 | penamaan item di 2.0 | nomor kartu Plane (`EVENT-15`) jadi rujukan; slug lokal hilang |
+| D23 | urutan | D20 diperbaiki → PR 1.13 → merge → pilot 6 jam → 2.0 |
+
+Ukuran (`harness.mjs pilot`, jendela 6 jam): S1 frasa ≥ slash · S2 salah tangkap ≤ 0 · S3 tabel keputusan ditahan Stop ≥ 1 · S4 "push PR + merge" sampai merged ≥ 1. Per root: `harness.mjs migrate` semua OK.
+
+Bentuk kartu: judul · deskripsi (Tujuan, Konteks, Keputusan) · checklist AC · komentar (diskusi, progres, link PR, summary penutup). Lokal menarik komentar di awal sesi, tiap prompt (maks 1×/menit), atau saat user mengetik `tarik`; webhook ke laptop tidak mungkin, jadi tidak real-time.
+
+Task 2.0:
+
+| # | task | isi |
+|---|---|---|
+| T1 | model data tanpa folder | AC, keputusan D, status dibaca dari kartu lewat cermin terstruktur `.harness/plane/<id>.json` |
+| T2 | hook membaca cermin | `gate`, Stop, `sisa`, `decide`, `next` |
+| T3 | jawaban keputusan lewat komentar | "D2: a", "C3 benar" di kartu → keputusan terjawab |
+| T4 | item baru langsung di Plane | `quick:` / impact membuat kartu dulu; rujukan `EVENT-15` (D22) |
+| T5 | knowledge → Plane Pages + cermin | verifikasi endpoint Pages di REST API dulu |
+| T6 | `plane migrate --delete` per root | hanya setelah `--verify` COCOK; `INDEX.md` berisi URL kartu |
+| T7 | antrean offline | `plane-outbox`, dikirim ulang |
+| T8 | perampingan | skill selain `init`/`update` internal; template lama dibuang; rule/AGENTS.md ditulis ulang |
+| T9 | panduan upgrade 1.13 → 2.0 | langkah per root + rollback |
+| T10 | gerbang rilis | `pilot` S1–S4 OK + `migrate` OK di event/astra/yhpa |
+
+> **Catatan untuk setelah 2.0.0 selesai (permintaan user, 2026-11-10):** work item yang sudah ada di event, astra, dan yhpa **diarsipkan** di Plane. User akan meminta agent di sesi cloud menghubungkan Plane lewat MCP (workspace `hardiyanto`: EVENT `39039364-1222-4a52-97c1-de1314305bed`, ASTRA `d8b0e13e-87ef-4ada-b405-7dd4a7bd8cdf`, YHPA `6c13b388-718a-4f06-b1bc-a0d57bc10f15`) untuk memeriksa dan mengarsipkan kartu (`workitem archive`; hanya kartu Done/Cancelled yang bisa diarsipkan). Folder lokal dihapus per root lewat T6, bukan lewat MCP.

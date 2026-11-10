@@ -112,7 +112,22 @@ Menyalakan (per root):
 
 Cara kerja: tiap perubahan status (hook approve, `set-status`, `quick`, `promote`, awal sesi) memicu `plane sync` di proses latar, tanpa menunda apa pun. Kegagalan jaringan/API tidak menggagalkan transisi status; yang tertinggal dikirim pada sync berikutnya (rekonsiliasi: status lokal ≠ status terakhir terkirim, dicatat di `.harness/plane.json`). Tiap pemindahan kolom ditandai komentar `[harness] draft → approved` dan kartu dibuat dengan `external_source: harness`. Item `merged` tanpa kartu tidak dibuat (pakai `plane sync --include-merged` bila mau). `doctor` GAGAL bila `enabled` tetapi konfigurasi atau token tidak lengkap.
 
-Belum ada di fase ini: Plane Wiki, Monitor/polling dari Plane (kartu ke Todo memulai Build), dan memindahkan isi task ke Plane.
+### 1.13.0: Plane sebagai pintu diskusi (jembatan ke 2.0)
+Kartu kini berisi **Tujuan, Konteks, Keputusan, dan Checklist AC** (to-do list Plane; AC berbukti dicentang), dan diskusi berjalan di **komentar**. Tambahkan ke blok `plane`: `"mention_user_id": "<UUID member Plane-mu>"` supaya keputusan yang menahan pekerjaan me-@ kamu.
+
+| kamu / agent | perintah |
+|---|---|
+| tarik komentar + centang ke cermin `.harness/plane/<slug>.md` | otomatis (awal sesi, tiap prompt maks 1×/menit) atau ketik `tarik` |
+| agent membalas di kartu | `harness.mjs plane comment <slug> "<teks>"` |
+| agent minta keputusan (tabel dari kode + @mention) | `harness.mjs plane ask <slug> --decide` (juga otomatis saat Stop menahan giliran) |
+| kirim isi kartu sekarang | `harness.mjs plane push [slug]` (juga setelah tiap `plane sync`) |
+| migrasi semua item ke Plane | `plane migrate` (rencana) → `plane migrate --apply` → `plane migrate --verify` |
+
+Deskripsi yang kamu ubah langsung di Plane tidak ditimpa: kiriman berikutnya DITAHAN dan agent diminta menyelaraskan lokal dulu (`plane push <slug> --force`). Mencentang checklist di Plane boleh. Komentar manusia yang baru muncul sekali sebagai konteks agent di prompt berikutnya. Webhook ke laptop tidak mungkin, jadi tidak real-time. Di 1.13 folder `docs/work` **tidak dihapus**. Penghapusan per root (setelah `--verify` COCOK) dan knowledge → Plane Pages dikerjakan di 2.0 (`ROADMAP.md` §8).
+
+### Kesiapan 2.0
+- `harness.mjs pilot`: frasa vs slash, salah tangkap, penahanan Stop, "push PR + merge" yang sampai merged (jendela `pilot.hours`, bawaan 6 jam; `--hours N` / `--days N`). Ketik `bukan itu` saat hook salah menangkap kalimatmu.
+- `harness.mjs migrate`: align format lama (diperbaiki otomatis di awal sesi), flag yang dikunci di 2.0, Plane siap, item yang belum dimigrasi. `doctor` menampilkannya sebagai baris info "siap 2.0".
 
 ## Bahasa pendek, tabel belum selesai, memori (1.10.0)
 Tidak perlu hafal `/harness:*` (bentuk lama tetap jalan). Ketik kalimat pendek; hook yang memprosesnya, jadi tetap keputusan manusia:
