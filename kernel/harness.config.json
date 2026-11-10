@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.12.0",
+  "harness_version": "1.13.0",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -81,6 +81,10 @@
     "project_id": null,
     "token_env": "PLANE_API_KEY",
     "marker": "[harness]",
+    "push_content": true,
+    "pull_comments": true,
+    "mention_user_id": null,
+    "pull_min_interval_s": 60,
     "states": {
       "draft": "Backlog",
       "approved": "Todo",
@@ -113,5 +117,11 @@
     "enabled": true,
     "max_chars": 6000,
     "index_max": 20
+  },
+  "pilot": {
+    "enabled": true,
+    "days": 14,
+    "max_misfires": 0,
+    "min_ships": 1
   }
 }

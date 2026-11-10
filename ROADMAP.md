@@ -136,7 +136,8 @@ flowchart LR
 | **1.10.0** (rilis ini) | intent, align terima, Belum selesai, memori, recall/ref | aditif, semua di belakang flag, tidak ada yang rusak → **minor** |
 | 1.11.0 (rilis) | profil user per orang, playbook (skill dari pengalaman), ID rule, before/after | aditif |
 | 1.12.0 (rilis) | tabel keputusan dibuat kode + ditahan Stop, plan setelah aligned, langkah berikutnya dari kode, versi plugin di doctor | aditif; menutup T2/T3 |
-| 2.0.0 | bahasa pendek jadi antarmuka utama (skill `/harness:*` dirampingkan), format align lama dibuang, hanya bila pilot 1.10–1.11 membuktikan tidak ada false positive | ada yang **dibuang** → major (semver) |
+| 1.13.0 (rilis) | jembatan: Plane berisi kartu + checklist + diskusi (cermin lokal), `plane migrate` dry-run/apply/verify, log pilot + `bukan itu`, slash usang, `migrate` + doctor "siap 2.0", slug ringkas | aditif; folder lokal belum dihapus |
+| 2.0.0 | **satu pintu**: work item, diskusi, knowledge di Plane; lokal hanya cermin; folder `docs/work/*` dihapus per root setelah `migrate --verify` COCOK; slash tinggal `init`/`update`; format align lama dibuang. Hanya bila `pilot` S1–S4 OK | ada yang **dibuang** → major |
 
 ## 6. Target malam ini (1.10.0)
 
@@ -177,3 +178,27 @@ sequenceDiagram
   C-->>A: merged + summary.md + INDEX.md
   A-->>U: URL PR, hasil merge, path ringkasan
 ```
+
+## 8. Menuju 2.0.0: satu pintu (keputusan D6–D19)
+
+Objective: **work item, diskusi, dan knowledge tinggal di Plane; lokal hanya cermin untuk hook; user cukup membuka Plane dan menjawab @mention.**
+
+| # | keputusan | jawaban |
+|---|---|---|
+| D6 | rilis jembatan dulu | ya: 1.13 mengukur + memperingatkan, 2.0 membuang |
+| D7 | flag yang dikunci | bawaan dikunci, flag tetap ada sebagai escape hatch |
+| D8 | slash yang tampil di 2.0 | hanya `init` dan `update` |
+| D9 | ambang pilot | 0 salah tangkap + ≥1 "push PR + merge" sampai merged, 14 hari |
+| D10 | align format lama | migrasi otomatis |
+| D14 | checklist AC | to-do list di deskripsi kartu |
+| D15 | "agent di cloud" | sesi Claude (cloud/lokal) yang berkomentar di kartu |
+| D16 | project yhpa | project baru **YHPA** di Plane (dibuat 2026-11-10) |
+| D17 | knowledge | Plane Pages sebagai sumber, cermin lokal untuk hook |
+| D18 | kapan folder dihapus | di 2.0, per root, setelah baca-balik cocok |
+| D19 | kapan @mention | hanya saat keputusan menahan pekerjaan |
+
+Ukuran (`harness.mjs pilot`): S1 frasa ≥ slash · S2 salah tangkap ≤ 0 · S3 tabel keputusan ditahan Stop ≥ 1 · S4 "push PR + merge" sampai merged ≥ 1. Per root: `harness.mjs migrate` semua OK.
+
+Bentuk kartu: judul · deskripsi (Tujuan, Konteks, Keputusan) · checklist AC · komentar (diskusi, progres, link PR, summary penutup). Lokal menarik komentar di awal sesi, tiap prompt (maks 1×/menit), atau saat user mengetik `tarik`; webhook ke laptop tidak mungkin, jadi tidak real-time.
+
+Isi 2.0 (sisa): knowledge → Plane Pages (+ cermin), `plane migrate --apply --delete` per root setelah `--verify` COCOK, hook membaca cermin sebagai sumber, skill `/harness:*` selain `init`/`update` jadi internal, template `brief/align/plan/progress/review` dibuang.

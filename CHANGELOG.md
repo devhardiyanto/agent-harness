@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.13.0
+Rilis jembatan ke **2.0.0 "satu pintu"** (keputusan D6–D19 di `ROADMAP.md`). Aditif: tidak ada yang dihapus, folder `docs/work` tetap ada.
+- **Plane = pintu diskusi** (`plane.push_content`, `pull_comments`, `mention_user_id`, `pull_min_interval_s`): kartu kini berisi **Tujuan** (Objective di `brief.md`), **Konteks**, **Keputusan** (D yang terjawab, klaim dikoreksi/diterima, Decision log), dan **Checklist** AC (to-do list Plane; AC berbukti dicentang). Dikirim setelah tiap `plane sync`, hanya bila isinya berubah. Judul kartu diringkas.
+- `plane pull [slug]`: kartu + komentar ditarik ke cermin lokal `.harness/plane/<slug>.md` (tidak di-commit, hanya dibaca). Komentar manusia yang baru masuk inbox dan muncul **sekali** sebagai konteks di prompt berikutnya; centang checklist yang dibuat di Plane ditandai bila bukti lokal belum ada. Ditarik di latar saat awal sesi dan tiap prompt (maks 1×/menit); ketikan **`tarik`** = tarik sekarang.
+- `plane comment <slug> <teks>` (agent membalas di kartu) dan `plane ask <slug> --decide` (tabel keputusan align, dibuat kode, dengan **@mention** ke `mention_user_id`). Hook Stop mengirim `ask --decide` di latar saat menahan giliran karena keputusan (D19: @mention hanya saat keputusan menahan pekerjaan). Komentar agent ditandai `[harness] agent`.
+- `plane migrate` (dry-run bawaan: rencana per item + daftar knowledge yang akan jadi Pages), `--apply` (buat/perbarui kartu termasuk item `merged`, tempel `summary.md` sebagai komentar sekali, tandai `plane_migrated`), `--verify` (baca balik: tiap AC harus ada di kartu). **Folder lokal tidak dihapus** di 1.13 (D18); penghapusan dan knowledge → Pages di 2.0.
+- **Pilot 2.0** (`pilot.enabled`, `days` 14, `max_misfires` 0, `min_ships` 1): frasa yang ditangkap hook, slash `/harness:*`, penahanan Stop, dan koreksi dicatat lokal di `.harness/state/intent-log.jsonl` (prompt dipotong 60 karakter). `harness.mjs pilot` menilai S1–S4. Ketikan **`bukan itu`** / `salah tangkap` = intent terakhir ditandai salah tangkap dan dibatalkan bila bisa (izin merge dicabut, memori dihapus lagi).
+- **Slash usang**: `/harness:approve`, `status`, `next`, `quick` memberi pengganti pendeknya (D8: di 2.0 hanya `init` dan `update` yang tampil).
+- **`harness.mjs migrate [--apply]`** dan baris `doctor` "siap 2.0" (info): align format lama, flag yang dikunci di 2.0 (D7: flag tetap ada sebagai escape hatch), kesiapan Plane, item yang belum dimigrasi. `align.md` format lama diberi bagian `## Keputusan terbuka` otomatis di awal sesi (D10).
+- **Slug dan judul ringkas**: kata pengisi ("oke", "tolong", "disini aku ingin kamu", ...) dibuang, slug ≤ 40 karakter (`new` dan `quick`).
+
 ## 1.12.0
 Menutup sisa tujuan T2 (tidak mondar-mandir) dan T3 (tabel, bukan narasi) dari `ROADMAP.md`. Aditif, di belakang flag.
 - **Tabel keputusan dibuat kode** (F1): `harness.mjs decide [slug]`, ketikan `keputusan` / `apa yang harus aku jawab?`. Sumber: klaim `bertentangan`/`dugaan` di `align.md` + bagian baru `## Keputusan terbuka` (`| D1 | pertanyaan | opsi | jawaban |`, jawaban kosong = terbuka). Tiap baris berisi cara menjawab; baris terakhir = satu langkah berikutnya yang sah. `sisa` dan pesan tolak `align ok` memakai sumber yang sama.
