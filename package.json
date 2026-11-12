@@ -1,12 +1,12 @@
 {
   "name": "agent-harness",
-  "version": "1.13.1",
+  "version": "1.13.2",
   "private": true,
   "description": "Installer harness untuk Claude Code",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test --import ./test/setup.mjs test/*.test.mjs",
     "check": "node scripts/check-repo.mjs"
   },
   "engines": {

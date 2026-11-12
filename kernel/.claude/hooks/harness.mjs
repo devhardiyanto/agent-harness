@@ -45,6 +45,7 @@
 //   verify-knowledge <svc>              HANYA manusia ("!" atau /harness:knowledge verify): draft → verified bila lint bersih
 //   patterns-approve <slug> <P1,P3|all> HANYA manusia ("!" atau /harness:knowledge patterns): terapkan usulan pola ke patterns.md
 import fs from 'node:fs';
+import { format } from 'node:util';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -68,8 +69,12 @@ import {
 import {
   projectRoot, loadConfig, checkTransition, checkDone, setFmKey, STATUSES,
   splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli, globToRegex,
-  updateTicket, updateTicketPath, readEvents, readAlign, formatDecision, slugify, cleanTitle,
+  updateTicket, updateTicketPath, readEvents, readAlign, formatDecision, slugify, cleanTitle, alignTables,
 } from './lib.mjs';
+
+// 1.13.2: semua tabel keluaran CLI dirapikan kolomnya (tampil rapi walau mentah lewat "!").
+const rawLog = console.log;
+console.log = (...a) => rawLog(process.env.HARNESS_TABLES === 'compact' ? format(...a) : alignTables(format(...a))); // compact: dipakai test lama
 import { pilotReport } from './pilot.mjs';
 import { checkV2, fixAlign } from './migrate.mjs';
 

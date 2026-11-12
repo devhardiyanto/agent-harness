@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.13.2
+- **Tabel CLI rata kolom**: semua tabel keluaran `harness.mjs` (`plane check`, `doctor`, `sisa`, `pilot`, `migrate`, ...) diberi padding sehingga tetap terbaca sebagai tabel saat tampil mentah, misalnya lewat `!` di Claude Code yang tidak merender Markdown. Tetap Markdown sah, jadi dirender normal bila ditempel agent. Lebar emoji/CJK dihitung dua kolom.
+
 ## 1.13.1
 Perbaikan dari pemakaian 1.13.0 di event/astra (keputusan D25).
 - **Token Plane dibersihkan sebelum dipakai**: CR di akhir (`~/.bashrc` ber-CRLF di Windows), spasi/baris baru, dan tanda kutip pembungkus dibuang. Sebelumnya ini berujung `HTTP 403 Given API token is not valid`. `plane check` menampilkan baris Info bila token sempat dibersihkan, tanpa isi token.

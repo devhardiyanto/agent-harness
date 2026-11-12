@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.13.1',
+  harness_version: '1.13.2',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -690,4 +690,24 @@ export function amendItem(root, cfg, item, acText) {
   fs.writeFileSync(item.planPath, t);
   audit(root, { event: 'amend', slug: item.slug, ac: id });
   return { ok: true, id };
+}
+
+// 1.13.2: tabel Markdown dirapikan (kolom rata) agar tetap terbaca sebagai tabel saat output CLI tampil mentah
+// (mis. lewat "!" di Claude Code, yang tidak merender Markdown). Tetap Markdown sah: dirender normal bila ditempel agent.
+const cellWidth = (s) => { let w = 0; for (const ch of s) w += /\p{Extended_Pictographic}|[ᄀ-ᅟ⺀-꓏가-힣豈-﫿＀-｠]/u.test(ch) ? 2 : 1; return w; };
+const splitRow = (l) => l.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '').split(/(?<!\\)\|/).map((c) => c.trim());
+export function alignTables(text) {
+  const lines = String(text).split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length;) {
+    const isRow = (l) => l !== undefined && /^\s*\|.*\|\s*$/.test(l);
+    if (!(isRow(lines[i]) && /^\s*\|(\s*:?-{3,}:?\s*\|)+\s*$/.test(lines[i + 1] || ''))) { out.push(lines[i]); i++; continue; }
+    const block = [];
+    while (isRow(lines[i])) block.push(lines[i++]);
+    const rows = block.map(splitRow);
+    const n = Math.max(...rows.map((r) => r.length));
+    const w = Array.from({ length: n }, (_, c) => Math.max(3, ...rows.map((r, j) => (j === 1 ? 3 : cellWidth(r[c] || '')))));
+    rows.forEach((r, j) => out.push(`| ${w.map((cw, c) => (j === 1 ? '-'.repeat(cw) : (r[c] || '') + ' '.repeat(cw - cellWidth(r[c] || '')))).join(' | ')} |`));
+  }
+  return out.join('\n');
 }
