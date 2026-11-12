@@ -32,7 +32,8 @@ const prompt = (root, text) => run(root, 'prompt.mjs', { hook_event_name: 'UserP
 const gateWrite = (root, rel, content) => run(root, 'gate.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path: path.join(root, rel), content } });
 const gateEdit = (root, rel, o, n) => run(root, 'gate.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: path.join(root, rel), old_string: o, new_string: n } });
 const bash = (root, command) => run(root, 'guard-bash.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command } });
-const stop = (root, extra = {}) => run(root, 'stop.mjs', { hook_event_name: 'Stop', ...extra });
+// 1.13.1: tes gerbang bukti; rekap dianggap sudah ditampilkan agent (recap.render "assistant" diuji di v1131)
+const stop = (root, extra = {}) => run(root, 'stop.mjs', { hook_event_name: 'Stop', last_assistant_message: 'Belum selesai (item sesi ini) (1):', ...extra });
 // meniru PostToolUse: sesi menulis berkas di docs/work/<slug>/ (penanda item yang dikerjakan sesi ini)
 const touch = (root, slug, session_id = 's1', rel = 'progress.md') => run(root, 'post.mjs', { hook_event_name: 'PostToolUse', session_id, tool_name: 'Write', tool_input: { file_path: path.join(root, 'docs', 'work', slug, rel) } });
 const rd = (root, p) => fs.readFileSync(path.join(root, p), 'utf8');

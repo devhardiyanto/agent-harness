@@ -101,6 +101,19 @@ if (isMain(import.meta.url)) {
     process.stderr.write(`[harness] ${dec}\n`);
     process.exit(2);
   }
-  try { const t = recapFor(root, cfg, payload.session_id); if (t) process.stdout.write(JSON.stringify({ systemMessage: `[harness] ${t}` })); } catch { /* rekap tidak boleh mengganggu */ }
+  // 1.13.1 (recap.render): "assistant" = giliran ditahan sekali agar agent menutup dengan tabel Markdown (dirender TUI);
+  // "system" = perilaku lama (systemMessage, tampil sebagai teks polos). Tidak ditahan bila sudah ditahan di giliran ini
+  // atau pesan terakhir agent sudah memuat tabelnya.
+  try {
+    const t = recapFor(root, cfg, payload.session_id);
+    if (t) {
+      const last = String(payload.last_assistant_message || '');
+      if (cfg.recap.render === 'assistant' && !payload.stop_hook_active && !/Belum selesai[^\n]*\(\d+\)/.test(last)) {
+        process.stderr.write(`[harness] Tutup giliran ini dengan tabel berikut sebagai Markdown, APA ADANYA (dibuat kode). Tanpa narasi tambahan, tanpa mengulang isi giliran.\n\n${t}\n`);
+        process.exit(2);
+      }
+      if (cfg.recap.render !== 'assistant') process.stdout.write(JSON.stringify({ systemMessage: `[harness] ${t}` }));
+    }
+  } catch { /* rekap tidak boleh mengganggu */ }
   process.exit(0);
 }
