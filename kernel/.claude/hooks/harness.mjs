@@ -441,6 +441,7 @@ switch (cmd) {
       const r = await planeCheck(cfg);
       if (r.problems.length) { console.error(`Plane belum siap:\n- ${r.problems.join('\n- ')}`); process.exit(2); }
       console.log(table(r.rows, ['status harness', 'state Plane', 'hasil']));
+      if (r.notes && r.notes.length) console.log(`\nInfo:\n- ${r.notes.join('\n- ')}`);
       if (!r.ok) process.exit(2);
       break;
     }

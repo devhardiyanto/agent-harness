@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.13.0',
+  harness_version: '1.13.1',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -59,7 +59,8 @@ export const DEFAULT_CONFIG = {
   // intent: kalimat pendek tanpa slash ("setuju <slug>", "sisa", "ingat: ...") dipetakan ke perintah. Hanya prompt <= max_chars; slug harus cocok persis satu item.
   intent: { enabled: true, max_chars: 120 },
   // recap: tabel "belum selesai" (item, pertanyaan terbuka, klaim, AC tanpa bukti, blocker, usulan memori). on_stop = tampil ke user di akhir giliran yang menyentuh item (hanya bila isinya berubah).
-  recap: { enabled: true, on_stop: true, max_rows: 12 },
+  // render (1.13.1): "assistant" = agent menutup giliran dengan tabel Markdown (dirender TUI; +1 giliran pendek saat isi berubah); "system" = teks polos lama.
+  recap: { enabled: true, on_stop: true, max_rows: 12, render: 'assistant' },
   // memory: catatan project berumur panjang (docs/memory/MEMORY.md, dibatasi max_chars, disuntik di awal sesi). Gaya Hermes (bawaan): agent menulis/menghapus sendiri.
   // write_approval: true = tulisan agent masuk antrean pending, manusia yang menerapkan.
   // learn_from_summary: saat done/merged, keputusan di Decision log diusulkan sebagai pelajaran (antrean, maks learn_max per item) dan item dicatat di docs/memory/INDEX.md.
@@ -623,7 +624,8 @@ function alignNext(item, cfg) {
   return ['kamu', `tinjau plan.md; bila setuju ketik /harness:approve ${sl}`];
 }
 export function nextStep(item, cfg = null) {
-  const sl = item.slug;
+  // 1.13.1: slug pendek (tanpa tanggal) bila unik, supaya sel tabel tidak terpotong
+  const sl = item.dir ? shortSlug(path.resolve(item.dir, '..', '..', '..'), item.slug) : item.slug;
   const q = isQuick(item);
   const rows = {
     draft: q ? ['kamu', `/harness:plan ${sl}, lalu /harness:approve ${sl} (item quick dipromosikan ke standard)`] : alignNext(item, cfg),

@@ -123,7 +123,7 @@ Kartu kini berisi **Tujuan, Konteks, Keputusan, dan Checklist AC** (to-do list P
 | kirim isi kartu sekarang | `harness.mjs plane push [slug]` (juga setelah tiap `plane sync`) |
 | migrasi semua item ke Plane | `plane migrate` (rencana) → `plane migrate --apply` → `plane migrate --verify` |
 
-Deskripsi yang kamu ubah langsung di Plane tidak ditimpa: kiriman berikutnya DITAHAN dan agent diminta menyelaraskan lokal dulu (`plane push <slug> --force`). Mencentang checklist di Plane boleh. Komentar manusia yang baru muncul sekali sebagai konteks agent di prompt berikutnya. Webhook ke laptop tidak mungkin, jadi tidak real-time. Di 1.13 folder `docs/work` **tidak dihapus**. Penghapusan per root (setelah `--verify` COCOK) dan knowledge → Plane Pages dikerjakan di 2.0 (`ROADMAP.md` §8).
+Token dibaca dari variabel yang namanya ada di `plane.token_env` (bawaan `PLANE_API_KEY`; isi **nama** variabel, bukan tokennya); CR/spasi/kutip di ujung token dibuang otomatis (1.13.1). Deskripsi yang kamu ubah langsung di Plane tidak ditimpa: kiriman berikutnya DITAHAN dan agent diminta menyelaraskan lokal dulu (`plane push <slug> --force`). Mencentang checklist di Plane boleh. Komentar manusia yang baru muncul sekali sebagai konteks agent di prompt berikutnya. Webhook ke laptop tidak mungkin, jadi tidak real-time. Di 1.13 folder `docs/work` **tidak dihapus**. Penghapusan per root (setelah `--verify` COCOK) dan knowledge → Plane Pages dikerjakan di 2.0 (`ROADMAP.md` §8).
 
 ### Kesiapan 2.0
 - `harness.mjs pilot`: frasa vs slash, salah tangkap, penahanan Stop, "push PR + merge" yang sampai merged (jendela `pilot.hours`, bawaan 6 jam; `--hours N` / `--days N`). Ketik `bukan itu` saat hook salah menangkap kalimatmu.

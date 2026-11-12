@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.13.1
+Perbaikan dari pemakaian 1.13.0 di event/astra (keputusan D25).
+- **Token Plane dibersihkan sebelum dipakai**: CR di akhir (`~/.bashrc` ber-CRLF di Windows), spasi/baris baru, dan tanda kutip pembungkus dibuang. Sebelumnya ini berujung `HTTP 403 Given API token is not valid`. `plane check` menampilkan baris Info bila token sempat dibersihkan, tanpa isi token.
+- **`token_env` harus nama variabel**: `plane check` dan `doctor` menolak bila isinya mirip token (diawali `plane_api_`, bukan pola nama variabel), dengan saran mencabut token yang telanjur tertulis di config. Tanpa permintaan jaringan.
+- **Rekap "Belum selesai" sebagai tabel Markdown** (`recap.render`, bawaan `"assistant"`): hook Stop menahan giliran sekali saat isi rekap berubah, dan agent menutup dengan tabel itu (dirender TUI). Tidak ditahan bila pesan terakhir agent sudah memuatnya (`last_assistant_message`) atau giliran itu sudah pernah ditahan (`stop_hook_active`). `"system"` = perilaku lama (`systemMessage`, teks polos).
+- **Slug pendek di tabel**: kolom item dan perintah di `next`/`sisa`/rekap memakai slug tanpa tanggal bila unik, jadi sel tidak terpotong.
+
 ## 1.13.0
 Rilis jembatan ke **2.0.0 "satu pintu"** (keputusan D6–D19 di `ROADMAP.md`). Aditif: tidak ada yang dihapus, folder `docs/work` tetap ada.
 - **Plane = pintu diskusi** (`plane.push_content`, `pull_comments`, `mention_user_id`, `pull_min_interval_s`): kartu kini berisi **Tujuan** (Objective di `brief.md`), **Konteks**, **Keputusan** (D yang terjawab, klaim dikoreksi/diterima, Decision log), dan **Checklist** AC (to-do list Plane; AC berbukti dicentang). Dikirim setelah tiap `plane sync`, hanya bila isinya berubah. Judul kartu diringkas.

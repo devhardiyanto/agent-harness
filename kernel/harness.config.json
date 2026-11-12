@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.13.0",
+  "harness_version": "1.13.1",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -101,7 +101,8 @@
   "recap": {
     "enabled": true,
     "on_stop": true,
-    "max_rows": 12
+    "max_rows": 12,
+    "render": "assistant"
   },
   "memory": {
     "enabled": true,

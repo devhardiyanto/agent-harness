@@ -12,13 +12,27 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const ledgerPath = (root) => path.join(root, '.harness', 'plane.json');
 const lockPath = (root) => path.join(root, '.harness', 'plane.lock');
 
+// 1.13.1: token dibersihkan sebelum dipakai (CR dari ~/.bashrc ber-CRLF, spasi, tanda kutip). Isi token tidak pernah dicetak.
+export function planeToken(cfg, env = process.env) {
+  const raw = String(env[(cfg.plane || {}).token_env] || '');
+  const notes = [];
+  if (/\r/.test(raw)) notes.push('berisi CR (line ending Windows/CRLF)');
+  if (raw !== raw.trim()) notes.push('berisi spasi/baris baru di ujung');
+  let v = raw.replace(/[\r\n]/g, '').trim();
+  if (/^(["']).*\1$/.test(v)) { notes.push('dibungkus tanda kutip'); v = v.slice(1, -1).trim(); }
+  return { value: v, notes: [...new Set(notes)] };
+}
+// token_env harus NAMA variabel, bukan tokennya (config di-commit ke git).
+const looksLikeToken = (s) => /^plane_api_/.test(s) || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(s) || (s.length > 40 && /\d/.test(s) && /[a-z]/.test(s));
+
 // Masalah konfigurasi statis (tanpa jaringan). Kosong = siap.
 export function planeProblems(cfg, env = process.env) {
   const p = cfg.plane || {}; const out = [];
   if (!p.workspace) out.push('plane.workspace kosong (slug workspace dari URL Plane)');
   if (!p.project_id) out.push('plane.project_id kosong');
   if (!p.token_env) out.push('plane.token_env kosong (nama variabel lingkungan token)');
-  else if (!env[p.token_env]) out.push(`variabel lingkungan ${p.token_env} belum diisi (harus ada sebelum Claude Code dijalankan)`);
+  else if (looksLikeToken(String(p.token_env))) out.push('plane.token_env harus NAMA variabel lingkungan (mis. "PLANE_API_KEY"), bukan tokennya. Token ini sudah tertulis di harness.config.json: cabut di Plane (Profile → API Tokens), buat yang baru, simpan di lingkungan shell');
+  else if (!planeToken(cfg, env).value) out.push(`variabel lingkungan ${p.token_env} belum diisi (harus ada sebelum Claude Code dijalankan)`);
   try {
     const u = new URL(p.base_url);
     const local = ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
@@ -35,7 +49,7 @@ async function api(cfg, method, route, body) {
   try {
     r = await fetch(url, {
       method,
-      headers: { 'X-API-Key': process.env[p.token_env], 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: { 'X-API-Key': planeToken(cfg).value, 'Content-Type': 'application/json', Accept: 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(10000),
       redirect: 'error', // jangan ikuti redirect: header kunci tidak boleh ikut ke host lain
@@ -142,7 +156,8 @@ export async function planeCheck(cfg) {
   const ids = await stateIds(cfg);
   if (!ids.ok) return { ok: false, rows, problems: [`koneksi/otorisasi ke Plane gagal: ${ids.error}`] };
   for (const s of STATUSES) { const n = cfg.plane.states[s]; const id = idOf(cfg, ids.map, s); rows.push([s, n, id ? 'OK' : 'TIDAK ADA di project']); }
-  return { ok: rows.every((r) => r[2] === 'OK'), rows, problems: [] };
+  const notes = planeToken(cfg).notes.map((n) => `token ${cfg.plane.token_env} ${n}; dibersihkan otomatis (perbaiki di profil shell agar rapi)`);
+  return { ok: rows.every((r) => r[2] === 'OK'), rows, problems: [], notes };
 }
 
 // ---------- 1.13.0: isi kartu, komentar, cermin lokal, migrasi (jembatan ke 2.0 "satu pintu") ----------

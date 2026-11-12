@@ -165,9 +165,10 @@ test('ref:<slug> menyuntik ringkasan; Stop menampilkan rekap sekali per perubaha
   r = hx(root, 'recall', 'redis', 'ttl');
   assert.match(r.stdout, /summary\.md/);
   wr(root, '.harness/state/touched-s.json', JSON.stringify({ slugs: [slug] }));
+  // 1.13.1: recap.render "assistant" (bawaan) → giliran ditahan sekali, agent menutup dengan tabel Markdown
   r = hook(root, 'stop.mjs', { hook_event_name: 'Stop' });
-  assert.equal(r.status, 0, r.stderr);
-  assert.match(ctx(r).systemMessage, /Belum selesai \(item sesi ini\)/);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /Markdown, APA ADANYA[\s\S]*Belum selesai \(item sesi ini\)/);
   r = hook(root, 'stop.mjs', { hook_event_name: 'Stop' });
-  assert.equal(r.stdout, '', 'isi sama → tidak diulang');
+  assert.equal(r.status, 0); assert.equal(r.stdout, '', 'isi sama → tidak diulang');
 });
