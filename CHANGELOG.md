@@ -1,7 +1,9 @@
 # Changelog
 
 ## 1.13.2
-- **Tabel CLI rata kolom**: semua tabel keluaran `harness.mjs` (`plane check`, `doctor`, `sisa`, `pilot`, `migrate`, ...) diberi padding sehingga tetap terbaca sebagai tabel saat tampil mentah, misalnya lewat `!` di Claude Code yang tidak merender Markdown. Tetap Markdown sah, jadi dirender normal bila ditempel agent. Lebar emoji/CJK dihitung dua kolom.
+- **Tabel CLI bergaris kotak**: semua tabel keluaran `harness.mjs` (`plane check`, `doctor`, `sisa`/`open`, `next`, `decide`, `pilot`, `migrate`, ...) kini dicetak dengan garis kotak (`┌─┬─┐`), sehingga tampil sebagai tabel saat dijalankan lewat `!` di Claude Code atau di terminal biasa, yang tidak merender Markdown. Sel panjang dibungkus per kata agar muat di lebar terminal (bawaan 120 kolom bila tak diketahui; `HARNESS_TABLE_WIDTH` untuk mengubah).
+- **`--md` untuk agent**: `harness.mjs <cmd> --md` mencetak Markdown rata kolom. Skill dan aturan (O-04, O-07, O-08 baru, AGENTS.md) meminta agent memakai `--md` dan menempel tabel di luar code block, sehingga dirender TUI di balasan.
+- Tabel di berkas (`gate.md`, `handoff.md`, summary) dan teks yang disuntik hook tetap Markdown biasa.
 
 ## 1.13.1
 Perbaikan dari pemakaian 1.13.0 di event/astra (keputusan D25).

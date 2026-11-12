@@ -10,7 +10,7 @@ allowed-tools: Bash(node .claude/hooks/harness.mjs *)
 Jalankan dan tampilkan keluarannya apa adanya (tabel):
 
 ```
-node .claude/hooks/harness.mjs next $ARGUMENTS
+node .claude/hooks/harness.mjs next $ARGUMENTS --md
 ```
 
-Tanpa argumen: semua item yang belum `merged`. Untuk daftar lengkap yang menggantung (pertanyaan terbuka, klaim, AC tanpa bukti, usulan memori): `node .claude/hooks/harness.mjs open` (user cukup mengetik "sisa"). Jangan menambah komentar; jangan menjalankan langkah yang ditandai untuk "kamu" (user).
+Tanpa argumen: semua item yang belum `merged`. Untuk daftar lengkap yang menggantung (pertanyaan terbuka, klaim, AC tanpa bukti, usulan memori): `node .claude/hooks/harness.mjs open --md` (user cukup mengetik "sisa"). Jangan menambah komentar; jangan menjalankan langkah yang ditandai untuk "kamu" (user).

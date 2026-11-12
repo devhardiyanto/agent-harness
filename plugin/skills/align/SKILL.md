@@ -22,4 +22,4 @@ Skeptis, bukan menurut: permintaan adalah klaim tentang sistem, bukan fakta. Tug
 
 ## Balasan chat (dibuat kode, bukan ditulis bebas)
 1. Satu baris angka: N klaim (t terverifikasi, d dugaan, b bertentangan) · ronde r/3.
-2. Keluaran `node .claude/hooks/harness.mjs decide <slug>` **apa adanya**: tabel keputusan + baris "Berikutnya". Jangan menambah narasi, jangan menyarankan `align ok` sendiri. (Hook Stop menahan giliran sampai tabel ini ditampilkan.)
+2. Keluaran `node .claude/hooks/harness.mjs decide <slug> --md` **apa adanya**: tabel keputusan + baris "Berikutnya". Jangan menambah narasi, jangan menyarankan `align ok` sendiri. (Hook Stop menahan giliran sampai tabel ini ditampilkan.)

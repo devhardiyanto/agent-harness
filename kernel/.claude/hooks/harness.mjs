@@ -72,9 +72,13 @@ import {
   updateTicket, updateTicketPath, readEvents, readAlign, formatDecision, slugify, cleanTitle, alignTables,
 } from './lib.mjs';
 
-// 1.13.2: semua tabel keluaran CLI dirapikan kolomnya (tampil rapi walau mentah lewat "!").
+// 1.13.2: tabel keluaran CLI bergaris kotak (tampil sebagai tabel walau mentah lewat "!"). --md = Markdown untuk ditempel agent
+// ke balasan; HARNESS_TABLES=compact = bentuk lama (dipakai test).
+const mdFlag = process.argv.indexOf('--md');
+if (mdFlag > 1) process.argv.splice(mdFlag, 1);
+const tableMode = mdFlag > 1 ? 'md' : process.env.HARNESS_TABLES === 'compact' ? 'compact' : 'box';
 const rawLog = console.log;
-console.log = (...a) => rawLog(process.env.HARNESS_TABLES === 'compact' ? format(...a) : alignTables(format(...a))); // compact: dipakai test lama
+console.log = (...a) => rawLog(tableMode === 'compact' ? format(...a) : alignTables(format(...a), tableMode));
 import { pilotReport } from './pilot.mjs';
 import { checkV2, fixAlign } from './migrate.mjs';
 

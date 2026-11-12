@@ -31,4 +31,4 @@ Perubahan kecil (satu service, ≤5 file, bukan skema)? Sarankan user mengetik `
 | onboard | service yang belum ber-knowledge; arahkan ke `/harness:init` |
 
 ## Balasan chat (maks 5 baris)
-`docs/work/<slug>` dibuat · service terdampak: ... · N pertanyaan terbuka · lalu baris terakhir keluaran `node .claude/hooks/harness.mjs next <slug>` apa adanya. Jangan menulis plan di sesi ini sebelum align ditutup user (hook menolak).
+`docs/work/<slug>` dibuat · service terdampak: ... · N pertanyaan terbuka · lalu baris terakhir keluaran `node .claude/hooks/harness.mjs next <slug> --md` apa adanya. Jangan menulis plan di sesi ini sebelum align ditutup user (hook menolak).
