@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.13.1',
+  harness_version: '1.13.2',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -690,4 +690,44 @@ export function amendItem(root, cfg, item, acText) {
   fs.writeFileSync(item.planPath, t);
   audit(root, { event: 'amend', slug: item.slug, ac: id });
   return { ok: true, id };
+}
+
+// 1.13.2: tabel keluaran CLI. Teks mentah (mode "!" di Claude Code, terminal biasa, systemMessage) tidak merender Markdown,
+// jadi bawaannya garis kotak yang tampil sebagai tabel di mana pun. mode 'md' = Markdown rata kolom (untuk ditempel agent ke
+// balasan, yang dirender TUI). Teks di luar tabel tidak diubah.
+const cellWidth = (s) => { let w = 0; for (const ch of s) w += /\p{Extended_Pictographic}|[\u1100-\u115F\u2E80-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFF00-\uFF60]/u.test(ch) ? 2 : 1; return w; };
+const splitRow = (l) => l.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '').split(/(?<!\\)\|/).map((c) => c.trim());
+const pad = (c, w) => c + ' '.repeat(Math.max(0, w - cellWidth(c)));
+export function alignTables(text, mode = 'box') {
+  const lines = String(text).split('\n');
+  const out = [];
+  const isRow = (l) => l !== undefined && /^\s*\|.*\|\s*$/.test(l);
+  for (let i = 0; i < lines.length;) {
+    if (!(isRow(lines[i]) && /^\s*\|(\s*:?-{3,}:?\s*\|)+\s*$/.test(lines[i + 1] || ''))) { out.push(lines[i]); i++; continue; }
+    const block = [];
+    while (isRow(lines[i])) block.push(lines[i++]);
+    const rows = block.map(splitRow).filter((_, j) => j !== 1);
+    const n = Math.max(...rows.map((r) => r.length));
+    const w = Array.from({ length: n }, (_, c) => Math.max(3, ...rows.map((r) => cellWidth((r[c] || '').replace(/\\\|/g, '|')))));
+    if (mode === 'md') {
+      const wm = w.map((cw, c) => Math.max(cw, ...rows.map((r) => cellWidth(r[c] || ''))));
+      const mcell = (r) => wm.map((cw, c) => pad(r[c] || '', cw));
+      out.push(`| ${mcell(rows[0]).join(' | ')} |`, `| ${wm.map((cw) => '-'.repeat(cw)).join(' | ')} |`, ...rows.slice(1).map((r) => `| ${mcell(r).join(' | ')} |`));
+      continue;
+    }
+    // Muat di lebar terminal (bawaan 120 bila tak diketahui, mis. lewat "!"): kolom terlebar dipersempit, isi sel dibungkus per kata.
+    const max = Number(process.env.HARNESS_TABLE_WIDTH) || process.stdout.columns || 120;
+    while (w.reduce((a, b) => a + b + 3, 1) > max) { const k = w.indexOf(Math.max(...w)); if (w[k] <= 12) break; w[k]--; }
+    const wrap = (t, cw) => { const res = []; let cur = '';
+      for (let word of t.split(/\s+/).filter(Boolean)) {
+        while (cellWidth(word) > cw) { if (cur) { res.push(cur); cur = ''; } res.push(word.slice(0, cw)); word = word.slice(cw); }
+        if (!cur) cur = word; else if (cellWidth(cur) + 1 + cellWidth(word) <= cw) cur += ` ${word}`; else { res.push(cur); cur = word; }
+      }
+      return [...res, cur]; };
+    const rowLines = (r) => { const parts = w.map((cw, c) => wrap((r[c] || '').replace(/\\\|/g, '|'), cw)); const h = Math.max(...parts.map((p) => p.length));
+      return Array.from({ length: h }, (_, k) => `│ ${parts.map((p, c) => pad(p[k] || '', w[c])).join(' │ ')} │`); };
+    const line = (a, b, c) => a + w.map((cw) => '─'.repeat(cw + 2)).join(b) + c;
+    out.push(line('┌', '┬', '┐'), ...rowLines(rows[0]), line('├', '┼', '┤'), ...rows.slice(1).flatMap(rowLines), line('└', '┴', '┘'));
+  }
+  return out.join('\n');
 }

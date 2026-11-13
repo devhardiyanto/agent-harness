@@ -11,7 +11,7 @@ Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file
 
 ## Alur (satu work item = satu alur penuh)
 1. `/harness:impact <permintaan>` — dampak dari prompt pertama → `brief.md` (objective saja), `impact.md`.
-2. `/harness:align <slug>` — uji klaim permintaan ke kode secara skeptis → `align.md`. Pertanyaan untuk user = baris D di `## Keputusan terbuka`, bukan narasi. Tutup giliran dengan keluaran `harness.mjs decide <slug>` apa adanya (hook Stop menahan sampai itu ditampilkan). Debat maks 3 ronde; user menutup dengan `align ok <slug>` (hook menulis `aligned`). Temuan sampingan → parking lot.
+2. `/harness:align <slug>` — uji klaim permintaan ke kode secara skeptis → `align.md`. Pertanyaan untuk user = baris D di `## Keputusan terbuka`, bukan narasi. Tutup giliran dengan keluaran `harness.mjs decide <slug> --md` apa adanya (hook Stop menahan sampai itu ditampilkan). Debat maks 3 ronde; user menutup dengan `align ok <slug>` (hook menulis `aligned`). Temuan sampingan → parking lot.
 3. `/harness:plan <slug>` — hanya setelah `aligned` (hook menolak AC di `plan.md` sebelumnya). `plan.md` berstatus `draft` (AC bernomor `- AC1: ...`). **Sesi planning berhenti di sini.**
 4. User mengetik `/harness:approve <slug>` → hook menulis `approved` (butuh `aligned`). Agent tidak boleh.
 5. Sesi baru: `/harness:build <slug>` → `in-progress`, catat bukti per AC di `progress.md`. Test dijalankan agent `runner` (bukti ditulis kode, bukan agent); sesi tidak bisa berhenti bila bukti test belum ada.
@@ -50,6 +50,7 @@ Plane = pintu diskusi user. Komentar user dari kartu muncul sebagai konteks; bal
 ## Format keluaran
 - Plan, analisa, dan temuan = file/tabel/checklist, bukan narasi.
 - Balasan chat maksimal 5 baris: apa yang selesai + path file + langkah user berikutnya.
+- Tabel dari `harness.mjs` untuk user: jalankan dengan `--md`, tempel sebagai tabel Markdown di luar code block (dirender TUI). Tanpa `--md` = garis kotak untuk `!`.
 - Jangan mengulang isi file ke chat. Jangan menulis esai.
 
 ## Minimalis

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.13.2
+- **Tabel CLI bergaris kotak**: semua tabel keluaran `harness.mjs` (`plane check`, `doctor`, `sisa`/`open`, `next`, `decide`, `pilot`, `migrate`, ...) kini dicetak dengan garis kotak (`┌─┬─┐`), sehingga tampil sebagai tabel saat dijalankan lewat `!` di Claude Code atau di terminal biasa, yang tidak merender Markdown. Sel panjang dibungkus per kata agar muat di lebar terminal (bawaan 120 kolom bila tak diketahui; `HARNESS_TABLE_WIDTH` untuk mengubah).
+- **`--md` untuk agent**: `harness.mjs <cmd> --md` mencetak Markdown rata kolom. Skill dan aturan (O-04, O-07, O-08 baru, AGENTS.md) meminta agent memakai `--md` dan menempel tabel di luar code block, sehingga dirender TUI di balasan.
+- Tabel di berkas (`gate.md`, `handoff.md`, summary) dan teks yang disuntik hook tetap Markdown biasa.
+
 ## 1.13.1
 Perbaikan dari pemakaian 1.13.0 di event/astra (keputusan D25).
 - **Token Plane dibersihkan sebelum dipakai**: CR di akhir (`~/.bashrc` ber-CRLF di Windows), spasi/baris baru, dan tanda kutip pembungkus dibuang. Sebelumnya ini berujung `HTTP 403 Given API token is not valid`. `plane check` menampilkan baris Info bila token sempat dibersihkan, tanpa isi token.

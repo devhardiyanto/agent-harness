@@ -45,7 +45,7 @@ if (payload.source === 'compact' || payload.source === 'resume') lines.push('Ses
 try { if (cfg.memory.enabled && !hasIndex(root)) { const n = reindex(root, objectiveOf); if (n) lines.push(`Memori: ${n} pekerjaan lama diindeks ke docs/memory/INDEX.md (cari: harness.mjs recall <kata>; muat: ref:<slug>).`); } } catch { /* abaikan */ }
 try { const mem = snapshot(root, cfg); if (mem) lines.push(mem.slice(0, cfg.memory.max_chars + cfg.memory.user_max_chars + 800)); } catch { /* abaikan */ }
 try { const pb = playbookIndex(root, cfg); if (pb) lines.push(pb.slice(0, 2500)); } catch { /* abaikan */ }
-if (cfg.intent.enabled) lines.push('Kalimat pendek user = perintah (diproses hook): "keputusan", "ingat user: ...", "setuju <slug>", "align ok <slug> [terima C2]", "push PR + merge [slug]", "quick: ...", "sisa", "ingat: ...", "ref:<slug>". Di akhir giliran yang mengubah item, tutup dengan tabel "Belum selesai" (node .claude/hooks/harness.mjs open --mine bila perlu), bukan narasi.');
+if (cfg.intent.enabled) lines.push('Kalimat pendek user = perintah (diproses hook): "keputusan", "ingat user: ...", "setuju <slug>", "align ok <slug> [terima C2]", "push PR + merge [slug]", "quick: ...", "sisa", "ingat: ...", "ref:<slug>". Di akhir giliran yang mengubah item, tutup dengan tabel "Belum selesai" (node .claude/hooks/harness.mjs open --mine --md bila perlu), bukan narasi.');
 try { const h = readHandoff(root, cfg); if (h) lines.push(h); } catch { /* abaikan */ }
 // 1.13.0 (D10): align.md format lama dimigrasi otomatis (hanya menambah bagian "## Keputusan terbuka")
 try { const f = fixAlign(root); if (f.length) lines.push(`Migrasi: ${f.length} align.md diberi bagian "Keputusan terbuka" (${f.slice(0, 5).join(', ')}).`); } catch { /* abaikan */ }

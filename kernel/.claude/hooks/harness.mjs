@@ -45,6 +45,7 @@
 //   verify-knowledge <svc>              HANYA manusia ("!" atau /harness:knowledge verify): draft → verified bila lint bersih
 //   patterns-approve <slug> <P1,P3|all> HANYA manusia ("!" atau /harness:knowledge patterns): terapkan usulan pola ke patterns.md
 import fs from 'node:fs';
+import { format } from 'node:util';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -68,8 +69,16 @@ import {
 import {
   projectRoot, loadConfig, checkTransition, checkDone, setFmKey, STATUSES,
   splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli, globToRegex,
-  updateTicket, updateTicketPath, readEvents, readAlign, formatDecision, slugify, cleanTitle,
+  updateTicket, updateTicketPath, readEvents, readAlign, formatDecision, slugify, cleanTitle, alignTables,
 } from './lib.mjs';
+
+// 1.13.2: tabel keluaran CLI bergaris kotak (tampil sebagai tabel walau mentah lewat "!"). --md = Markdown untuk ditempel agent
+// ke balasan; HARNESS_TABLES=compact = bentuk lama (dipakai test).
+const mdFlag = process.argv.indexOf('--md');
+if (mdFlag > 1) process.argv.splice(mdFlag, 1);
+const tableMode = mdFlag > 1 ? 'md' : process.env.HARNESS_TABLES === 'compact' ? 'compact' : 'box';
+const rawLog = console.log;
+console.log = (...a) => rawLog(tableMode === 'compact' ? format(...a) : alignTables(format(...a), tableMode));
 import { pilotReport } from './pilot.mjs';
 import { checkV2, fixAlign } from './migrate.mjs';
 
