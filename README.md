@@ -174,6 +174,21 @@ Merge tetap aman: ketikan ship menjadi **izin merge tertunda** (`.claude/state/m
 
 `terima C2` kini langsung tersimpan di `align.md` walaupun align belum bisa ditutup karena klaim lain.
 
+## Advisor Opus untuk tugas besar (1.14.0, opsional)
+
+Fitur bawaan Claude Code (eksperimental), bukan fitur harness: sesi utama tetap Sonnet, dan sesekali berkonsultasi ke model yang lebih kuat. Harness **tidak menyalakannya** dan `doctor` tidak menagihnya.
+
+| kapan | ketik di sesi | catatan |
+|---|---|---|
+| mulai tugas besar (plan item standard, perubahan lintas service/skema, galat yang berulang) | `/advisor opus` | cara kerja `claude agents` + prompt langsung tidak berubah |
+| tugas selesai | `/advisor off` | matikan lagi agar kuota tidak terpakai diam-diam |
+
+- Biaya: tiap konsultasi, advisor membaca seluruh percakapan tanpa cache. Di sesi panjang atau saat beberapa root berjalan bersamaan, ini cepat menghabiskan kuota; karena itu per tugas, bukan bawaan.
+- Saat aktif, `AGENTS.md` membatasi kapan agent berkonsultasi (menulis AC/plan, keputusan lintas service/skema, dua kali gagal di galat yang sama), bukan untuk langkah rutin.
+- Menyalakan permanen (`advisorModel` di settings, atau `claude --advisor opus`) tidak disarankan dan tidak dipasang harness.
+- `reviewer` (Opus) tetap berjalan di checkout yang sama, tanpa `isolation: worktree`: worktree baru bercabang dari branch utama, jadi perubahan yang belum di-commit tidak terlihat oleh reviewer.
+- Belum terverifikasi: apakah `claude agents` meneruskan advisor ke sesi yang dibukanya; cek dengan `/advisor` di sesi itu.
+
 ## Memperbarui semua project
 Ada dua jalur, dan keduanya berasal dari repo-mu sendiri: **kernel** (hook, config, rules) ditulis `install.mjs --update` ke tiap project, **plugin** (skill) dipasang **global** (scope user, satu kali per mesin) dari marketplace `harness-marketplace` (repo GitHub installer) dan hanya berganti bila `version` di `plugin/.claude-plugin/plugin.json` naik (naikkan tiap rilis; `scripts/bump.mjs`). Installer tidak lagi mendaftarkan plugin di `.claude/settings.json` project.
 
