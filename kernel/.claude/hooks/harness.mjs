@@ -457,6 +457,10 @@ switch (cmd) {
     die('usage: plane sync|push|pull [slug] [--dry-run] | plane ask <slug> [--decide] [teks] | plane comment <slug> <teks> | plane migrate [--apply|--verify] | plane check');
     break;
   }
+  case 'session-name': { // 1.14.1: nama sesi untuk berkas rangkuman (/summarize). Diisi status line (1.15); kosong = tidak diketahui, jangan ditebak.
+    try { const n = fs.readFileSync(path.join(root, '.harness', 'state', 'session-name'), 'utf8').trim(); if (/^[a-z0-9][a-z0-9-]{1,60}$/i.test(n)) console.log(n); } catch { /* belum ada */ }
+    break;
+  }
   case 'pilot': {
     const di = args.indexOf('--days'); const hi = args.indexOf('--hours');
     const { formatPilot } = await import('./pilot.mjs');

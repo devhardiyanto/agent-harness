@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.14.1
+- **`/summarize`** (skill proyek di `.claude/skills/summarize`, tanpa awalan `harness:`): merangkum percakapan sesi secara kronologis, hanya versi terakhir yang disepakati, ke `docs/sessions/<nama>.md`. Nama berkas pendek: argumen, nama sesi (`harness.mjs session-name`, terisi mulai 1.15 lewat status line), atau 2–4 kata topik. Berkas yang sudah ada **diperbarui**, bukan digandakan; bila user menyinggung berkas rangkuman, agent membacanya lalu memperbaruinya di akhir giliran.
+- Rancangan 1.15 "Sederhana": `docs/v1.15/PRD.md`, `docs/v1.15/TECH.md` (belum ada kode).
+
 ## 1.14.0
 Keputusan D26–D28. Hanya dokumen dan aturan; tidak ada hook atau config baru.
 - **Advisor Opus sebagai panduan opt-in** (README, `AGENTS.md`): user menyalakan `/advisor opus` untuk tugas besar dan `/advisor off` sesudahnya. Harness tidak menyalakannya dan `doctor` tidak menagihnya, karena tiap konsultasi membaca seluruh percakapan tanpa cache. Saat aktif, agent hanya berkonsultasi untuk AC/plan, keputusan lintas service/skema, atau galat yang berulang.
