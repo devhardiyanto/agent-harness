@@ -8,6 +8,7 @@ Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file
 - `docs/knowledge/<svc>/` — ringkasan (L2) dan pola + contoh emas (L3) per service. Baca hanya service yang kena. Status `draft` = belum diverifikasi manusia: petunjuk, bukan fakta. Kutipannya diberi label `[draft]` dan dicek ke kode sebelum jadi dasar AC.
 - `docs/work/<tanggal-slug>/` — `brief.md` `impact.md` `align.md` `plan.md` `progress.md` `review.md`.
 - Model: sesi utama Sonnet; `scout`/`runner` Haiku (murah, read-only / menjalankan test); `reviewer` Opus (menolak/menyetujui). Handoff otomatis: `.harness/handoff.md` disuntik di awal sesi berikutnya.
+- Advisor (1.14.0, opsional, dinyalakan user dengan `/advisor opus`): hanya bila aktif, konsultasikan saat (a) menulis AC/plan item standard, (b) keputusan lintas service atau skema, (c) dua kali gagal di galat yang sama. Jangan untuk langkah rutin (edit kecil, menjalankan checks, menulis progres). Bila tidak aktif, abaikan baris ini; jangan meminta user menyalakannya.
 
 ## Alur (satu work item = satu alur penuh)
 1. `/harness:impact <permintaan>` — dampak dari prompt pertama → `brief.md` (objective saja), `impact.md`.
