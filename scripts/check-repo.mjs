@@ -159,6 +159,22 @@ check('agent: frontmatter valid dan routing model sesuai', (bad) => {
 });
 
 // 12. tidak ada penanda "v1" pada nama produk/skill yang tampil ke user
+// 13. salinan antislop (1.19.0): hanya teks aturan; tanpa perintah unduh/jaringan, tanpa izin Bash, lisensi ikut, tercatat di THIRD_PARTY.md
+check('salinan antislop bersih dan berlisensi', (bad) => {
+  const dirs = fs.existsSync(path.join(ROOT, 'kernel/.claude/skills')) ? fs.readdirSync(path.join(ROOT, 'kernel/.claude/skills')).filter((d) => d.startsWith('antislop')) : [];
+  if (!dirs.length) return;
+  const HOSTS = /^https:\/\/(github\.com|web\.dev|www\.w3\.org|w3\.org|developer\.chrome\.com)\//;
+  for (const d of dirs) for (const f of walk(`kernel/.claude/skills/${d}`)) {
+    if (!/\.(md|txt)$|LICENSE|VERSION/.test(f)) bad(`${f}: hanya teks yang boleh disalin`);
+    const t = read(f);
+    if (/\bnpx\s|\bcurl\s+(-|https?:)|\bwget\s|pip install|npm i(nstall)?\s/.test(t)) bad(`${f}: memuat perintah unduh/pasang`);
+    if (/^allowed-tools:.*Bash\(/m.test(t)) bad(`${f}: allowed-tools memuat Bash(...)`);
+    for (const u of t.match(/https?:\/\/[^\s)`'"<>]+/g) || []) if (!HOSTS.test(u) && !/^https?:\/\/(localhost|example\.)/.test(u) && !/^http:\/\/$/.test(u)) bad(`${f}: URL di luar host rujukan: ${u}`);
+  }
+  if (!fs.existsSync(path.join(ROOT, 'kernel/.claude/skills/antislop/LICENSE'))) bad('kernel/.claude/skills/antislop/LICENSE tidak ada');
+  if (!/antislop[\s\S]*MIT[\s\S]*35b54dc/i.test(fs.existsSync(path.join(ROOT, 'THIRD_PARTY.md')) ? read('THIRD_PARTY.md') : '')) bad('THIRD_PARTY.md tidak mencatat antislop (MIT, commit)');
+});
+
 check('tanpa penanda "v1" pada nama plugin, judul, dan skill', (bad) => {
   for (const f of ['plugin/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'kernel/AGENTS.md', 'README.md']) {
     const first = f.endsWith('.md') ? read(f).split('\n')[0] : read(f);

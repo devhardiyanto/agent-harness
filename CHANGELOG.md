@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.19.0
+Milestone 5 rancangan "Sederhana" (D30 b): antislop sebagai salinan teks aturan.
+- **Enam skill antislop 3.2.30** (MIT, commit `35b54dc`) di `kernel/.claude/skills/antislop*`, terpasang ke tiap root. Diubah: petunjuk installer hulu dan pembacaan berkas preferensi di luar project dibuang, mode dari `antislop.mode`, skrip pemeriksa kontras dan izin `Bash(python *)` tidak disertakan. Atribusi dan daftar perubahan: `THIRD_PARTY.md`.
+- **Dimuat lewat spesialis** (frontend: inti + UI + human + layoutmobile; semua spesialis kode: antislop-code), bukan di tiap sesi.
+- **Baris gate `antislop (UI)`** untuk item berbidang frontend; tidak menggagalkan. Reviewer mengutip `R-xx`.
+- **`check-repo`** memeriksa salinan: tanpa perintah unduh/pasang, tanpa `Bash(...)`, URL hanya host rujukan, lisensi dan `THIRD_PARTY.md` ada.
+- Config baru: `antislop.enabled`, `antislop.mode`.
+
 ## 1.18.0
 Milestone 4 rancangan "Sederhana": pengetahuan yang tumbuh, tanpa token model.
 - **Rujukan otomatis**: prompt biasa dicocokkan kode dengan pekerjaan yang sudah selesai (summary item, arsip, playbook, sesi); maks 2 baris rujukan masuk konteks. Item yang sedang dikerjakan dan teks templat tidak dirujuk.

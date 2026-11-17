@@ -188,6 +188,16 @@ Merge tetap aman: ketikan ship menjadi **izin merge tertunda** (`.claude/state/m
 
 Belum terverifikasi di Claude Code asli: status line proyek saat sesi dibuka lewat `claude agents`, dan perintah relatif `node .claude/hooks/statusline.mjs` bila sesi tidak dimulai dari root. Keduanya diperiksa uji M0.
 
+## antislop (1.19.0)
+
+| bagian | perilaku |
+|---|---|
+| salinan | enam skill antislop 3.2.30 (MIT) di `.claude/skills/antislop*`: inti (40 aturan `R-01`–`R-40`, Delivery Gate), `-ui`, `-human`, `-layoutmobile`, `-copywriting`, `-code`. Hanya teks; skrip kontras, server MCP, dan petunjuk installer hulu tidak disalin. Rincian dan lisensi: `THIRD_PARTY.md` |
+| kapan dimuat | lewat spesialis: `frontend` memuat `antislop`, `-ui`, `-human`, `-layoutmobile`; semua spesialis kode memuat `antislop-code`. Inti tidak dimuat di setiap sesi |
+| mode | `antislop.mode`: `during` (bawaan, diterapkan saat menulis), `after` (audit sesudahnya), `ask` |
+| gate | item berbidang frontend mendapat baris `antislop (UI)`: PASS bila tinjauan mengutip `R-xx` atau menyebut antislop, selain itu TIDAK DIPERIKSA (tidak menggagalkan). Reviewer mengutip nomor aturan di kolom `aturan` |
+| penjaga | `check-repo` menolak salinan yang memuat perintah unduh/pasang, `Bash(...)` di `allowed-tools`, URL di luar host rujukan, atau tanpa lisensi |
+
 ## Pengetahuan yang tumbuh (1.18.0)
 
 | bagian | perilaku |
