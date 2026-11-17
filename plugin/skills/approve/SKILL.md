@@ -10,7 +10,7 @@ Perintah ini diproses oleh hook sebelum sampai ke kamu. Yang berubah: `plan.md` 
 
 Tugasmu hanya:
 1. Jalankan `node .claude/hooks/harness.mjs show $ARGUMENTS`.
-2. Bila `status: approved`: balas ≤2 baris — konfirmasi dan "buka sesi baru, jalankan "kerjakan $ARGUMENTS"".
+2. Bila `status: approved`: balas ≤2 baris — konfirmasi dan "ketik kerjakan $ARGUMENTS (di sesi ini, atau sesi baru bila konteks > 50%)".
 3. Bila belum approved: hook tidak aktif atau menolak. Sampaikan alasan dari pesan hook. Minta user menjalankan sendiri: `! node .claude/hooks/harness.mjs approve $ARGUMENTS` (awalan `!` = dijalankan user, bukan agent).
 
 Jangan pernah mengubah status ke approved dengan cara lain.

@@ -24,6 +24,8 @@ if (items.length) {
   for (const i of items.slice(0, 12)) lines.push(`- ${i.slug} · ${i.type} · ${i.status} · services: ${i.services.join(',') || '-'}${i.fm.plane_id && fs.existsSync(mirrorPath(root, i.slug)) ? ` · cermin Plane: .harness/plane/${i.slug}.md` : ''}`);
   if (items.length > 12) lines.push(`- ... +${items.length - 12} lagi (node .claude/hooks/harness.mjs list)`);
 } else lines.push('Belum ada work item terbuka.');
+// 1.19.4: sandbox latihan (scripts/sandbox.mjs): beri tahu agent bahwa push/PR/merge berjalan penuh ke remote lokal
+if (process.env.HARNESS_SANDBOX === '1') lines.push('SANDBOX LATIHAN: semua remote = repo bare lokal dan gh = tiruan. push, PR, check, dan merge berjalan penuh (lokal, tanpa GitHub); jalankan alur seperti biasa, termasuk "push PR + merge".');
 if (!fs.existsSync(path.join(root, 'docs', '_map.md'))) lines.push('PERINGATAN: docs/_map.md belum ada. Jalankan /harness:init.');
 // Kedaluwarsa knowledge vs baseline: git lokal saja, nol token, tanpa jaringan. Gagal = diam.
 try {

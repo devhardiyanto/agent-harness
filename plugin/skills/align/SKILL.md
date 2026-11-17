@@ -18,7 +18,7 @@ Skeptis, bukan menurut: permintaan adalah klaim tentang sistem, bukan fakta. Tug
 2. Tulis ulang objective dalam satu kalimat di `align.md` ("Objective (versi agent)").
 3. Pecah permintaan menjadi klaim (C1, C2, …): asumsi tentang perilaku sekarang, data, kontrak, siapa yang memakai. Untuk tiap klaim cari bukti di kode (agent `scout` untuk pencarian cepat, `explorer` untuk relasi antar-service) dan isi tabel `| C1 | klaim | path:baris | terverifikasi / dugaan / bertentangan |`. Tanpa bukti = `dugaan`. Kode berkata lain = `bertentangan`.
 4. Pertanyaan lain yang menentukan lingkup (default yang kamu ambil, pilihan desain) → baris `| D1 | pertanyaan satu kalimat | a) rekomendasi · b) ... | |` di `## Keputusan terbuka`. **Jangan** menulisnya sebagai narasi di chat. Maks 6 baris D.
-5. Saat user menjawab ("C2: ...", "C3 benar", "D1 a"): perbarui `align.md` (koreksi teks klaim + status `dikoreksi (user)`/`dikonfirmasi (user)`, isi kolom jawaban D), catat di `## Debat`, naikkan `rounds`. **Maksimal 3 ronde**.
+5. Jawaban berbentuk kode ("C3 benar", "C4 benar dan C5 benar", "D1: a", lewat pemilih atau diketik) **dicatat hook**; jangan tulis ulang, cukup koreksi teks klaim yang berstatus `bertentangan (user…)`. Jawaban bebas lain ("C2: sebenarnya …"): perbarui `align.md` (koreksi teks klaim + status `dikoreksi (user)`/`dikonfirmasi (user)`, isi kolom jawaban D), catat di `## Debat`, naikkan `rounds`. **Maksimal 3 ronde**.
 6. Temuan di luar objective → `## Parking lot` saja.
 7. Jangan menulis `verdict: aligned` (hook menolak) dan **jangan menulis AC di `plan.md`** sebelum aligned (hook menolak). Hanya manusia yang menutup align.
 
