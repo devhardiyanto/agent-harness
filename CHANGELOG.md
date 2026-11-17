@@ -4,6 +4,7 @@
 Patch dari pilot yhpa.
 - **Stop hook**: giliran tidak lagi ditahan untuk tabel keputusan kalau keputusan dan klaim terbuka berjumlah 0. Giliran yang hanya menunggu agent latar belakang ("sedang mengerjakan", "hasilnya belum ada") juga tidak ditahan; rekapnya muncul di giliran berikutnya, bukan dua kali di tengah pekerjaan.
 - **Tabel recap**: teks aksi mengikuti bentuk item. Untuk item satu berkas tertulis "isi ### Bukti di plan.md" dan "### Tinjauan plan.md", bukan `progress.md`/`review.md`. Sel panjang dipotong di batas kata dengan "…".
+- **`/summarize [catatan]`**: argumen kini catatan tambahan untuk rangkuman (yang perlu ditekankan, ditambah, atau dilewati), seperti instruksi opsional `/compact` tetapi arahnya menambah. Argumen bukan lagi nama berkas; nama tetap dari nama sesi atau topik, kecuali catatannya jelas menyebut berkas di `docs/sessions/`.
 - **Audit**: tiap tool yang dijalankan subagent dicatat dengan `agent` (`agent_type`) dan `agent_id` di `.claude/audit/`, sebagai bukti uji M0 nomor 2 dan dasar menyalakan `bidang.enforce`.
 
 ## 1.19.1
