@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.15.2
+Merapikan work item (keputusan D36 a, D37 b, D38 a).
+- **`harness.mjs tidy`**: rencana tiga bagian, dihitung kode. (1) Struktur: item yang tidak sesuai versi sekarang (berkas wajib, frontmatter, status, service, slug dari kalimat prompt), hanya dilaporkan. (2) Usang: `draft`/`approved`/`done` tanpa PR yang tidak disentuh 14 hari, `merged` lebih dari 30 hari (`tidy.stale_days`, `tidy.merged_days`). (3) Gabung: item terbuka yang disentuh satu sesi digabung ke item yang statusnya paling jauh; AC disambung dengan nomor lanjutan, bukti ikut.
+- **`tidy --apply` hanya manusia** (ditolak `guard-bash` bila dari agent). Item diarsipkan utuh ke `docs/work/_archive/<slug>/` dan dicatat di `docs/memory/ARCHIVE.md`; tidak dihapus. Arsip tetap ditemukan `recall` dan `ref:<slug>`, tetapi tidak muncul di `sisa`, rekap, status line, dan sinkron Plane. Kartu Plane tidak disentuh.
+- **Status line `+N`**: jumlah item terbuka lain yang disentuh sesi ini, agar status line tidak menyembunyikannya.
+
 ## 1.15.1
 - **Model dan effort di status line**: baris kedua diawali model dan effort sesi (mis. `Sonnet 5.5 · high`), dibaca dari `model.display_name` dan `effort.level` di JSON sesi Claude Code. Effort hanya tampil bila model mendukungnya.
 - **Laporan uji M0**: log kosong (belum ada sesi setelah `on`) kini mencetak pesan "Log kosong", bukan tabel berisi TIDAK.

@@ -24,11 +24,14 @@ export function saveSessionName(root, name) {
 }
 
 // Item aktif sesi ini: yang terakhir disentuh dan belum merged; bila semua merged, yang terakhir disentuh.
+// 1.15.2: juga jumlah item terbuka lain yang disentuh sesi ini (ditampilkan "+N"), agar status line tidak menyembunyikannya.
 function activeItem(root, sid) {
   const slugs = [...touchedSlugs(root, sid)].reverse();
-  let last = null;
-  for (const sl of slugs) { const it = readItem(root, sl); if (!it) continue; if (!last) last = it; if (it.status !== 'merged') return it; }
-  return last;
+  let last = null; let pick = null; let open = 0;
+  for (const sl of slugs) { const it = readItem(root, sl); if (!it) continue; if (!last) last = it; if (it.status !== 'merged') { open++; if (!pick) pick = it; } }
+  const it = pick || last;
+  if (it) it.others = Math.max(0, open - (pick ? 1 : 0));
+  return it;
 }
 
 export function statusData(root, cfg, payload = {}) {
@@ -44,7 +47,7 @@ export function statusData(root, cfg, payload = {}) {
   if (it) {
     const s = summarizeItem(it);
     const ev = readEvidence(root, it.slug);
-    d.item = { slug: shortSlug(root, it.slug), status: it.status, quick: isQuick(it), ac: [s.ac.filter((a) => a.evidence === 'ok').length, s.ac.length],
+    d.item = { others: it.others || 0, slug: shortSlug(root, it.slug), status: it.status, quick: isQuick(it), ac: [s.ac.filter((a) => a.evidence === 'ok').length, s.ac.length],
       checks: ev ? String(ev.verdict || '').toLowerCase() : null, decisions: it.status === 'draft' ? decisionRows(it).length : 0 };
   }
   return d;
@@ -60,7 +63,7 @@ export function render(d, { theme = 'tenang', max = 120 } = {}) {
   if (!d.item) l1.push(c('dim', 'tidak ada item aktif · ketik permintaanmu'));
   else {
     const i = d.item;
-    l1.push(c('item', cut(i.slug, 36)), st(i.status) + (i.quick ? c('dim', ' quick') : ''));
+    l1.push(c('item', cut(i.slug, 36)) + (i.others ? c('dim', ` +${i.others}`) : ''), st(i.status) + (i.quick ? c('dim', ' quick') : ''));
     if (i.ac[1]) l1.push(`AC ${i.ac[0]}/${i.ac[1]}`);
     if (i.checks) l1.push(`checks ${i.checks === 'pass' ? c('ok', '✓') : i.checks === 'fail' ? c('bad', '✗') : c('warn', '?')}`);
     if (i.decisions) l2.push(c('warn', `${i.decisions} keputusan`));

@@ -154,6 +154,9 @@ export function recall(root, query, n = 5) {
   if (!terms.length) return [];
   const files = [];
   for (const it of listItems(root)) for (const f of ['summary.md', 'brief.md', 'align.md']) { const p = path.join(it.dir, f); if (fs.existsSync(p)) files.push(p); }
+  // 1.15.2: item arsip tetap bisa dicari
+  const arch = path.join(root, 'docs', 'work', '_archive');
+  if (fs.existsSync(arch)) for (const d of fs.readdirSync(arch)) for (const f of ['summary.md', 'brief.md']) { const p = path.join(arch, d, f); if (fs.existsSync(p)) files.push(p); }
   for (const d of [path.join(root, 'docs', 'sessions'), memDir(root), path.join(memDir(root), 'playbooks')]) if (fs.existsSync(d)) for (const f of fs.readdirSync(d)) if (f.endsWith('.md')) files.push(path.join(d, f));
   const hits = [];
   for (const f of files) {
@@ -167,7 +170,8 @@ export function recall(root, query, n = 5) {
 
 // "ref:<slug>" di prompt: muat ringkasan item (summary.md, atau brief.md bila belum selesai).
 export function refText(root, cfg, slug) {
-  const dir = path.join(root, 'docs', 'work', slug);
+  let dir = path.join(root, 'docs', 'work', slug);
+  if (!fs.existsSync(dir)) dir = path.join(root, 'docs', 'work', '_archive', slug); // 1.15.2: item arsip
   const f = ['summary.md', 'brief.md'].map((x) => path.join(dir, x)).find((x) => fs.existsSync(x));
   if (!f) return null;
   return `[ref:${slug}] ${path.relative(root, f).split(path.sep).join('/')}\n${read(f).slice(0, cfg.memory.ref_max_chars)}`;

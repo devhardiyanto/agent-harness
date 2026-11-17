@@ -38,6 +38,7 @@ export function evaluate(root, cfg, payload) {
     if (!updateTicket(root, mode)) return fail(`update harness hanya atas permintaan manusia: ketik /harness:update${mode === 'update' ? '' : ' ' + mode} (atau jalankan sendiri dengan awalan "!").`);
   }
 
+  if (/harness\.mjs\s+tidy\b[^;&|]*--apply\b/.test(flat)) return fail('tidy --apply memindahkan dan menggabung work item: hanya manusia ("! node .claude/hooks/harness.mjs tidy --apply"). Tanpa --apply = rencana saja.');
   if (/harness\.mjs\s+gc\b[^;&|]*--yes\b/.test(flat)) return fail('gc --yes menghapus log/bukti: hanya manusia ("! node .claude/hooks/harness.mjs gc --yes"). Tanpa --yes = rencana saja.');
 
   // perintah terlarang dari config

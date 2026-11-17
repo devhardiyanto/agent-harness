@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.15.1",
+  "harness_version": "1.15.2",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -129,5 +129,9 @@
     "statusline": true,
     "theme": "tenang",
     "max_width": 120
+  },
+  "tidy": {
+    "stale_days": 14,
+    "merged_days": 30
   }
 }
