@@ -3,7 +3,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { summarizeItem, isQuick, serviceDirOf, gateFingerprint, findSecret, splitFrontmatter } from './lib.mjs';
+import { itemBidang } from './bidang.mjs';
+import { readPart, summarizeItem, isQuick, serviceDirOf, gateFingerprint, findSecret, splitFrontmatter } from './lib.mjs';
 import { baselineOf } from './knowledge.mjs';
 
 const PASS = 'PASS'; const FAIL = 'FAIL'; const SKIP = 'TIDAK DIPERIKSA'; const NA = 'TIDAK BERLAKU';
@@ -39,6 +40,11 @@ export function runGate(root, cfg, item, { log = () => {} } = {}) {
   if (isQuick(item)) rows.push(['review', NA, 'lajur quick: tanpa review subagent; gate ini penggantinya']);
   else if (!sum.review) rows.push(['review', FAIL, 'review.md belum ada']);
   else rows.push(['review', sum.review.verdict === 'clean' && !sum.review.blockers_open ? PASS : FAIL, `verdict ${sum.review.verdict}, blocker terbuka ${sum.review.blockers_open}`]);
+  // 1.19.0: item berbidang frontend: tinjauan harus menyebut pemeriksaan antislop (kutipan R-xx atau "antislop"). Tidak menggagalkan.
+  if (cfg.antislop && cfg.antislop.enabled && !isQuick(item) && itemBidang(cfg, item).some((r) => r.bidang === 'frontend')) {
+    const rv = readPart(item, 'review.md') || '';
+    rows.push(['antislop (UI)', /\bR-\d{2}\b|antislop/i.test(rv) ? PASS : SKIP, /\bR-\d{2}\b|antislop/i.test(rv) ? 'tinjauan menyebut aturan antislop' : 'tinjauan belum menyebut pemeriksaan antislop (Delivery Gate antislop, kutip R-xx)']);
+  }
 
   const checks = cfg.checks || {};
   const ran = [];

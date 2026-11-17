@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.18.0",
+  "harness_version": "1.19.0",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -151,5 +151,9 @@
     "recall_min_score": 3,
     "prune_days": 60,
     "lessons_via_picker": true
+  },
+  "antislop": {
+    "enabled": true,
+    "mode": "during"
   }
 }

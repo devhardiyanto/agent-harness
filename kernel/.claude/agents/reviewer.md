@@ -20,7 +20,7 @@ Periksa, urut:
 
 Format keluaran (tabel saja):
 | # | severity (BLOCKER/MAJOR/MINOR) | aturan | lokasi path:baris | temuan | saran |
-Kolom `aturan` = ID rule yang dilanggar dari `.claude/rules/*.md` (mis. `S-02` secret, `M-06` minimalis, `W-03` bukti), atau `-` bila temuan tidak terkait rule tertulis. Jangan mengarang ID.
+Kolom `aturan` = ID rule yang dilanggar dari `.claude/rules/*.md` (mis. `S-02` secret, `M-06` minimalis, `W-03` bukti), atau `-` bila temuan tidak terkait rule tertulis. Jangan mengarang ID. Untuk perubahan UI/copy, periksa juga Delivery Gate antislop (skill `antislop`, bila terpasang) dan kutip nomornya (`R-17`) di kolom `aturan`.
 Setelah tabel, blok `POLA` (hanya bila ada; maks 3): pola **baru** yang dipakai ≥2 tempat di diff dan belum ada di `patterns.md`, atau penyimpangan yang beralasan dari pola yang ada. Format: `POLA | <service> | tambah/ganti | <satu kalimat> | path:baris, path:baris`. Jangan mengusulkan dari kode yang masih bermasalah. Kamu hanya melapor; pemanggil menulis usulan dan manusia yang menyetujuinya.
 Akhiri dengan satu baris `VERDICT: clean` (tidak ada BLOCKER) atau `VERDICT: blockers`.
 Jangan memuji, jangan menulis ringkasan naratif. Bila tidak ada temuan, tulis tabel kosong dan `VERDICT: clean`.
