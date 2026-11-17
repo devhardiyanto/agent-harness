@@ -5,13 +5,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   readStdinJson, projectRoot, loadConfig, listItems, summarizeItem, readEvidence, codeFingerprint, isQuick, readJson, audit, isMain, touchedSlugs,
-  readAlign, alignExempt, formatDecision, planeKick,
+  readAlign, alignExempt, formatDecision, planeKick, decisionRows,
 } from './lib.mjs';
 import { logIntent } from './pilot.mjs';
 import { buildQuestions, saveNaskah, askInstruction, saveLessonNaskah } from './ask.mjs';
 import { lessonsAsk } from './growth.mjs';
 import crypto from 'node:crypto';
 import { openRows, formatOpen } from './recap.mjs';
+
+export const WAITING = /(background agent|agen(?:t)? latar|di latar belakang|(?:sedang|masih) (?:mengerjakan|berjalan|bekerja)|menunggu (?:agen|agent|laporan|hasil)|hasilnya belum ada|setelah laporannya masuk)/i;
 
 // 1.10.0: rekap "belum selesai" untuk item yang disentuh sesi ini, ditampilkan ke USER (systemMessage), hanya bila isinya berubah
 // sejak rekap terakhir sesi ini (agar tidak berulang tiap giliran).
@@ -25,6 +27,7 @@ export function decisionFor(root, cfg, payload) {
     if (!mine.has(it.slug) || it.status !== 'draft' || alignExempt(it, cfg)) continue;
     const a = readAlign(it);
     if (!a || a.verdict === 'aligned' || !a.claims) continue;
+    if (!decisionRows(it).length) continue; // 1.19.2: tanpa keputusan/klaim terbuka tidak ada yang perlu ditanyakan; giliran tidak ditahan
     parts.push(formatDecision(root, it)); if (it.fm.plane_id) slugs.push(it.slug); asked.push(it);
   }
   if (!parts.length) return null;
@@ -118,6 +121,9 @@ if (isMain(import.meta.url)) {
   // 1.13.1 (recap.render): "assistant" = giliran ditahan sekali agar agent menutup dengan tabel Markdown (dirender TUI);
   // "system" = perilaku lama (systemMessage, tampil sebagai teks polos). Tidak ditahan bila sudah ditahan di giliran ini
   // atau pesan terakhir agent sudah memuat tabelnya.
+  // 1.19.2: giliran yang hanya menunggu agent latar belakang tidak ditahan dan rekapnya tidak "dipakai" (muncul di giliran
+  // berikutnya), agar tabel tidak tampil dua kali di tengah pekerjaan. Heuristik dari pesan terakhir agent.
+  if (WAITING.test(String(payload.last_assistant_message || ''))) process.exit(0);
   try {
     const t = recapFor(root, cfg, payload.session_id);
     if (t) {

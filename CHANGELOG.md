@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.19.2
+Patch dari pilot yhpa.
+- **Stop hook**: giliran tidak lagi ditahan untuk tabel keputusan kalau keputusan dan klaim terbuka berjumlah 0. Giliran yang hanya menunggu agent latar belakang ("sedang mengerjakan", "hasilnya belum ada") juga tidak ditahan; rekapnya muncul di giliran berikutnya, bukan dua kali di tengah pekerjaan.
+- **Tabel recap**: teks aksi mengikuti bentuk item. Untuk item satu berkas tertulis "isi ### Bukti di plan.md" dan "### Tinjauan plan.md", bukan `progress.md`/`review.md`. Sel panjang dipotong di batas kata dengan "…".
+- **Audit**: tiap tool yang dijalankan subagent dicatat dengan `agent` (`agent_type`) dan `agent_id` di `.claude/audit/`, sebagai bukti uji M0 nomor 2 dan dasar menyalakan `bidang.enforce`.
+
 ## 1.19.1
 Patch dari uji di yhpa.
 - **`tidy`**: item lajur quick (bentuk folder) tidak lagi dilaporkan "brief.md tidak ada", karena lajur itu memang hanya punya `plan.md` dan `progress.md`. `--apply` tanpa item usang atau grup gabung kini menyatakan "Tidak ada yang diterapkan" (sebelumnya mencetak ulang rencana tanpa keterangan).

@@ -35,7 +35,9 @@ if (ev === 'InstructionsLoaded') {
   process.exit(0);
 }
 const target = input.file_path || input.notebook_path || input.command || input.pattern || '';
-audit(root, { event: ev, session: payload.session_id, tool: payload.tool_name, target });
+// 1.19.2: agent yang menjalankan tool (subagent membawa agent_type/agent_id), bukti uji M0 nomor 2 dan dasar bidang.enforce
+const agent = payload.agent_type || payload.agent_name || payload.subagent_type || undefined;
+audit(root, { event: ev, session: payload.session_id, tool: payload.tool_name, target, agent, agent_id: payload.agent_id || undefined });
 
 // Catat item yang disentuh sesi ini: tulis ke docs/work/<slug>/..., atau perintah shell yang menyebut slug (mis. run-checks <slug>).
 try {

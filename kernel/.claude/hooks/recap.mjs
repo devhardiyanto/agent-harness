@@ -3,11 +3,12 @@
 // yang belum aligned, AC tanpa bukti, blocker review terbuka, usulan memori yang menunggu. Deterministik, nol token.
 import fs from 'node:fs';
 import path from 'node:path';
-import { readPart, listItems, nextStep, summarizeItem, splitFrontmatter, isQuick, decisionRows, shortSlug } from './lib.mjs';
+import { readPart, isSingle, listItems, nextStep, summarizeItem, splitFrontmatter, isQuick, decisionRows, shortSlug } from './lib.mjs';
 import { section, bullets } from './summary.mjs';
 import { pending } from './memory.mjs';
 
-const cell = (s) => String(s || '').replace(/\|/g, '/').replace(/\s+/g, ' ').trim().slice(0, 110);
+// 1.19.2: dipotong di batas kata dengan tanda "…", bukan di tengah kata
+export const cell = (s, n = 110) => { const t = String(s || '').replace(/\|/g, '/').replace(/\s+/g, ' ').trim(); if (t.length <= n) return t; const c = t.slice(0, n - 1); const i = c.lastIndexOf(' '); return `${(i > n * 0.6 ? c.slice(0, i) : c).trimEnd()}…`; };
 const PH = /^(-|\.{3}|<.*>|todo|tbd|n\/a|tidak ada|belum ada|kosong)$/i;
 
 export function openRows(root, cfg, { slugs = null } = {}) {
@@ -21,15 +22,15 @@ export function openRows(root, cfg, { slugs = null } = {}) {
     const bt = readPart(it, 'brief.md');
     if (bt !== null && ['draft'].includes(it.status)) {
       const qs = bullets(section(splitFrontmatter(bt).body, /^##\s+Open questions/i)).map((q) => q.replace(/^[-*]\s*/, '')).filter((q) => q && !PH.test(q));
-      for (const q of qs.slice(0, 3)) rows.push({ item: it.slug, label, jenis: 'pertanyaan', apa: q, siapa: 'kamu', aksi: 'jawab di chat; agent mencatat di brief.md' });
+      for (const q of qs.slice(0, 3)) rows.push({ item: it.slug, label, jenis: 'pertanyaan', apa: q, siapa: 'kamu', aksi: `jawab di chat; agent mencatat di ${isSingle(it) ? 'bagian 3 plan.md' : 'brief.md'}` });
     }
     // 1.12.0: sumber yang sama dengan tabel keputusan (klaim bertentangan/dugaan + keputusan D terbuka)
     for (const d of decisionRows(it).slice(0, 6)) rows.push({ item: it.slug, label, jenis: d.kind === 'keputusan' ? 'keputusan' : `klaim ${d.kind}`, apa: `${d.id}: ${d.ask}`, siapa: 'kamu', aksi: d.answer });
     if (['in-progress', 'in-review'].includes(it.status)) {
       const s = summarizeItem(it);
       const miss = s.ac.filter((x) => x.evidence !== 'ok').map((x) => x.id);
-      if (miss.length) rows.push({ item: it.slug, label, jenis: 'AC tanpa bukti', apa: miss.join(', '), siapa: 'agent', aksi: 'isi bukti di progress.md' });
-      if (s.review && s.review.blockers_open) rows.push({ item: it.slug, label, jenis: 'blocker review', apa: `${s.review.blockers_open} terbuka`, siapa: 'agent', aksi: 'perbaiki, centang di review.md' });
+      if (miss.length) rows.push({ item: it.slug, label, jenis: 'AC tanpa bukti', apa: miss.join(', '), siapa: 'agent', aksi: isSingle(it) ? 'isi ### Bukti di plan.md' : 'isi bukti di progress.md' });
+      if (s.review && s.review.blockers_open) rows.push({ item: it.slug, label, jenis: 'blocker review', apa: `${s.review.blockers_open} terbuka`, siapa: 'agent', aksi: isSingle(it) ? 'perbaiki, centang di ### Tinjauan plan.md' : 'perbaiki, centang di review.md' });
     }
   }
   if (cfg.memory.enabled) {
