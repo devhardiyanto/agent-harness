@@ -1,15 +1,21 @@
 ---
 name: summarize
 description: Rangkum percakapan sesi ini ke docs/sessions/<nama-sesi>.md agar bisa dilanjutkan di sesi lain. Dipakai saat user mengetik /summarize, meminta rangkuman sesi, atau menyinggung berkas rangkuman yang sudah ada (maka berkas itu diperbarui).
-argument-hint: "[nama-berkas]"
+argument-hint: "[catatan tambahan: yang perlu ditekankan, ditambah, atau dilewati]"
 ---
 # Instructions Summarize
 
 Rangkum seluruh isi percakapan kita di dalam room chat ini secara chronological order. Jika kita sudah menyepakati suatu perubahan di akhir sesi chat ini, tunjukkan versi terbarunya, tidak perlu menyertakan versi awal dari apa yang kita diskusikan. Tulis rangkuman ini dalam format yang sederhana namun lengkap, agar saya bisa melanjutkan percakapan ini di room chat berbeda tanpa kehilangan grounding context.
 
+## Catatan tambahan dari user
+`$ARGUMENTS` (boleh kosong) adalah **catatan tambahan untuk rangkuman ini**, seperti instruksi opsional pada `/compact`, tetapi arahnya menambah, bukan memadatkan. Contoh: "tekankan keputusan soal Plane", "tambahkan daftar perintah yang dipakai", "lewati bagian debugging CSS", "catat bahwa Umar hanya pegang sisi bisnis".
+- Ikuti catatan itu di atas aturan bagian "Isi": yang diminta ditekankan ditulis lebih rinci, yang diminta ditambah dimasukkan ke bagian yang paling cocok (atau bagian baru di akhir), yang diminta dilewati tidak ditulis.
+- Catatan berupa fakta dari user (bukan dari percakapan) ditandai `(catatan user)`.
+- `$ARGUMENTS` **bukan** nama berkas. Hanya bila catatannya jelas menyebut berkas di `docs/sessions/` (mis. "perbarui ke umar-feedback.md"), berkas itu yang dipakai.
+
 ## Nama berkas
 `docs/sessions/<nama>.md`, tanpa tanggal, tanpa judul panjang. `<nama>` diambil dari, urut:
-1. `$ARGUMENTS` bila diisi.
+1. Berkas yang disebut jelas di catatan tambahan (lihat di atas).
 2. Nama sesi atau agent yang tampil di status line (bentuk `kata-kata-kata`), bila kamu mengetahuinya: `node .claude/hooks/harness.mjs session-name` mencetaknya bila tersedia; keluaran kosong berarti tidak diketahui.
 3. Selain itu: 2–4 kata topik utama, huruf kecil, dipisah tanda hubung.
 
