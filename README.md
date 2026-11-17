@@ -188,6 +188,20 @@ Merge tetap aman: ketikan ship menjadi **izin merge tertunda** (`.claude/state/m
 
 Belum terverifikasi di Claude Code asli: status line proyek saat sesi dibuka lewat `claude agents`, dan perintah relatif `node .claude/hooks/statusline.mjs` bila sesi tidak dimulai dari root. Keduanya diperiksa uji M0.
 
+## Merapikan work item (1.15.2)
+
+`node .claude/hooks/harness.mjs tidy` menampilkan rencana; `! node .claude/hooks/harness.mjs tidy --apply` menjalankannya (hanya manusia; agent ditolak `guard-bash`).
+
+| bagian | aturan |
+|---|---|
+| struktur | item yang tidak sesuai versi sekarang: `brief.md`/`plan.md`/`progress.md` hilang, status tak dikenal, frontmatter `title`/`type`/`created` kosong, `services` kosong atau tidak ada di config, slug tanpa tanggal atau dibuat dari kalimat prompt. Hanya dilaporkan, tidak diubah |
+| usang → arsip | `draft`/`approved` (termasuk quick) atau `done` tanpa PR yang tidak disentuh `tidy.stale_days` (14) hari, dan `merged` lebih dari `tidy.merged_days` (30) hari. Umur dari `updated`, lalu `created`, lalu tanggal di slug |
+| gabung | item terbuka yang disentuh satu sesi (`.harness/state/touched-*.json`) digabung; item utama = status paling jauh (`in-progress` > `in-review` > `done` > `approved` > `draft`). AC item lain disambung dengan nomor lanjutan di `plan.md`, buktinya ke `progress.md`, `services` disatukan |
+| arsip | dipindah utuh ke `docs/work/_archive/<slug>/` (tidak dihapus), `archived` dan `archived_reason` di frontmatter, satu baris di `docs/memory/ARCHIVE.md`. Tidak muncul lagi di `sisa`, rekap, status line, dan sinkron Plane; tetap ditemukan `recall` dan `ref:<slug>` |
+| Plane | kartu tidak disentuh (diarsipkan lewat MCP setelah 2.0) |
+
+Status line kini menampilkan `+N` bila sesi menyentuh lebih dari satu item terbuka.
+
 ## Advisor Opus untuk tugas besar (1.14.0, opsional)
 
 Fitur bawaan Claude Code (eksperimental), bukan fitur harness: sesi utama tetap Sonnet, dan sesekali berkonsultasi ke model yang lebih kuat. Harness **tidak menyalakannya** dan `doctor` tidak menagihnya.

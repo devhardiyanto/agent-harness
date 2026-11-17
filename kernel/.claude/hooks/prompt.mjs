@@ -14,6 +14,7 @@ import { verifyService, approveProposal, formatLint } from './knowledge.mjs';
 import { issueTicket, writeIntent } from './ship.mjs';
 import { parseIntent } from './intent.mjs';
 import { addEntry, removeEntry, approvePending, refText } from './memory.mjs';
+import { resolveArchived } from './tidy.mjs';
 import { openRows, formatOpen } from './recap.mjs';
 
 const payload = await readStdinJson();
@@ -24,7 +25,7 @@ const who0 = () => spawnSync('git', ['config', 'user.email'], { cwd: root, encod
 // 1.10.0: kalimat pendek tanpa slash → perintah kanonik; "ref:<slug>" → ringkasan item sebagai konteks.
 const soleDone = () => { const d = listItems(root).filter((i) => i.status === 'done'); return d.length === 1 ? d[0].slug : null; };
 const intent = parseIntent(prompt, cfg, (q) => resolveSlug(root, q), soleDone);
-const refCtx = intent.refs.map((r) => resolveSlug(root, r)).filter(Boolean).map((s) => refText(root, cfg, s)).filter(Boolean);
+const refCtx = intent.refs.map((r) => resolveSlug(root, r) || resolveArchived(root, r)).filter(Boolean).map((s) => refText(root, cfg, s)).filter(Boolean);
 const sid = payload.session_id || 'unknown';
 // 1.13.0: log pilot (lokal) + peringatan slash usang (D8: di 2.0 hanya init/update yang tampil sebagai slash)
 const DEPRECATED = { approve: 'setuju <slug>', status: 'sisa', next: 'sisa', quick: 'quick: <permintaan>' };

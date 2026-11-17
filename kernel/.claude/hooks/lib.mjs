@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.15.1',
+  harness_version: '1.15.2',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -55,6 +55,8 @@ export const DEFAULT_CONFIG = {
   // 1.13.0: log intent lokal (.harness/state/intent-log.jsonl) untuk mengukur kesiapan 2.0 (`harness.mjs pilot`).
   // hours: jendela pilot (bawaan 6 jam, keputusan user 2026-11-10); `pilot --hours N` / `--days N` untuk melihat jendela lain.
   // 1.15.0: status line harness (settings.json → statusLine). theme: tenang | kontras | mono. statusline:false = tidak mencetak apa pun.
+  // 1.15.2: tidy. stale_days: draft/approved/done-tanpa-PR yang tidak disentuh selama itu diarsipkan; merged_days: item merged.
+  tidy: { stale_days: 14, merged_days: 30 },
   tui: { statusline: true, theme: 'tenang', max_width: 120 },
   pilot: { enabled: true, hours: 6, max_misfires: 0, min_ships: 1 },
   // 1.10.0 — feature flag. Semua aditif: perintah /harness:* lama tetap berlaku.
@@ -98,7 +100,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tui']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tui', 'tidy']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   cfg.plane.states = { ...DEFAULT_CONFIG.plane.states, ...((user.plane && user.plane.states) || {}) };
   return cfg;
 }

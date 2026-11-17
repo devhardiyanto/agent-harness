@@ -20,6 +20,7 @@
 //   run-checks <slug>       jalankan checks per service (lint/test/build) dan tulis bukti .harness/evidence/<slug>/tests.json (dipakai gerbang Stop; dipanggil agent runner)
 //   log [n] [--handoff]     handoff terakhir + n event terbaru dari .harness/events.jsonl (default 15)
 //   watch [--once]          TUI papan kerja (Backlog/Todo/In Progress/Review/Done) + event terakhir; q keluar
+//   tidy [--apply] [--json]  rapikan item: struktur tidak sesuai, item usang → docs/work/_archive, item satu sesi digabung; --apply hanya manusia
 //   gc [--days N] [--yes]   rencana pembersihan berkas sementara (bukti item merged, tiket/penanda kedaluwarsa, audit > N hari, default 30); --yes hanya manusia
 //   measure <transcript.jsonl> [--json] [--label x]   token per model, panggilan tool/subagent, durasi → .harness/metrics/ (baseline sebelum/sesudah routing)
 //   update [--all|--rollback]  perbarui harness di root ke main (HANYA dengan tiket: /harness:update atau "tolong root nya di update ke main")
@@ -81,6 +82,7 @@ const rawLog = console.log;
 console.log = (...a) => rawLog(tableMode === 'compact' ? format(...a) : alignTables(format(...a), tableMode));
 import { pilotReport } from './pilot.mjs';
 import { checkV2, fixAlign } from './migrate.mjs';
+import { planTidy, applyTidy, formatTidy } from './tidy.mjs';
 
 const root = projectRoot();
 const cfg = loadConfig(root);
@@ -352,6 +354,13 @@ switch (cmd) {
   case 'watch': {
     if (args.includes('--once') || !process.stdout.isTTY) { console.log(renderFrame(root, { width: Number((args[args.indexOf('--width') + 1])) || 110 })); break; }
     runWatch(root);
+    break;
+  }
+  case 'tidy': {
+    const p = planTidy(root, cfg);
+    if (args.includes('--json')) { console.log(JSON.stringify(p, null, 2)); break; }
+    const applied = args.includes('--apply') && (p.stale.length || p.merge.length) ? applyTidy(root, cfg, p) : null;
+    console.log(formatTidy(p, applied));
     break;
   }
   case 'gc': {
