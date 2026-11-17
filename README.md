@@ -188,6 +188,16 @@ Merge tetap aman: ketikan ship menjadi **izin merge tertunda** (`.claude/state/m
 
 Belum terverifikasi di Claude Code asli: status line proyek saat sesi dibuka lewat `claude agents`, dan perintah relatif `node .claude/hooks/statusline.mjs` bila sesi tidak dimulai dari root. Keduanya diperiksa uji M0.
 
+## Pengetahuan yang tumbuh (1.18.0)
+
+| bagian | perilaku |
+|---|---|
+| rujukan otomatis | prompt biasa (bukan kalimat pendek/slash, ≥ 15 karakter) dicocokkan kode dengan `summary.md` item selesai, item arsip, playbook, dan rangkuman sesi. Maks `growth.recall_max` (2) baris berskor ≥ `growth.recall_min_score` (3) masuk konteks. Item yang sedang dikerjakan sesi ini tidak dirujuk |
+| pemakaian | tiap rujukan yang disuntikkan dihitung di `.harness/state/usage.json` (jumlah, pertama, terakhir) |
+| pelajaran lewat pemilih | saat item `done`, Decision log diantrekan sebagai usulan berlabel bidang (`[backend] …`). Di akhir giliran hook menawarkan pemilih multiSelect; yang dipilih masuk `MEMORY.md`, sisanya dibuang. `growth.lessons_via_picker: false` = perilaku lama (langsung disimpan) |
+| playbook per bidang | frontmatter opsional `bidang:` (P-07). "kerjakan <slug>" menyebut playbook bidang itu untuk spesialisnya |
+| laporan | `harness.mjs growth`: umur root, pelajaran (+usulan), playbook per bidang, item terbuka/merged/arsip, rujukan terpakai 30 hari, kandidat dibuang (tak terpakai `growth.prune_days`). Status line menampilkan `umur N h` |
+
 ## Spesialis per bidang (1.17.0)
 
 | bagian | perilaku |

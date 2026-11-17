@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.17.0',
+  harness_version: '1.18.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -61,6 +61,9 @@ export const DEFAULT_CONFIG = {
   item: { bentuk: 'tunggal' },
   // 1.17.0: spesialis per bidang. map: { "<service>": "backend|frontend|devops|dba" }; service tanpa map ditebak dari namanya.
   // enforce: tolak edit kode service berbidang dari sesi utama (butuh payload hook yang menyebut agent; lihat uji M0 nomor 2).
+  // 1.18.0: pengetahuan tumbuh. recall: rujukan otomatis per prompt (maks recall_max, skor >= recall_min_score);
+  // lessons_via_picker: pelajaran item selesai ditawarkan lewat pemilih alih-alih langsung disimpan; prune_days: usulan buang.
+  growth: { recall: true, recall_max: 2, recall_min_score: 3, prune_days: 60, lessons_via_picker: true },
   bidang: { enabled: true, map: {}, fallback_agent: 'implementer', enforce: false },
   tui: { statusline: true, theme: 'tenang', max_width: 120, ask: true, menu: true },
   pilot: { enabled: true, hours: 6, max_misfires: 0, min_ships: 1 },
@@ -105,7 +108,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tui', 'tidy', 'item', 'bidang']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tui', 'tidy', 'item', 'bidang', 'growth']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   cfg.plane.states = { ...DEFAULT_CONFIG.plane.states, ...((user.plane && user.plane.states) || {}) };
   return cfg;
 }

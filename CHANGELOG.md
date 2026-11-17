@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.18.0
+Milestone 4 rancangan "Sederhana": pengetahuan yang tumbuh, tanpa token model.
+- **Rujukan otomatis**: prompt biasa dicocokkan kode dengan pekerjaan yang sudah selesai (summary item, arsip, playbook, sesi); maks 2 baris rujukan masuk konteks. Item yang sedang dikerjakan dan teks templat tidak dirujuk.
+- **Hitungan pemakaian** di `.harness/state/usage.json`; rujukan yang lama tak terpakai diusulkan dibuang di laporan.
+- **Pelajaran lewat pemilih**: Decision log item `done` diantrekan dengan label bidang, lalu ditawarkan sebagai pemilih multiSelect di akhir giliran; yang dipilih disimpan, sisanya dibuang (dicatat hook `ask.mjs`).
+- **Playbook per bidang**: frontmatter `bidang:` (aturan P-07); "kerjakan <slug>" menyebut playbook bidang untuk spesialisnya.
+- **`harness.mjs growth`**: umur root, pelajaran, playbook per bidang, item, rujukan terpakai, kandidat dibuang. Status line menampilkan umur root.
+- Config baru: `growth.recall`, `recall_max`, `recall_min_score`, `prune_days`, `lessons_via_picker`.
+
 ## 1.17.0
 Milestone 3 rancangan "Sederhana" (D29, D29b a): persona = spesialis per bidang.
 - **Agent spesialis** `backend`, `frontend`, `devops` (baru) dan `dba` (label bidang). `implementer` menjadi cadangan untuk service tanpa bidang.

@@ -5,6 +5,7 @@
 // pertanyaan yang berakibat ke berkas item. approve/merge TIDAK pernah lewat pemilih (D33): tetap dari ketikan user.
 import fs from 'node:fs';
 import path from 'node:path';
+import { approvePending, rejectPending } from './memory.mjs';
 import { readStdinJson, projectRoot, loadConfig, readItem, readAlign, decisionRows, isSingle, isMain, audit, shortSlug, nextStep, touchedSlugs, readJson } from './lib.mjs';
 
 const naskahPath = (root, sid) => path.join(root, '.harness', 'state', 'ask', `${String(sid || 'x').replace(/\W/g, '')}.json`);
@@ -32,6 +33,14 @@ export function saveNaskah(root, sid, slug, questions) {
   const f = naskahPath(root, sid);
   const prev = readJson(f, { items: {} }) || { items: {} };
   prev.items[slug] = questions.map((q) => ({ id: q.id, question: q.question, options: q.options.map((o) => o.label) }));
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  fs.writeFileSync(f, JSON.stringify(prev, null, 2));
+}
+
+export function saveLessonNaskah(root, sid, la) {
+  const f = naskahPath(root, sid);
+  const prev = readJson(f, { items: {} }) || { items: {} };
+  prev.lessons = { question: la.question.question, map: Object.fromEntries(la.question.options.map((o, i) => [norm(o.label), la.ids[i]])), ids: la.ids };
   fs.mkdirSync(path.dirname(f), { recursive: true });
   fs.writeFileSync(f, JSON.stringify(prev, null, 2));
 }
@@ -84,6 +93,18 @@ export function recordAnswers(root, payload) {
       const a = ans.get(norm(q.question));
       if (a === undefined || !a.trim()) continue;
       if (writeAnswer(it, q.id, a)) done.push(`${slug} ${q.id}=${a}`);
+    }
+  }
+  if (nk.lessons) {
+    const a = ans.get(norm(nk.lessons.question));
+    if (a !== undefined) {
+      const na = norm(a); // label bisa memuat koma: cocokkan tiap label sebagai potongan jawaban
+      const chosen = Object.entries(nk.lessons.map).filter(([lbl]) => na.includes(lbl)).map(([, id]) => id);
+      const cfg = loadConfig(root);
+      if (chosen.length) { const r = approvePending(root, cfg, chosen, 'user (pemilih)'); if (r.applied && r.applied.length) done.push(`pelajaran disimpan: ${r.applied.join(',')}`); }
+      const rest = nk.lessons.ids.filter((id) => !chosen.includes(id));
+      if (rest.length) { rejectPending(root, rest); done.push(`pelajaran dibuang: ${rest.join(',')}`); }
+      delete nk.lessons; fs.writeFileSync(f, JSON.stringify(nk, null, 2));
     }
   }
   if (done.length) audit(root, { event: 'ask-answer', session: payload.session_id, answers: done.join('; ') });

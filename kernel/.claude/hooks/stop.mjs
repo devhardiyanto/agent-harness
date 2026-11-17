@@ -8,7 +8,8 @@ import {
   readAlign, alignExempt, formatDecision, planeKick,
 } from './lib.mjs';
 import { logIntent } from './pilot.mjs';
-import { buildQuestions, saveNaskah, askInstruction } from './ask.mjs';
+import { buildQuestions, saveNaskah, askInstruction, saveLessonNaskah } from './ask.mjs';
+import { lessonsAsk } from './growth.mjs';
 import crypto from 'node:crypto';
 import { openRows, formatOpen } from './recap.mjs';
 
@@ -105,6 +106,15 @@ if (isMain(import.meta.url)) {
     process.stderr.write(`[harness] ${dec}\n`);
     process.exit(2);
   }
+  // 1.18.0: pelajaran dari item sesi ini ditawarkan lewat pemilih (sekali per set usulan)
+  try {
+    const la = lessonsAsk(root, cfg, payload.session_id);
+    if (la && !payload.stop_hook_active) {
+      saveLessonNaskah(root, payload.session_id, la);
+      process.stderr.write(`[harness] Tawarkan pelajaran ini ke user dengan tool AskUserQuestion, argumen JSON APA ADANYA (yang dipilih disimpan ke memori project, sisanya dibuang; dicatat hook). Bila tool tidak tersedia, tampilkan daftar dan minta user mengetik "ingat P1,P2".\n${JSON.stringify({ questions: [la.question] })}\n`);
+      process.exit(2);
+    }
+  } catch { /* pelajaran tidak boleh menjebak sesi */ }
   // 1.13.1 (recap.render): "assistant" = giliran ditahan sekali agar agent menutup dengan tabel Markdown (dirender TUI);
   // "system" = perilaku lama (systemMessage, tampil sebagai teks polos). Tidak ditahan bila sudah ditahan di giliran ini
   // atau pesan terakhir agent sudah memuat tabelnya.

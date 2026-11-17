@@ -57,8 +57,15 @@ export function execPlan(cfg, item) {
   if (item.type === 'schema' && !list.some((x) => x.agent === 'dba')) list.unshift({ svc: list[0] && list[0].svc, agent: 'dba', bidang: 'dba' });
   return list.sort((a, b) => (a.agent === 'dba' ? -1 : b.agent === 'dba' ? 1 : 0));
 }
-export function execText(cfg, item) {
+// 1.18.0 (D5): playbook berlabel bidang (frontmatter `bidang:`) disebut per spesialis; playbook tanpa label = umum.
+export function playbooksFor(root, b) {
+  const d = path.join(root, 'docs', 'memory', 'playbooks');
+  let names = []; try { names = fs.readdirSync(d).filter((f) => f.endsWith('.md') && !f.startsWith('_')); } catch { return []; }
+  return names.filter((f) => { try { const m = /^bidang:\s*\[?\s*([\w, -]+?)\s*\]?\s*$/m.exec(fs.readFileSync(path.join(d, f), 'utf8').split(/\n---/)[0]); return m && m[1].split(/\s*,\s*/).includes(b); } catch { return false; } }).map((f) => f.replace(/\.md$/, ''));
+}
+export function execText(cfg, item, root = null) {
   const l = execPlan(cfg, item);
   if (!l.length) return '';
-  return `Eksekusi oleh spesialis (panggil tool Agent, satu per baris, berurutan): ${l.map((x) => `agent \`${x.agent}\`${x.svc ? ` untuk ${x.svc}` : ''}`).join('; ')}. Sesi utama tidak mengedit kode service itu sendiri; ia merangkum hasil dan menulis bukti.`;
+  const pb = (b) => { if (!root || !b) return ''; const p = playbooksFor(root, b); return p.length ? ` (playbook ${b}: ${p.slice(0, 5).join(', ')})` : ''; };
+  return `Eksekusi oleh spesialis (panggil tool Agent, satu per baris, berurutan): ${l.map((x) => `agent \`${x.agent}\`${x.svc ? ` untuk ${x.svc}` : ''}${pb(x.bidang)}`).join('; ')}. Sesi utama tidak mengedit kode service itu sendiri; ia merangkum hasil dan menulis bukti.`;
 }

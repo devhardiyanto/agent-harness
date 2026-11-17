@@ -9,7 +9,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { findSecret, audit, listItems } from './lib.mjs';
+import { asList, findSecret, audit, listItems } from './lib.mjs';
 
 export const memDir = (root) => path.join(root, 'docs', 'memory');
 const P = (root, f) => path.join(memDir(root), f);
@@ -141,8 +141,12 @@ export function learnFrom(root, cfg, item, decisions) {
   const out = [];
   for (const d of decisions.map((x) => clean(x.replace(/^[-*]\s*/, ''))).filter((x) => x.length >= 12).slice(0, cfg.memory.learn_max)) {
     // gaya Hermes: langsung masuk; penuh/ditolak -> antrean, supaya pelajaran tidak hilang dan terlihat di tabel Belum selesai
-    let r = cfg.memory.write_approval ? { ok: false } : addEntry(root, cfg, d, `dari ${item.slug}`);
-    if (!r.ok) r = stage(root, cfg, d, `dari ${item.slug}`);
+    // 1.18.0: label bidang di depan pelajaran; lewat pemilih (lessons_via_picker) = antre dulu, user memilih di akhir giliran
+    const b = asList(item.fm && item.fm.bidang).map(String).filter(Boolean)[0];
+    const txt = b && !d.startsWith('[') ? `[${b}] ${d}` : d;
+    const viaPick = cfg.growth && cfg.growth.lessons_via_picker && cfg.tui && cfg.tui.ask;
+    let r = cfg.memory.write_approval || viaPick ? { ok: false } : addEntry(root, cfg, txt, `dari ${item.slug}`);
+    if (!r.ok) r = stage(root, cfg, txt, `dari ${item.slug}`);
     if (r.ok) out.push(r.id);
   }
   return out;
