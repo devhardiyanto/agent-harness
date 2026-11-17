@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.15.1
+- **Model dan effort di status line**: baris kedua diawali model dan effort sesi (mis. `Sonnet 5.5 · high`), dibaca dari `model.display_name` dan `effort.level` di JSON sesi Claude Code. Effort hanya tampil bila model mendukungnya.
+- **Laporan uji M0**: log kosong (belum ada sesi setelah `on`) kini mencetak pesan "Log kosong", bukan tabel berisi TIDAK.
+- `docs/v1.15/SPIKE.md`: hasil sementara uji M0 di `event` (status line proyek tampil lewat `claude agents`, nama sesi terkirim, skill `user-invocable: false` tidak bisa dipanggil user).
+
 ## 1.15.0
 Milestone 1 dari rancangan "Sederhana" (`docs/v1.15/`, keputusan D29–D35). Aditif; mematikan `tui.statusline` dan menghapus `outputStyle` mengembalikan tampilan 1.14.
 - **Status line harness** (`statusLine` → `.claude/hooks/statusline.mjs`): root, item sesi ini, status, `AC n/m`, checks; baris kedua keputusan terbuka, komentar Plane baru, jumlah pelajaran, konteks %. Tema `tui.theme` (`tenang`, `kontras`, `mono`), `NO_COLOR` dihormati, `tui.max_width`. Galat apa pun menghasilkan satu baris polos.

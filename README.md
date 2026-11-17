@@ -180,6 +180,7 @@ Merge tetap aman: ketikan ship menjadi **izin merge tertunda** (`.claude/state/m
 |---|---|
 | status line | `settings.json` → `statusLine` menjalankan `.claude/hooks/statusline.mjs`. Baris 1: root, item yang disentuh sesi ini, status, `AC n/m`, hasil checks. Baris 2: keputusan terbuka, komentar Plane yang belum dibaca, jumlah pelajaran di memori, konteks %. Hanya membaca berkas item sesi ini |
 | tema | `tui.theme`: `tenang` (bawaan), `kontras`, `mono`. `NO_COLOR` memaksa `mono`. `tui.statusline: false` mematikan; `tui.max_width` memotong baris |
+| model dan effort | baris 2 diawali model dan effort sesi (`Sonnet 5.5 · high`), dari JSON sesi Claude Code; effort hanya tampil bila model mendukungnya (1.15.1) |
 | nama sesi | status line menyimpan `session_name` ke `.harness/state/session-name`; `/summarize` memakainya sebagai nama berkas |
 | gaya keluaran | `.claude/output-styles/harness.md` (`outputStyle: "harness"`): tabel, maksimal 5 baris, kalimat pendek. Berupa instruksi; gerbang tetap ditegakkan hook |
 | tanpa slash | semua saran langkah dari kode memakai kalimat pendek. Baru: "kerjakan <slug>" (= build), "verifikasi knowledge <svc>", "terapkan pola <slug> <P1|semua>". Bentuk `/harness:*` tetap diterima |
