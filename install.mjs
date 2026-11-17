@@ -388,8 +388,8 @@ table(['item', 'nilai'], [
 if (warnings.length) log(`\nPeringatan:\n${warnings.map((w) => `- ${w}`).join('\n')}`);
 log('\n## Langkah berikutnya (kamu)');
 log('1. Plugin (skill /harness:*) dipasang global sekali per mesin:  node scripts/update-all.mjs --setup-plugin   (atau: claude plugin install harness --marketplace <owner>/<repo-installer> --scope user). Lewati bila sudah.');
-log('2. Cek:  node .claude/hooks/harness.mjs doctor      (atau /harness:status)');
-log('3. Isi pengetahuan:  /harness:init   (satu service dulu → lihat /usage → lanjut all) → knowledge-sample → /harness:knowledge verify <svc>');
-log('4. Pakai:  /harness:impact feature <permintaan>');
+log('2. Cek:  node .claude/hooks/harness.mjs doctor');
+log('3. Isi pengetahuan (sekali per root):  /harness:init   (satu service dulu → lihat /usage → lanjut all), lalu ketik: verifikasi knowledge <svc>');
+log('4. Pakai:  ketik permintaanmu dengan kalimat biasa; ketik "menu" bila ragu langkah berikutnya.');
 if (LEFTOVER.length || LEGACY_BLOCKS.some((k) => oldCfg[k])) log(`\nCatatan: sisa modul lama (${[...LEFTOVER, ...LEGACY_BLOCKS.filter((k) => oldCfg[k]).map((k) => `config.${k}`)].join(', ')}) dibiarkan apa adanya. Executor dan dispatch sudah dibuang di harness ini; hapus sendiri bila tidak diperlukan.`);
 if (tag) log(`\nKembali ke harness lama kapan saja:  git switch -c lama ${tag}`);

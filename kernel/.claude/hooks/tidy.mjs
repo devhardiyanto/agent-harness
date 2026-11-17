@@ -11,6 +11,8 @@ import { readPart, hasPart, isSingle, listItems, readItem, workDir, splitFrontma
 export const archiveDir = (root) => path.join(workDir(root), '_archive');
 export const archiveIndex = (root) => path.join(root, 'docs', 'memory', 'ARCHIVE.md');
 const REQUIRED = ['brief.md', 'plan.md', 'progress.md']; // bentuk tunggal: hanya plan.md
+// 1.19.1: lajur quick (folder) memang hanya plan.md + progress.md; brief.md bukan bagian lajur itu.
+const requiredOf = (it) => (isQuick(it) ? ['plan.md', 'progress.md'] : REQUIRED);
 const PROMPTISH = /^(?:\d{4}-\d{2}-\d{2}-)?(?:kerjakan|tolong|disini|oke|aku|saya|coba|ini|update|bikin|buatkan|please)-/;
 const RANK = { 'in-progress': 5, 'in-review': 4, done: 3, approved: 2, draft: 1, merged: 0 };
 const day = (s) => { const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(s || '')); return m ? Date.parse(`${m[1]}T00:00:00Z`) : NaN; };
@@ -37,7 +39,7 @@ export function checkStructure(root, cfg) {
   const svcs = new Set(cfg.services || []);
   for (const it of listItems(root)) {
     const p = [];
-    for (const f of REQUIRED) if (!hasPart(it, f) && !(f === 'plan.md')) p.push(`${f} tidak ada`);
+    for (const f of requiredOf(it)) if (!hasPart(it, f) && !(f === 'plan.md')) p.push(`${f} tidak ada`);
     if (isSingle(it)) for (const h of [/^## 1\.? *Objective/m, /^## 3\.? *Dampak/m, /^## 4\.? *Eksekusi/m]) if (!h.test(it.body)) p.push(`bagian ${String(h).slice(5, 20).replace(/[\\/?*.^ ]+/g, ' ').trim()} tidak ada`);
     if (!STATUSES.includes(it.status)) p.push(`status "${it.status}" tidak dikenal`);
     for (const k of ['title', 'type', 'created']) if (!it.fm[k]) p.push(`frontmatter ${k} kosong`);
@@ -163,6 +165,7 @@ export function formatTidy(p, applied = null) {
   out.push(p.merge.length ? ['| item utama | digabung ke dalamnya |', '|---|---|', ...p.merge.map((g) => `| ${g.target} | ${g.others.join(', ')} |`)].join('\n') : '(tidak ada)');
   out.push('');
   if (applied) out.push(`Selesai: ${applied.archived} item diarsipkan (termasuk yang digabung), ${applied.merged} item digabung. Arsip: docs/work/_archive/, daftar: docs/memory/ARCHIVE.md.`);
+  else if (p.apply && !p.stale.length && !p.merge.length) out.push(`Tidak ada yang diterapkan: tidak ada item usang atau grup gabung.${p.structure.length ? ' Masalah struktur tidak diubah otomatis; perbaiki manual atau biarkan.' : ''}`);
   else if (p.stale.length || p.merge.length) out.push('Rencana saja. Terapkan: ! node .claude/hooks/harness.mjs tidy --apply (hanya manusia). Masalah struktur tidak diubah otomatis.');
   return out.join('\n');
 }

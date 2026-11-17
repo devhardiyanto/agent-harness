@@ -366,6 +366,7 @@ switch (cmd) {
     break;
   }
   case 'bidang': { // 1.17.0: bidang tiap service (config atau tebakan) dan spesialisnya
+    if (!(cfg.services || []).length) { console.log('services belum diisi di harness.config.json, jadi bidang belum bisa ditebak. Isi "services": ["<nama>", ...] lalu jalankan lagi.'); break; }
     console.log(`| service | bidang | sumber | spesialis |\n|---|---|---|---|\n${(cfg.services || []).map((s) => { const b = bidangOfService(cfg, s); return `| ${s} | ${b ? b.bidang : '-'} | ${b ? b.sumber : '-'} | ${b ? b.bidang : cfg.bidang.fallback_agent} |`; }).join('\n')}\n\nUbah tebakan: isi "bidang": { "map": { "<service>": "backend|frontend|devops|dba" } } di harness.config.json.`);
     break;
   }
@@ -373,7 +374,7 @@ switch (cmd) {
     const p = planTidy(root, cfg);
     if (args.includes('--json')) { console.log(JSON.stringify(p, null, 2)); break; }
     const applied = args.includes('--apply') && (p.stale.length || p.merge.length) ? applyTidy(root, cfg, p) : null;
-    console.log(formatTidy(p, applied));
+    console.log(formatTidy({ ...p, apply: args.includes('--apply') }, applied));
     break;
   }
   case 'gc': {
