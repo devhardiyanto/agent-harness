@@ -246,7 +246,7 @@ switch (cmd) {
   case 'next': {
     const q = args.find((a) => !a.startsWith('--'));
     const items = q ? [need(q)] : listItems().filter((i) => i.status !== 'merged');
-    if (!items.length) { console.log('(tidak ada work item terbuka) Mulai: quick: <permintaan> untuk perubahan kecil, atau skill impact <tipe> <permintaan>.'); break; }
+    if (!items.length) { console.log('(tidak ada work item terbuka) Mulai: ketik permintaanmu dengan kalimat biasa; agent membuat item-nya. "quick: <permintaan>" hanya bila kamu sendiri memilih lajur cepat.'); break; }
     console.log('| slug | lajur | status | siapa | langkah berikutnya |\n|---|---|---|---|---|');
     for (const i of items) { const n = nextStep(i, cfg); console.log(`| ${i.slug} | ${isQuick(i) ? 'quick' : 'standard'} | ${i.status} | ${n.who} | ${n.cmd} |`); }
     break;

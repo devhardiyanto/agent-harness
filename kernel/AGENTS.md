@@ -11,7 +11,7 @@ Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file
 - Advisor (1.14.0, opsional, dinyalakan user dengan `/advisor opus`): hanya bila aktif, konsultasikan saat (a) menulis AC/plan item standard, (b) keputusan lintas service atau skema, (c) dua kali gagal di galat yang sama. Jangan untuk langkah rutin (edit kecil, menjalankan checks, menulis progres). Bila tidak aktif, abaikan baris ini; jangan meminta user menyalakannya.
 
 ## Alur: empat langkah dalam satu berkas
-1. **Objective** — dari permintaan user, item dibuat (skill impact): satu kalimat tujuan di bagian 1, penjelasan sekilas (apa dan di mana) di bagian 2.
+1. **Objective** — dari permintaan user dengan kalimat biasa, item **selalu** dibuat (skill impact), sekecil apa pun perubahannya; jangan menyarankan `quick:` (itu pilihan user): satu kalimat tujuan di bagian 1, penjelasan sekilas (apa dan di mana) di bagian 2.
 2. **Dampak & konfirmasi** — bagian 3: tabel service, klaim vs bukti kode (uji skeptis, skill align), baris D di `### Keputusan terbuka`. Tutup giliran dengan keluaran `harness.mjs decide <slug> --md`; bila hook memberi naskah pemilih, panggil `AskUserQuestion` dengan naskah itu apa adanya (jawaban dicatat hook). User menutup dengan "align ok <slug>" (hook menulis `align: aligned`).
 3. **AC** — setelah aligned (hook menolak AC sebelumnya), tulis AC bernomor di bagian 4 (skill plan). Berhenti. User mengetik "setuju <slug>" → `approved` (hanya manusia, tidak lewat pemilih).
 4. **Eksekusi** — "kerjakan <slug>" (skill build): bukti per AC di `### Bukti`, test oleh agent `runner`, tinjauan oleh `reviewer` di `### Tinjauan` (`verdict: clean|blockers`), lalu "push PR + merge" dari user. `merged` setelah PR benar-benar MERGED.

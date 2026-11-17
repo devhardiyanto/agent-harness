@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.19.3
+Patch dari uji sandbox.
+- **Sandbox: `gh` tiruan tidak lagi bergantung pada PATH.** Di Windows, shell sesi claude ternyata tetap memakai `gh` asli. Sekarang tiruan dipasang tiga lapis: `CLAUDE_ENV_FILE` (fungsi `gh` di-source sebelum tiap perintah Bash agent), `HARNESS_GH` (hook harness memanggil tiruan langsung), dan PATH di peluncur. Ketiganya juga ditulis ke `.claude/settings.local.json` sandbox, jadi `claude` biasa di folder sandbox pun memakai tiruan. Sandbox lama: buat ulang dengan `--reset`.
+- **Tidak lagi mendorong `quick:`**: pesan "tidak ada work item", penolakan gate, dan AGENTS.md kini menyuruh agent membuat item dari permintaan biasa; `quick:` disebut sebagai pilihan user sendiri.
+
 ## 1.19.2
 Patch dari pilot yhpa.
 - **Stop hook**: giliran tidak lagi ditahan untuk tabel keputusan kalau keputusan dan klaim terbuka berjumlah 0. Giliran yang hanya menunggu agent latar belakang ("sedang mengerjakan", "hasilnya belum ada") juga tidak ditahan; rekapnya muncul di giliran berikutnya, bukan dua kali di tengah pekerjaan.
