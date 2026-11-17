@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { project, hx, hook, wr, rd, jr } from './helpers.mjs';
 
 const add = (r) => (r.stdout ? JSON.parse(r.stdout).hookSpecificOutput?.additionalContext || '' : '');
@@ -40,9 +41,9 @@ test('pelajaran lewat pemilih: item done mengantre usulan berlabel bidang; Stop 
   wr(root, `docs/work/${slug}/progress.md`, '# P\n\n## Decision log\n- statistik membaca view, bukan tabel event\n- scope listedPublicly dipakai di tiga tempat\n');
   const p = `docs/work/${slug}/plan.md`;
   wr(root, p, rd(root, p).replace('---\ntitle', '---\nbidang: [backend]\ntitle'));
-  const { learnFrom } = { learnFrom: null };
   // jalankan lewat CLI yang sama dengan transisi done: set-status memicu learnFrom; di sini cukup memanggil modul
-  const r0 = spawnSync('node', ['-e', `import('${path.join(root, '.claude/hooks/memory.mjs').replace(/\\/g, '/')}').then(async (m) => { const l = await import('${path.join(root, '.claude/hooks/lib.mjs').replace(/\\/g, '/')}'); const cfg = l.loadConfig(process.argv[1]); const it = l.readItem(process.argv[1], process.argv[2]); console.log(JSON.stringify(m.learnFrom(process.argv[1], cfg, it, ['- statistik membaca view, bukan tabel event', '- scope listedPublicly dipakai di tiga tempat']))); })`, root, slug], { encoding: 'utf8' });
+  const u = (f) => pathToFileURL(path.join(root, '.claude/hooks', f)).href; // Windows: import() butuh URL file://, bukan C:\\...
+  const r0 = spawnSync('node', ['-e', `import('${u('memory.mjs')}').then(async (m) => { const l = await import('${u('lib.mjs')}'); const cfg = l.loadConfig(process.argv[1]); const it = l.readItem(process.argv[1], process.argv[2]); console.log(JSON.stringify(m.learnFrom(process.argv[1], cfg, it, ['- statistik membaca view, bukan tabel event', '- scope listedPublicly dipakai di tiga tempat']))); })`, root, slug], { encoding: 'utf8' });
   assert.equal(r0.status, 0, r0.stderr);
   assert.match(rd(root, 'docs/memory/pending.md'), /\[backend\] statistik membaca view/);
   wr(root, '.harness/state/touched-s.json', JSON.stringify({ slugs: [slug] }));
