@@ -25,4 +25,4 @@ Masukan: `$ARGUMENTS` (slug work item). Sesi ini adalah sesi **planning**: tidak
 8. Tipe `analysis`: AC = pertanyaan yang harus terjawab; keluaran analisa ditulis ke `docs/work/<slug>/` sebagai tabel.
 
 ## Balasan chat (maks 5 baris)
-`plan.md` siap di `docs/work/<slug>/plan.md` (N AC, M langkah). Tinjau, lalu ketik "setuju <slug>". Setelah itu buka sesi baru: "kerjakan <slug>". **Jangan mengimplementasikan di sesi ini.**
+`plan.md` siap di `docs/work/<slug>/plan.md` (N AC, M langkah). Tinjau, lalu ketik "setuju <slug>". Setelah itu: "kerjakan <slug>" (boleh di sesi ini; sesi baru bila konteks > 50%). **Jangan mengimplementasikan sebelum user mengetiknya.**

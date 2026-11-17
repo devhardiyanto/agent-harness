@@ -6,11 +6,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { approvePending, rejectPending } from './memory.mjs';
-import { readStdinJson, projectRoot, loadConfig, readItem, readAlign, decisionRows, isSingle, isMain, audit, shortSlug, nextStep, touchedSlugs, readJson } from './lib.mjs';
+import { readStdinJson, projectRoot, loadConfig, readItem, readAlign, decisionRows, listItems, isSingle, isMain, audit, shortSlug, nextStep, touchedSlugs, readJson } from './lib.mjs';
 
 const naskahPath = (root, sid) => path.join(root, '.harness', 'state', 'ask', `${String(sid || 'x').replace(/\W/g, '')}.json`);
 const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+const CLAIM_OPTS = ['benar', 'salah'];
+// Nilai yang ditulis ke kolom status klaim (bukan "dugaan" lagi). "salah" = bertentangan: agent wajib mengoreksi teks klaim.
+export const claimStatus = (yes, note, via) => (yes ? `dikonfirmasi (user, ${via})` : `bertentangan (user, ${via}${note ? `: ${String(note).replace(/\|/g, '/').trim()}` : ''})`);
 
 // "a) 300 · b) tanpa batas" | "a. X · b. Y (rekomendasi)" → ['300', 'tanpa batas']
 export function parseOptions(cell) {
@@ -20,10 +23,11 @@ export function parseOptions(cell) {
 // Naskah untuk satu item: maksimal 4 pertanyaan (batas AskUserQuestion), masing-masing 2–4 opsi; sisanya tetap lewat tabel.
 export function buildQuestions(root, item) {
   const qs = [];
-  for (const d of decisionRows(item).filter((x) => x.kind === 'keputusan')) {
-    const opts = parseOptions(d.options);
+  for (const d of decisionRows(item).filter((x) => x.kind === 'keputusan' || x.kind === 'dugaan')) {
+    // 1.19.4: klaim dugaan ikut ditanyakan (benar/salah); jawabannya ditulis ke kolom status klaim
+    const opts = d.kind === 'dugaan' ? CLAIM_OPTS : parseOptions(d.options);
     if (opts.length < 2) continue;
-    qs.push({ id: d.id, header: clip(`${d.id} ${shortSlug(root, item.slug)}`, 12), question: `${d.id}: ${d.ask}`, options: opts.map((o, i) => ({ label: clip(o, 60), description: i === 0 ? 'rekomendasi' : '' })), multiSelect: false });
+    qs.push({ id: d.id, header: clip(`${d.id} ${shortSlug(root, item.slug)}`, 12), question: `${d.id}: ${d.ask}`, options: opts.map((o, i) => ({ label: clip(o, 60), description: d.kind === 'dugaan' ? (i === 0 ? 'klaim dikonfirmasi' : 'agent mengoreksi klaim; jelaskan di chat bila perlu') : i === 0 ? 'rekomendasi' : '' })), multiSelect: false });
     if (qs.length === 4) break;
   }
   return qs;
@@ -46,8 +50,14 @@ export function saveLessonNaskah(root, sid, la) {
 }
 
 // Teks instruksi untuk agent: panggil AskUserQuestion dengan JSON ini apa adanya.
-export function askInstruction(questions) {
-  return `Tanyakan keputusan ini ke user dengan tool AskUserQuestion, memakai argumen JSON berikut APA ADANYA (jangan ubah teks pertanyaan; jawaban dicatat hook dengan mencocokkan teks itu). Bila tool itu tidak tersedia, tampilkan tabel keputusan saja.\n${JSON.stringify({ questions: questions.map(({ id, ...q }) => q) })}`;
+// 1.19.4: argumen JSON ditulis ke berkas; pesan hook (yang tampil ke user) hanya menyebut path-nya.
+export function askInstruction(questions, root = null, sid = null) {
+  const arg = JSON.stringify({ questions: questions.map(({ id, ...q }) => q) });
+  if (root) {
+    const f = path.join(root, '.harness', 'state', 'ask', `args-${String(sid || 'x').replace(/\W/g, '')}.json`);
+    try { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, arg); return `Tanyakan ${questions.map((q) => q.id).join(', ')} ke user dengan tool AskUserQuestion: baca argumennya dari ${path.relative(root, f).replace(/\\/g, '/')} dan pakai APA ADANYA (jawaban dicatat hook dengan mencocokkan teks pertanyaan). Bila tool itu tidak tersedia, tampilkan tabel keputusan saja.`; } catch { /* jatuh ke bentuk lama */ }
+  }
+  return `Tanyakan keputusan ini ke user dengan tool AskUserQuestion, memakai argumen JSON berikut APA ADANYA (jangan ubah teks pertanyaan; jawaban dicatat hook dengan mencocokkan teks itu). Bila tool itu tidak tersedia, tampilkan tabel keputusan saja.\n${arg}`;
 }
 
 // Ambil pasangan pertanyaan→jawaban dari tool_response (bentuknya belum pasti; dicari secara longgar).
@@ -66,8 +76,8 @@ export function extractAnswers(resp, input) {
   return out;
 }
 
-const ROW = /^\|\s*(D\d+)\s*\|/;
-export function writeAnswer(item, id, answer) {
+const ROW = /^\|\s*([CD]\d+)\s*\|/;
+export function writeAnswer(item, id, answer, mark = '(pemilih)') {
   const single = isSingle(item) && !fs.existsSync(path.join(item.dir, 'align.md'));
   const f = single ? item.planPath : path.join(item.dir, 'align.md');
   if (!fs.existsSync(f)) return false;
@@ -75,7 +85,7 @@ export function writeAnswer(item, id, answer) {
   const t = fs.readFileSync(f, 'utf8').split(/\r?\n/).map((l) => {
     const m = ROW.exec(l); if (!m || m[1].toUpperCase() !== id.toUpperCase()) return l;
     const c = l.split('|'); while (c.length < 6) c.splice(c.length - 1, 0, ' ');
-    c[4] = ` ${String(answer).replace(/\|/g, '/').trim()} (pemilih) `; hit = true; return c.join('|');
+    c[4] = ` ${String(answer).replace(/\|/g, '/').trim()}${mark ? ` ${mark}` : ''} `; hit = true; return c.join('|');
   }).join('\n');
   if (hit) fs.writeFileSync(f, t);
   return hit;
@@ -92,7 +102,9 @@ export function recordAnswers(root, payload) {
     for (const q of qs) {
       const a = ans.get(norm(q.question));
       if (a === undefined || !a.trim()) continue;
-      if (writeAnswer(it, q.id, a)) done.push(`${slug} ${q.id}=${a}`);
+      const isClaim = /^C\d+$/i.test(q.id);
+      const val = isClaim ? claimStatus(norm(a).startsWith('benar'), '', 'pemilih') : a;
+      if (writeAnswer(it, q.id, val, isClaim ? '' : '(pemilih)')) done.push(`${slug} ${q.id}=${a}`);
     }
   }
   if (nk.lessons) {
@@ -138,3 +150,44 @@ async function main() {
   process.exit(0);
 }
 if (isMain(import.meta.url)) main();
+
+// 1.19.4: jawaban yang DIKETIK user ("C4 benar dan C5 benar", "C4 a, C5 a", "D1: a", "C2 salah: pakai kolom X", "semua benar")
+// dicatat hook UserPromptSubmit langsung ke berkas item, agar tidak bergantung pada agent. Hanya bila SELURUH ketikan berupa jawaban.
+const TOKEN = /^([CD]\d+)\s*[:=.)]?\s*(benar|salah|ya|tidak|ok|setuju|[a-d])\b\s*(?:[:\-–]\s*(.+))?$/i;
+export function parseTypedAnswers(text) {
+  const t = String(text || '').trim();
+  if (!t || t.length > 600) return null;
+  if (/^semua\s+(benar|ok|setuju)$/i.test(t)) return [{ id: '*C', val: 'benar' }];
+  const parts = t.split(/\s*(?:,|;|\n|\bdan\b|&)\s*/i).filter(Boolean);
+  const out = [];
+  for (const p of parts) { const m = TOKEN.exec(p.trim()); if (!m) return null; out.push({ id: m[1].toUpperCase(), val: m[2].toLowerCase(), note: m[3] ? m[3].trim() : '' }); }
+  return out.length ? out : null;
+}
+export function applyTypedAnswers(root, sid, answers) {
+  const mine = touchedSlugs(root, sid);
+  const cands = [];
+  for (const it0 of listItems(root)) {
+    if (it0.status !== 'draft') continue;
+    const rows = decisionRows(it0); if (!rows.length) continue;
+    cands.push({ it: it0, rows, mine: mine.has(it0.slug) });
+  }
+  const wantAll = answers.some((a) => a.id === '*C');
+  const fits = (c) => (wantAll ? c.rows.some((r) => r.kind === 'dugaan') : answers.every((a) => c.rows.some((r) => r.id === a.id)));
+  let pool = cands.filter(fits);
+  if (pool.length > 1) pool = pool.filter((c) => c.mine);
+  if (pool.length !== 1) return { ok: false, why: pool.length ? 'lebih dari satu item cocok; sebut slug-nya' : 'tidak ada item draft dengan baris itu yang masih terbuka' };
+  const { it, rows } = pool[0];
+  const list = wantAll ? rows.filter((r) => r.kind === 'dugaan').map((r) => ({ id: r.id, val: 'benar', note: '' })) : answers;
+  const done = [];
+  for (const a of list) {
+    const r = rows.find((x) => x.id === a.id); if (!r) continue;
+    const yes = /^(benar|ya|ok|setuju|a)$/.test(a.val);
+    let val;
+    if (r.kind === 'keputusan') { const opts = parseOptions(r.options); const i = 'abcd'.indexOf(a.val); val = i >= 0 && opts[i] ? opts[i] : a.val; if (a.note) val += ` (${a.note})`; }
+    else if (r.kind === 'dugaan') val = claimStatus(yes, a.note, 'ketik');
+    else val = yes ? 'bertentangan, risiko diterima (user, ketik)' : `bertentangan (user, ketik${a.note ? `: ${a.note}` : ''})`;
+    if (writeAnswer(it, a.id, val, r.kind === 'keputusan' ? '(ketik)' : '')) done.push(`${a.id}=${r.kind === 'keputusan' ? val : yes ? 'benar' : 'salah'}`);
+  }
+  if (done.length) audit(root, { event: 'typed-answer', session: sid, slug: it.slug, answers: done.join('; ') });
+  return { ok: done.length > 0, slug: it.slug, done, left: decisionRows(readItem(root, it.slug) || it).length, why: done.length ? '' : 'tidak ada baris yang bisa ditulis' };
+}

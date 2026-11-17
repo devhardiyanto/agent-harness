@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.19.4
+Patch dari uji sandbox (item `tombol-save-profileform-nonaktif-sampai`).
+- **Klaim dugaan ikut pemilih** (benar/salah). Jawabannya ditulis hook ke kolom status klaim: `dikonfirmasi (user, pemilih)` atau `bertentangan (user, pemilih)`; yang kedua wajib dikoreksi agent.
+- **Jawaban yang diketik dicatat hook**, termasuk beberapa sekaligus: "C4 benar dan C5 benar", "C4 a, D1: b", "C2 salah: <koreksi>", "semua benar". Hanya bila seluruh ketikan berupa jawaban dan cocok dengan tepat satu item draft. Agent tidak lagi diminta mencatat jawaban.
+- **Naskah pemilih tidak lagi tampil sebagai JSON di layar**: argumennya ditulis ke `.harness/state/ask/args-<sesi>.json` dan pesan hook hanya menyebut path-nya.
+- **"Buka sesi baru" jadi opsional** setelah `setuju`: "kerjakan <slug>" boleh di sesi yang sama; sesi baru disarankan bila konteks > 50%.
+- **Sandbox**: agent diberi tahu di awal sesi bahwa push, PR, dan merge berjalan penuh ke remote lokal.
+
 ## 1.19.3
 Patch dari uji sandbox.
 - **Sandbox: `gh` tiruan tidak lagi bergantung pada PATH.** Di Windows, shell sesi claude ternyata tetap memakai `gh` asli. Sekarang tiruan dipasang tiga lapis: `CLAUDE_ENV_FILE` (fungsi `gh` di-source sebelum tiap perintah Bash agent), `HARNESS_GH` (hook harness memanggil tiruan langsung), dan PATH di peluncur. Ketiganya juga ditulis ke `.claude/settings.local.json` sandbox, jadi `claude` biasa di folder sandbox pun memakai tiruan. Sandbox lama: buat ulang dengan `--reset`.

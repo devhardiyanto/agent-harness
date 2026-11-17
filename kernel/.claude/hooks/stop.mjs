@@ -42,7 +42,7 @@ export function decisionFor(root, cfg, payload) {
   if (cfg.plane.enabled) for (const sl of slugs) planeKick(root, ['ask', sl, '--decide']);
   // 1.16.0: keputusan D dengan opsi jelas ditanyakan lewat pemilih; jawabannya dicatat hook ask.mjs
   let pick = '';
-  if (cfg.tui.ask) { const qs = []; for (const it of asked) { const q = buildQuestions(root, it); if (q.length) { saveNaskah(root, payload.session_id, it.slug, q); qs.push(...q); } } if (qs.length) pick = `\n\n${askInstruction(qs.slice(0, 4))}`; }
+  if (cfg.tui.ask) { const qs = []; for (const it of asked) { const q = buildQuestions(root, it); if (q.length) { saveNaskah(root, payload.session_id, it.slug, q); qs.push(...q); } } if (qs.length) pick = `\n\n${askInstruction(qs.slice(0, 4), root, payload.session_id)}`; }
   return `tutup giliran ini dengan tabel keputusan berikut, APA ADANYA (dibuat kode dari align.md). Jangan menambah narasi, jangan menyarankan perintah lain selain baris "Berikutnya". Pertanyaan baru untuk user ditulis dulu sebagai baris D di "## Keputusan terbuka" align.md (atau bagian 3 berkas item).\n\n${text}${pick}`;
 }
 

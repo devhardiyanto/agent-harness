@@ -66,9 +66,11 @@ test('pemilih: Stop memberi naskah AskUserQuestion; jawaban dari PostToolUse dit
   const st = hook(root, 'stop.mjs', { hook_event_name: 'Stop', last_assistant_message: 'x' });
   assert.equal(st.status, 2);
   assert.match(st.stderr, /AskUserQuestion/);
-  const js = JSON.parse(st.stderr.slice(st.stderr.indexOf('{"questions"')).split('\n')[0]);
-  assert.equal(js.questions[0].question, 'D1: Berlaku untuk event lama?');
-  assert.deepEqual(js.questions[0].options.map((o) => o.label), ['ya, semua', 'hanya baru']);
+  assert.doesNotMatch(st.stderr, /"questions"/, '1.19.4: argumen JSON di berkas, tidak di pesan');
+  const js = JSON.parse(rd(root, st.stderr.match(/\.harness\/state\/ask\/args-\w+\.json/)[0]));
+  const d1 = js.questions.find((q) => q.question.startsWith('D1:'));
+  assert.equal(d1.question, 'D1: Berlaku untuk event lama?');
+  assert.deepEqual(d1.options.map((o) => o.label), ['ya, semua', 'hanya baru']);
   const post = (resp) => hook(root, 'ask.mjs', { hook_event_name: 'PostToolUse', tool_name: 'AskUserQuestion', tool_input: js, tool_response: resp });
   post({ answers: { 'Pertanyaan karangan?': 'ya' } });
   assert.match(rd(root, P(slug)), /\| D1 \| Berlaku untuk event lama\? \| a\) ya, semua · b\) hanya baru \| \|/);

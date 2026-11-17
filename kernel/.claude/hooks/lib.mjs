@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.19.3',
+  harness_version: '1.19.4',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -691,7 +691,7 @@ export function nextStep(item, cfg = null) {
   const q = isQuick(item);
   const rows = {
     draft: q ? ['kamu', `skill plan ${sl}, lalu setuju ${sl} (item quick dipromosikan ke standard)`] : alignNext(item, cfg),
-    approved: q ? ['agent', `kerjakan di sesi ini; bukti per AC di progress.md; lalu set-status ${sl} done`] : ['kamu', `buka sesi baru, ketik kerjakan ${sl}`],
+    approved: q ? ['agent', `kerjakan di sesi ini; bukti per AC di progress.md; lalu set-status ${sl} done`] : ['kamu', `ketik kerjakan ${sl} (di sesi ini, atau sesi baru bila konteks > 50%)`],
     'in-progress': q ? ['agent', `lengkapi bukti AC di progress.md; set-status ${sl} done`] : ['agent', `lanjut kerjakan ${sl}; semua AC berbukti → set-status ${sl} in-review`],
     'in-review': ['agent', `skill review ${sl}`],
     done: asList(item.fm.pr).length ? ['kamu', `tunggu check PR hijau, lalu ketik push PR + merge ${sl} (= keputusan merge)`] : ['kamu', `ketik push PR + merge ${sl} (buka PR)`],

@@ -15,7 +15,7 @@ import { issueTicket, writeIntent } from './ship.mjs';
 import { parseIntent } from './intent.mjs';
 import { addEntry, removeEntry, approvePending, refText } from './memory.mjs';
 import { resolveArchived } from './tidy.mjs';
-import { menuFor } from './ask.mjs';
+import { menuFor, parseTypedAnswers, applyTypedAnswers } from './ask.mjs';
 import { autoRecall, recallText } from './growth.mjs';
 import { bidangFromPrompt, setSessionBidang, execText } from './bidang.mjs';
 import { openRows, formatOpen } from './recap.mjs';
@@ -54,6 +54,13 @@ if (cfg.plane.enabled && cfg.plane.pull_comments) {
 refCtx.push(...extra0);
 // 1.18.0: rujukan otomatis untuk prompt biasa (bukan perintah pendek), dicari kode
 if (!intent.command && !intent.kind && !slash && cfg.memory.enabled) { try { const rt = recallText(autoRecall(root, cfg, payload.prompt, sid)); if (rt) refCtx.push(rt); } catch { /* abaikan */ } }
+// 1.19.4: jawaban tabel keputusan yang diketik ("C4 benar dan C5 benar", "D1: a") dicatat hook, bukan agent
+const typed = !intent.command && !intent.kind && !slash ? parseTypedAnswers(payload.prompt) : null;
+if (typed) {
+  const r = applyTypedAnswers(root, sid, typed);
+  if (r.ok) { context('UserPromptSubmit', [...refCtx, `[harness] Jawaban user DICATAT HOOK ke berkas item ${r.slug}: ${r.done.join(', ')}. Jangan menulis ulang jawaban itu. Klaim berstatus "bertentangan (user…)" = koreksi teks klaimnya di berkas. Tutup giliran dengan keluaran "node .claude/hooks/harness.mjs decide ${r.slug} --md" apa adanya (${r.left} masih terbuka).`].join('\n\n')); process.exit(0); }
+  refCtx.push(`[harness] Ketikan user tampak seperti jawaban tabel keputusan, tetapi TIDAK dicatat (${r.why}). Sampaikan satu baris ke user.`);
+}
 if (intent.command) prompt = intent.command;
 if (intent.kind) {
   const say = (txt) => { context('UserPromptSubmit', [...refCtx, txt].join('\n\n')); process.exit(0); };
@@ -236,4 +243,4 @@ t = setFmKey(t, 'approved_by', who);
 fs.writeFileSync(item.planPath, t);
 audit(root, { event: 'approve', session: payload.session_id, slug, by: who });
 ctxOut(`[harness] Plan ${slug} sekarang APPROVED oleh ${who} (ditulis hook, bukan agent). ` +
-  'Balas maksimal 2 baris: konfirmasi dan instruksi membuka sesi baru lalu menjalankan "kerjakan ' + slug + '". Jangan mulai implementasi di sesi planning ini.');
+  'Balas maksimal 2 baris: konfirmasi dan langkah berikutnya: ketik "kerjakan ' + slug + '" (boleh di sesi ini; sesi baru hanya bila konteks > 50%). Jangan mulai implementasi sebelum user mengetiknya.');
