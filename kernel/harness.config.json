@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.14.1",
+  "harness_version": "1.15.0",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -124,5 +124,10 @@
     "hours": 6,
     "max_misfires": 0,
     "min_ships": 1
+  },
+  "tui": {
+    "statusline": true,
+    "theme": "tenang",
+    "max_width": 120
   }
 }

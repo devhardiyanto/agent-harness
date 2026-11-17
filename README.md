@@ -174,6 +174,19 @@ Merge tetap aman: ketikan ship menjadi **izin merge tertunda** (`.claude/state/m
 
 `terima C2` kini langsung tersimpan di `align.md` walaupun align belum bisa ditutup karena klaim lain.
 
+## Status line, gaya keluaran, tanpa slash (1.15.0)
+
+| bagian | perilaku |
+|---|---|
+| status line | `settings.json` → `statusLine` menjalankan `.claude/hooks/statusline.mjs`. Baris 1: root, item yang disentuh sesi ini, status, `AC n/m`, hasil checks. Baris 2: keputusan terbuka, komentar Plane yang belum dibaca, jumlah pelajaran di memori, konteks %. Hanya membaca berkas item sesi ini |
+| tema | `tui.theme`: `tenang` (bawaan), `kontras`, `mono`. `NO_COLOR` memaksa `mono`. `tui.statusline: false` mematikan; `tui.max_width` memotong baris |
+| nama sesi | status line menyimpan `session_name` ke `.harness/state/session-name`; `/summarize` memakainya sebagai nama berkas |
+| gaya keluaran | `.claude/output-styles/harness.md` (`outputStyle: "harness"`): tabel, maksimal 5 baris, kalimat pendek. Berupa instruksi; gerbang tetap ditegakkan hook |
+| tanpa slash | semua saran langkah dari kode memakai kalimat pendek. Baru: "kerjakan <slug>" (= build), "verifikasi knowledge <svc>", "terapkan pola <slug> <P1|semua>". Bentuk `/harness:*` tetap diterima |
+| uji M0 | `node .claude/hooks/spike.mjs on | report | off` (dijalankan manusia): empat pemeriksaan di Claude Code asli untuk rancangan 1.16–1.17; langkahnya di `docs/v1.15/SPIKE.md` |
+
+Belum terverifikasi di Claude Code asli: status line proyek saat sesi dibuka lewat `claude agents`, dan perintah relatif `node .claude/hooks/statusline.mjs` bila sesi tidak dimulai dari root. Keduanya diperiksa uji M0.
+
 ## Advisor Opus untuk tugas besar (1.14.0, opsional)
 
 Fitur bawaan Claude Code (eksperimental), bukan fitur harness: sesi utama tetap Sonnet, dan sesekali berkonsultasi ke model yang lebih kuat. Harness **tidak menyalakannya** dan `doctor` tidak menagihnya.

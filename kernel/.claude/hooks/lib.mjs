@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.14.1',
+  harness_version: '1.15.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -54,6 +54,8 @@ export const DEFAULT_CONFIG = {
   },
   // 1.13.0: log intent lokal (.harness/state/intent-log.jsonl) untuk mengukur kesiapan 2.0 (`harness.mjs pilot`).
   // hours: jendela pilot (bawaan 6 jam, keputusan user 2026-11-10); `pilot --hours N` / `--days N` untuk melihat jendela lain.
+  // 1.15.0: status line harness (settings.json → statusLine). theme: tenang | kontras | mono. statusline:false = tidak mencetak apa pun.
+  tui: { statusline: true, theme: 'tenang', max_width: 120 },
   pilot: { enabled: true, hours: 6, max_misfires: 0, min_ships: 1 },
   // 1.10.0 — feature flag. Semua aditif: perintah /harness:* lama tetap berlaku.
   // intent: kalimat pendek tanpa slash ("setuju <slug>", "sisa", "ingat: ...") dipetakan ke perintah. Hanya prompt <= max_chars; slug harus cocok persis satu item.
@@ -96,7 +98,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks', 'pilot']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tui']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   cfg.plane.states = { ...DEFAULT_CONFIG.plane.states, ...((user.plane && user.plane.states) || {}) };
   return cfg;
 }
@@ -335,7 +337,7 @@ export function formatDecision(root, item) {
     ? ['| # | jenis | yang perlu kamu putuskan | opsi (rekomendasi dulu) | jawab dengan |', '|---|---|---|---|---|',
       ...rows.map((r) => `| ${r.id} | ${r.kind} | ${String(r.ask).replace(/\|/g, '/').slice(0, 160)} | ${String(r.options).replace(/\|/g, '/').slice(0, 100)} | ${r.answer} |`)]
     : [];
-  const next = !a ? `Berikutnya (agent): /harness:align ${sl}`
+  const next = !a ? `Berikutnya (agent): skill align ${sl}`
     : hard.length ? `Berikutnya (kamu): jawab tabel di atas. "align ok ${sl}" baru diterima setelah ${hard.join(', ')} dikoreksi, atau ketik "align ok ${sl} terima ${hard.join(',')}".`
     : rows.length ? `Berikutnya (kamu): jawab tabel di atas (cukup kode + jawaban, mis. "${rows[0].id} a"), lalu ketik "align ok ${sl}".`
     : `Berikutnya (kamu): bila sepaham, ketik "align ok ${sl}".`;
@@ -345,8 +347,8 @@ export const alignExempt = (item, cfg) => isQuick(item) || !cfg.align.required |
 export function alignProblems(item, cfg) {
   if (alignExempt(item, cfg)) return [];
   const a = readAlign(item);
-  if (!a) return [`align.md belum ada: jalankan /harness:align ${item.slug} (klaim vs bukti kode), lalu user mengetik /harness:align ${item.slug} ok.`];
-  if (a.verdict !== 'aligned') return [`align.md belum aligned (verdict: ${a.verdict}, ronde ${a.rounds}/${cfg.align.max_rounds}): user mengetik /harness:align ${item.slug} ok bila objective sudah sepaham.`];
+  if (!a) return [`align.md belum ada: jalankan skill align ${item.slug} (klaim vs bukti kode), lalu user mengetik align ok ${item.slug}.`];
+  if (a.verdict !== 'aligned') return [`align.md belum aligned (verdict: ${a.verdict}, ronde ${a.rounds}/${cfg.align.max_rounds}): user mengetik align ok ${item.slug} bila objective sudah sepaham.`];
   return [];
 }
 
@@ -453,7 +455,7 @@ export function checkTransition(root, cfg, item, to, { actor = 'agent' } = {}) {
   if (from === to) return [];
   if (!STATUSES.includes(to)) return [`status "${to}" tidak dikenal. Pilihan: ${STATUSES.join(', ')}.`];
   if (to === 'approved') {
-    if (actor !== 'human') return ['status "approved" hanya boleh diberikan manusia: ketik /harness:approve <slug> di prompt (atau "! node .claude/hooks/harness.mjs approve <slug>").'];
+    if (actor !== 'human') return ['status "approved" hanya boleh diberikan manusia: ketik setuju <slug> di prompt (atau "! node .claude/hooks/harness.mjs approve <slug>").'];
     if (from !== 'draft') return [`approve hanya dari draft (sekarang: ${from}).`];
     const p = [];
     if (!parseAcs(item.body).length) p.push('plan.md belum punya acceptance criteria ("- AC1: ...").');
@@ -604,7 +606,7 @@ export function contextWarning(root, cfg, payload) {
   fs.mkdirSync(stateDir, { recursive: true });
   fs.writeFileSync(mark, JSON.stringify({ warned: tokens }));
   return `[harness] Konteks sesi ±${Math.round(tokens / 1000)}k token (ambang ${Math.round(cfg.context.warn_tokens / 1000)}k dari ${Math.round(cfg.context.window_tokens / 1000)}k). ` +
-    'Segera: tulis status terkini ke progress.md (apa selesai, apa berikutnya, keputusan), selesaikan langkah yang sedang jalan, lalu sarankan user membuka sesi baru dan melanjutkan dengan /harness:build <slug>.';
+    'Segera: tulis status terkini ke progress.md (apa selesai, apa berikutnya, keputusan), selesaikan langkah yang sedang jalan, lalu sarankan user membuka sesi baru dan melanjutkan dengan kerjakan <slug>.';
 }
 
 // ---------- langkah berikutnya (untuk /harness:next dan pesan blokir) ----------
@@ -619,20 +621,20 @@ function alignNext(item, cfg) {
   const hasPlan = parseAcs(item.body).length > 0;
   const a = readAlign(item);
   const needAlign = cfg ? alignProblems(item, cfg).length > 0 : !a || a.verdict !== 'aligned';
-  if (needAlign) return a && a.claims > 0 ? ['kamu', `jawab temuan di align.md; sepaham → ketik /harness:align ${sl} ok`] : ['agent', `/harness:align ${sl}`];
-  if (!hasPlan) return ['agent', `/harness:plan ${sl}`];
-  return ['kamu', `tinjau plan.md; bila setuju ketik /harness:approve ${sl}`];
+  if (needAlign) return a && a.claims > 0 ? ['kamu', `jawab temuan di align.md; sepaham → ketik align ok ${sl}`] : ['agent', `skill align ${sl}`];
+  if (!hasPlan) return ['agent', `skill plan ${sl}`];
+  return ['kamu', `tinjau plan.md; bila setuju ketik setuju ${sl}`];
 }
 export function nextStep(item, cfg = null) {
   // 1.13.1: slug pendek (tanpa tanggal) bila unik, supaya sel tabel tidak terpotong
   const sl = item.dir ? shortSlug(path.resolve(item.dir, '..', '..', '..'), item.slug) : item.slug;
   const q = isQuick(item);
   const rows = {
-    draft: q ? ['kamu', `/harness:plan ${sl}, lalu /harness:approve ${sl} (item quick dipromosikan ke standard)`] : alignNext(item, cfg),
-    approved: q ? ['agent', `kerjakan di sesi ini; bukti per AC di progress.md; lalu set-status ${sl} done`] : ['kamu', `buka sesi baru, ketik /harness:build ${sl}`],
-    'in-progress': q ? ['agent', `lengkapi bukti AC di progress.md; set-status ${sl} done`] : ['agent', `lanjut /harness:build ${sl}; semua AC berbukti → set-status ${sl} in-review`],
-    'in-review': ['agent', `/harness:review ${sl}`],
-    done: asList(item.fm.pr).length ? ['kamu', `tunggu check PR hijau, lalu ketik /harness:ship ${sl} (= keputusan merge)`] : ['kamu', `ketik /harness:ship ${sl} (buka PR)`],
+    draft: q ? ['kamu', `skill plan ${sl}, lalu setuju ${sl} (item quick dipromosikan ke standard)`] : alignNext(item, cfg),
+    approved: q ? ['agent', `kerjakan di sesi ini; bukti per AC di progress.md; lalu set-status ${sl} done`] : ['kamu', `buka sesi baru, ketik kerjakan ${sl}`],
+    'in-progress': q ? ['agent', `lengkapi bukti AC di progress.md; set-status ${sl} done`] : ['agent', `lanjut kerjakan ${sl}; semua AC berbukti → set-status ${sl} in-review`],
+    'in-review': ['agent', `skill review ${sl}`],
+    done: asList(item.fm.pr).length ? ['kamu', `tunggu check PR hijau, lalu ketik push PR + merge ${sl} (= keputusan merge)`] : ['kamu', `ketik push PR + merge ${sl} (buka PR)`],
     merged: ['-', 'selesai'],
   };
   const [who, cmd] = rows[item.status] || ['?', `status "${item.status}" tidak dikenal`];
@@ -669,7 +671,7 @@ export function createQuick(root, text, who) {
   const now = new Date().toISOString();
   const title = cleanTitle(body, 80);
   fs.writeFileSync(path.join(dir, 'plan.md'), `---\ntitle: ${title.replace(/:/g, ' -')}\ntype: ${type}\nlane: quick\nstatus: approved\nservices: []\nfiles: []\ncreated: ${day}\nupdated: ${day}\napproved_at: ${now}\napproved_by: ${who}\ntest_command: null\npr: null\n---\n# Plan (quick) — ${title}\n\nLajur quick: satu service (terikat pada edit pertama), maksimal file sesuai config, bukan skema, tanpa review subagent.\n\n## Acceptance criteria\n- AC1: ${body}\n`);
-  fs.writeFileSync(path.join(dir, 'progress.md'), `# Progress — ${title}\n\n## Verifikasi\n- AC1:\n\n## Status terkini\n- dibuat oleh /harness:quick (${day})\n`);
+  fs.writeFileSync(path.join(dir, 'progress.md'), `# Progress — ${title}\n\n## Verifikasi\n- AC1:\n\n## Status terkini\n- dibuat oleh quick: <permintaan> (${day})\n`);
   return { ok: true, slug, type };
 }
 
@@ -679,7 +681,7 @@ export function amendItem(root, cfg, item, acText) {
   if (!['approved', 'in-progress', 'in-review'].includes(item.status)) return { ok: false, reason: `amend hanya untuk item approved/in-progress/in-review (sekarang: ${item.status}). Item draft: edit plan langsung.` };
   if (text.length < 8 || text.length > 240) return { ok: false, reason: 'AC harus 8–240 karakter, satu kalimat yang bisa diverifikasi.' };
   const done = Number(item.fm.amendments || 0);
-  if (done >= cfg.amend.max) return { ok: false, reason: `batas amend ${cfg.amend.max} tercapai. Perubahan lebih besar: "harness.mjs reopen ${item.slug}" lalu /harness:approve ulang.` };
+  if (done >= cfg.amend.max) return { ok: false, reason: `batas amend ${cfg.amend.max} tercapai. Perubahan lebih besar: "harness.mjs reopen ${item.slug}" lalu setuju <slug> ulang.` };
   const ids = parseAcs(item.text).map((a) => Number(a.id.slice(2)));
   const id = `AC${Math.max(0, ...ids) + 1}`;
   let t = item.text;

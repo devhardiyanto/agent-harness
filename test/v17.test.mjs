@@ -111,7 +111,7 @@ test('align: next menunjuk align sebelum plan', () => {
   const root = mk();
   const slug = path.basename(cli(root, 'new', 'feature', 'Fitur baru').stdout.trim());
   // 1.12.0: perintah memakai slug pendek (tanpa awalan tanggal) bila unik
-  assert.match(cli(root, 'next').stdout, new RegExp(`${slug} \\| standard \\| draft \\| agent \\| /harness:align ${slug.replace(/^\d{4}-\d{2}-\d{2}-/, '')}`));
+  assert.match(cli(root, 'next').stdout, new RegExp(`${slug} \\| standard \\| draft \\| agent \\| skill align ${slug.replace(/^\d{4}-\d{2}-\d{2}-/, '')}`));
 });
 
 // ---------- bukti test + gerbang Stop ----------

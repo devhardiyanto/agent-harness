@@ -199,7 +199,7 @@ switch (cmd) {
   case 'reopen': {
     const i = need(args[0]);
     write(i, 'draft', { approved_at: 'null', approved_by: 'null' });
-    console.log(`${i.slug}: ${i.status} → draft (perlu /harness:approve lagi)`);
+    console.log(`${i.slug}: ${i.status} → draft (perlu setuju <slug> lagi)`);
     break;
   }
   case 'approve': {
@@ -234,13 +234,13 @@ switch (cmd) {
     t = setFmKey(t, 'lane', 'standard'); t = setFmKey(t, 'status', 'draft'); t = setFmKey(t, 'approved_at', 'null'); t = setFmKey(t, 'approved_by', 'null'); t = setFmKey(t, 'updated', today());
     fs.writeFileSync(i.planPath, t);
     audit(root, { event: 'promote', slug: i.slug, from: i.status });
-    console.log(`${i.slug}: quick → standard (draft). Berikutnya: /harness:plan ${i.slug}, lalu user mengetik /harness:approve ${i.slug}.`);
+    console.log(`${i.slug}: quick → standard (draft). Berikutnya: skill plan ${i.slug}, lalu user mengetik setuju ${i.slug}.`);
     break;
   }
   case 'next': {
     const q = args.find((a) => !a.startsWith('--'));
     const items = q ? [need(q)] : listItems().filter((i) => i.status !== 'merged');
-    if (!items.length) { console.log('(tidak ada work item terbuka) Mulai: /harness:quick <permintaan> untuk perubahan kecil, atau /harness:impact <tipe> <permintaan>.'); break; }
+    if (!items.length) { console.log('(tidak ada work item terbuka) Mulai: quick: <permintaan> untuk perubahan kecil, atau skill impact <tipe> <permintaan>.'); break; }
     console.log('| slug | lajur | status | siapa | langkah berikutnya |\n|---|---|---|---|---|');
     for (const i of items) { const n = nextStep(i, cfg); console.log(`| ${i.slug} | ${isQuick(i) ? 'quick' : 'standard'} | ${i.status} | ${n.who} | ${n.cmd} |`); }
     break;
@@ -322,7 +322,7 @@ switch (cmd) {
     const i = need(args[0]);
     if (i.status !== 'done') die(`status ${i.status}; ship hanya untuk item "done".`, 2);
     const r = runShip(root, cfg, i, (m) => console.log(m));
-    if (!r.ok) die(`DITOLAK:\n- ${r.problems.join('\n- ')}${r.merged?.length ? `\n(sudah merged: ${r.merged.map((x) => x.url).join(', ')}; ketik /harness:ship lagi untuk sisanya)` : ''}`, 2);
+    if (!r.ok) die(`DITOLAK:\n- ${r.problems.join('\n- ')}${r.merged?.length ? `\n(sudah merged: ${r.merged.map((x) => x.url).join(', ')}; ketik "push PR + merge" lagi untuk sisanya)` : ''}`, 2);
     audit(root, { event: 'ship-merge', slug: i.slug, prs: r.merged.map((x) => x.url).join(' ') });
     const p = checkTransition(root, cfg, readItem(root, i.slug), 'merged', { actor: 'agent' });
     if (p.length) die(`PR sudah merged tetapi item belum ditutup:\n- ${p.join('\n- ')}`, 2);
@@ -567,7 +567,7 @@ switch (cmd) {
     const it = sampleService(root, cfg, args[0], Number(args[1]) || 6);
     if (!it.length) die('tidak ada sitasi yang bisa disampel.', 2);
     it.forEach((x, i) => console.log(`### ${i + 1}. ${x.f}\nKlaim : ${x.claim}\nKode  : ${x.cite}\n\`\`\`\n${x.code.join('\n')}\n\`\`\`\n`));
-    console.log('Cocok semua? Ketik /harness:knowledge verify ' + args[0] + ' (atau "! node .claude/hooks/harness.mjs verify-knowledge ' + args[0] + '").');
+    console.log('Cocok semua? Ketik verifikasi knowledge ' + args[0] + ' (atau "! node .claude/hooks/harness.mjs verify-knowledge ' + args[0] + '").');
     break;
   }
   case 'knowledge-status': {
@@ -653,6 +653,7 @@ switch (cmd) {
       ['prompt.mjs (UserPromptSubmit)', [path.join(hooksDir, 'prompt.mjs')], pj({ hook_event_name: 'UserPromptSubmit', prompt: 'halo' })],
       ['gate.mjs (Edit)', [path.join(hooksDir, 'gate.mjs')], pj({ hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: path.join(root, 'docs', 'bench.md'), old_string: 'a', new_string: 'b' } })],
       ['guard-bash.mjs (Bash)', [path.join(hooksDir, 'guard-bash.mjs')], pj({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'ls' } })],
+      ['statusline.mjs (status line)', [path.join(hooksDir, 'statusline.mjs')], pj({ session_id: 'bench', workspace: { project_dir: root } })],
       ['post.mjs (PostToolUse)', [path.join(hooksDir, 'post.mjs')], pj({ hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: 'ls' } })],
     ];
     const rows = [];

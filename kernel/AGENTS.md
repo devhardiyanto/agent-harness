@@ -25,8 +25,9 @@ Status: `draft → approved → in-progress → in-review → done → merged`. 
 ## Lajur quick (perubahan kecil)
 User mengetik `/harness:quick <permintaan>`: hook membuat item `approved` (ketikan itu = persetujuan). Satu service, maks 5 file, bukan skema, dikerjakan di sesi yang sama, tanpa `in-review` (bukti AC + checks). Melebihi batas → `harness.mjs promote <slug>` lalu plan + approve. Bingung langkah berikutnya: `/harness:next`.
 
-## Bahasa pendek user (1.10.0, diproses hook)
-"setuju <slug>" = approve · "align ok <slug> [terima C2]" · "push PR + merge [slug]" / "kirim <slug>" (= buka PR, merge saat check hijau, ringkasan; tanpa slug = satu-satunya item done) · "quick: <permintaan>" · "sisa" = tabel belum selesai · "keputusan [slug]" / "apa yang harus aku jawab?" = tabel keputusan align · "ingat: <fakta>" / "ingat P1" / "lupakan M2" = memori project · "ingat user: <preferensi>" / "lupakan U2" = profil user · "ref:<slug>" = muat ringkasan item lama. Slug boleh potongan unik.
+## Bahasa pendek user (diproses hook)
+Saran langkah ke user selalu dalam bentuk ini, bukan `/harness:…` (kecuali `/harness:init`, `/harness:update`).
+"setuju <slug>" = approve · "align ok <slug> [terima C2]" · "push PR + merge [slug]" / "kirim <slug>" (= buka PR, merge saat check hijau, ringkasan; tanpa slug = satu-satunya item done) · "quick: <permintaan>" · "kerjakan <slug>" (= build) · "verifikasi knowledge <svc>" · "terapkan pola <slug> <P1|semua>" · "sisa" = tabel belum selesai · "keputusan [slug]" / "apa yang harus aku jawab?" = tabel keputusan align · "ingat: <fakta>" / "ingat P1" / "lupakan M2" = memori project · "ingat user: <preferensi>" / "lupakan U2" = profil user · "ref:<slug>" = muat ringkasan item lama. Slug boleh potongan unik.
 
 ## Plane (1.13.0, bila `plane.enabled`)
 Plane = pintu diskusi user. Komentar user dari kartu muncul sebagai konteks; balas di kartu: `harness.mjs plane comment <slug> "<teks>"`. Keputusan yang menahan pekerjaan: tulis sebagai baris D di `align.md`, lalu `harness.mjs plane ask <slug> --decide` (me-@ user). Cermin kartu: `.harness/plane/<slug>.md` (hanya dibaca; jangan diedit). Ketikan user `tarik` = tarik Plane sekarang; `bukan itu` = intent terakhir salah tangkap, jangan lanjutkan tindakannya.

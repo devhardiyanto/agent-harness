@@ -13,6 +13,7 @@
 //   ingat user: <preferensi> | lupakan U2                       → profil user (per orang, ~/.harness/USER.md)
 //   ref:<slug> (di mana pun dalam prompt, maks 3)               → ringkasan item dimuat sebagai konteks
 //   bukan itu | salah tangkap (1.13)                            → intent terakhir ditandai salah tangkap (+ dibatalkan bila bisa)
+//   kerjakan <slug> | verifikasi knowledge <svc> | terapkan pola <slug> <P1|semua> (1.15)
 //   tarik | tarik plane | cek plane (1.13)                       → tarik komentar/checklist Plane ke cermin lokal
 const SLUG = '([\\w][\\w.\\-]*)';
 const ACC = '(?:\\s+terima\\s+(semua|all|C\\d+(?:\\s*,\\s*C\\d+)*))?';
@@ -31,6 +32,10 @@ export function parseIntent(prompt, cfg, resolve, soleDone = () => null) {
     const sl = m[1] ? ok(m[1]) : soleDone();
     if (sl) return { command: `/harness:ship ${sl}`, refs };
   }
+  // 1.15.0: pengganti slash yang dulu belum punya kalimat pendek
+  if ((m = new RegExp(`^(?:kerjakan|bangun|build|lanjut(?:kan)?)\\s+${SLUG}$`, 'i').exec(t)) && ok(m[1])) return { kind: 'build', slug: ok(m[1]), refs };
+  if ((m = /^(?:verifikasi|verify)\s+(?:knowledge\s+)?([\w.\-]+)$/i.exec(t)) && (cfg.services || []).includes(m[1])) return { command: `/harness:knowledge verify ${m[1]}`, refs };
+  if ((m = new RegExp(`^(?:terapkan|setujui)\\s+pola\\s+${SLUG}\\s+(all|semua|P\\d+(?:\\s*,\\s*P\\d+)*)$`, 'i').exec(t)) && ok(m[1])) return { command: `/harness:knowledge patterns ${ok(m[1])} ${/^semua$/i.test(m[2]) ? 'all' : m[2]}`, refs };
   if ((m = /^(?:quick|cepat)\s*:\s*(.{4,})$/is.exec(t))) return { command: `/harness:quick ${m[1].trim()}`, refs };
   if ((m = new RegExp(`^(?:keputusan|tabel\\s+keputusan|apa\\s+yang\\s+(?:harus|perlu)\\s+(?:aku|saya)\\s+jawab)(?:\\s+${SLUG})?\\s*\\??$`, 'i').exec(t))) return { kind: 'decide', slug: m[1] ? ok(m[1]) : null, refs };
   if (/^(?:sisa(?:nya)?|lanjut|next|todo|apa\s+(?:lagi|selanjutnya)|(?:yang\s+)?belum\s+selesai(?:\s+apa)?|yang\s+belum)\s*\??$/i.test(t)) return { kind: 'open', refs };

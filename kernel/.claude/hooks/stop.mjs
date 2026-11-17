@@ -66,7 +66,7 @@ export function problemsFor(root, cfg, sid) {
     else if (ev.verdict === 'fail') out.push(`${item.slug}: test GAGAL (${(ev.checks || []).filter((c) => !c.ok).map((c) => `${c.service}:${c.name}`).join(', ')}). Perbaiki, lalu jalankan runner lagi.`);
     else if (ev.verdict === 'unchecked' && cfg.gate.require_checks) out.push(`${item.slug}: tidak ada checks terkonfigurasi tetapi gate.require_checks aktif.`);
     else if (ev.code_fingerprint !== codeFingerprint(root, cfg, item)) out.push(`${item.slug}: bukti test usang (kode berubah setelah test dijalankan). Jalankan runner lagi.`);
-    if (!isQuick(item) && item.status === 'in-review' && (!sum.review || sum.review.verdict === 'pending')) out.push(`${item.slug}: review belum dijalankan (review.md kosong/pending). Jalankan /harness:review ${item.slug} (agent reviewer).`);
+    if (!isQuick(item) && item.status === 'in-review' && (!sum.review || sum.review.verdict === 'pending')) out.push(`${item.slug}: review belum dijalankan (review.md kosong/pending). Jalankan skill review ${item.slug} (agent reviewer).`);
   }
   return out;
 }

@@ -67,6 +67,7 @@ if (intent.kind) {
     const inbox = takeInbox(root);
     say(`[harness] Hasil tarik Plane (cermin: .harness/plane/<slug>.md). Tampilkan tabel apa adanya, lalu tanggapi komentar baru (bila ada) di kartu dengan "node .claude/hooks/harness.mjs plane comment <slug> \"<balasan>\"".\n${(r.stdout || r.stderr || '(tanpa keluaran)').trim().slice(0, 4000)}${inbox.length ? `\nKomentar baru: ${inbox.map((c) => `${c.slug}: ${c.text.replace(/\n+/g, ' / ')}`).join(' ; ').slice(0, 2000)}` : ''}`);
   }
+  if (intent.kind === 'build') say(`[harness] User meminta eksekusi ${intent.slug}. Jalankan skill harness:build untuk ${intent.slug} (gerbang: item harus approved/in-progress).`);
   if (intent.kind === 'open') say(`[harness] Tampilkan tabel ini APA ADANYA (tanpa narasi), lalu satu baris: langkah paling penting berikutnya.\n${formatOpen(openRows(root, cfg), cfg.recap.max_rows)}`);
   if (!cfg.memory.enabled) stop('memori mati (memory.enabled=false).');
   if (intent.kind === 'remember') { const r = addEntry(root, cfg, intent.text, who0(), intent.target); if (!r.ok) stop(`ingat ditolak: ${r.reason}`); logIntent(root, cfg, { type: 'intent', sid, kind: 'remember', ref: r.id, prompt: payload.prompt }); say(`[harness] ${intent.target === 'user' ? 'Profil user' : 'Memori'} ${r.id} disimpan oleh ${who0()} (ditulis hook; ${r.used}/${r.max} karakter). ${intent.target === 'user' ? 'Ikuti preferensi ini mulai sekarang; ' : ''}Dimuat otomatis mulai sesi berikutnya. Balas satu baris konfirmasi.`); }
@@ -104,7 +105,7 @@ if (ma) {
   if (!ia) block(`work item "${ma[1]}" tidak ditemukan / ambigu.`);
   if (alignExempt(ia, cfg)) block(`item ${sa} tidak butuh align (lajur quick, tipe dikecualikan, atau align.required=false).`);
   const a = readAlign(ia);
-  if (!a) block(`align.md belum ada. Minta agent menjalankan /harness:align ${sa} dulu.`);
+  if (!a) block(`align.md belum ada. Minta agent menjalankan skill align ${sa} dulu.`);
   if (a.claims < 1) block('tabel klaim kosong (baris "| C1 | klaim | bukti path:baris | status |").');
   const ap = path.join(ia.dir, 'align.md');
   let t = fs.readFileSync(ap, 'utf8');
@@ -127,7 +128,7 @@ if (ma) {
   t = setFmKey(t, 'verdict', 'aligned'); t = setFmKey(t, 'aligned_at', new Date().toISOString()); t = setFmKey(t, 'aligned_by', who0());
   fs.writeFileSync(ap, t);
   audit(root, { event: 'align', session: payload.session_id, slug: sa, by: who0() });
-  ctxOut(`[harness] Objective ${sa} ALIGNED oleh ${who0()} (ditulis hook). Berikutnya: /harness:plan ${sa}. Balas satu baris.`);
+  ctxOut(`[harness] Objective ${sa} ALIGNED oleh ${who0()} (ditulis hook). Berikutnya: skill plan ${sa}. Balas satu baris.`);
   process.exit(0);
 }
 // Update harness di root: hanya jalan dengan tiket dari ketikan manusia (guard-bash menolak tanpa tiket).
@@ -171,7 +172,7 @@ if (ms) {
   }
   // Fase A: belum ada PR. Ketikan ini = buka PR + merge saat hijau + ringkasan (bila ship.merge_on_request).
   if (ask) { writeIntent(root, cfg, ss, who0()); audit(root, { event: 'merge-intent', session: payload.session_id, slug: ss, by: who0() }); }
-  ctxOut(`[harness] ${who0()} meminta SHIP ${ss}${ask ? ' (PR + merge saat check hijau + ringkasan; izin merge tercatat oleh hook)' : ''}. Jalankan skill harness:ship untuk ${ss}: Fase A (ship-plan, commit, push, gh pr create, tulis pr: di plan.md).${ask ? ` Lalu tunggu check dengan Monitor "gh pr checks <url> --watch"; semua hijau → jalankan HANYA "node .claude/hooks/harness.mjs ship ${ss}" (merge memakai izin tadi). ${done}` : ` Lalu user mengetik /harness:ship ${ss} lagi setelah check hijau.`} Ada masalah di ship-plan → laporkan dan berhenti.`);
+  ctxOut(`[harness] ${who0()} meminta SHIP ${ss}${ask ? ' (PR + merge saat check hijau + ringkasan; izin merge tercatat oleh hook)' : ''}. Jalankan skill harness:ship untuk ${ss}: Fase A (ship-plan, commit, push, gh pr create, tulis pr: di plan.md).${ask ? ` Lalu tunggu check dengan Monitor "gh pr checks <url> --watch"; semua hijau → jalankan HANYA "node .claude/hooks/harness.mjs ship ${ss}" (merge memakai izin tadi). ${done}` : ` Lalu user mengetik push PR + merge ${ss} lagi setelah check hijau.`} Ada masalah di ship-plan → laporkan dan berhenti.`);
   process.exit(0);
 }
 // /harness:quick <permintaan>: ketikan manusia = persetujuan. Hook membuat item lajur quick berstatus approved (satu service, batas file di config).
@@ -179,7 +180,7 @@ if (mq) {
   const r = createQuick(root, mq[1], who0());
   if (!r.ok) block(r.reason);
   audit(root, { event: 'quick', session: payload.session_id, slug: r.slug, by: who0() });
-  ctxOut(`[harness] Item quick ${r.slug} dibuat dan APPROVED oleh ${who0()} (ditulis hook). Kerjakan di sesi ini: baca knowledge service yang kena, ubah minimal (maks ${cfg.quick.max_files} file, satu service, bukan skema), tulis bukti AC di progress.md, lalu "node .claude/hooks/harness.mjs set-status ${r.slug} done". Melebihi batas → "harness.mjs promote ${r.slug}". Balas ≤3 baris saat selesai: apa berubah dan "/harness:ship ${r.slug}".`);
+  ctxOut(`[harness] Item quick ${r.slug} dibuat dan APPROVED oleh ${who0()} (ditulis hook). Kerjakan di sesi ini: baca knowledge service yang kena, ubah minimal (maks ${cfg.quick.max_files} file, satu service, bukan skema), tulis bukti AC di progress.md, lalu "node .claude/hooks/harness.mjs set-status ${r.slug} done". Melebihi batas → "harness.mjs promote ${r.slug}". Balas ≤3 baris saat selesai: apa berubah dan "push PR + merge ${r.slug}".`);
   process.exit(0);
 }
 // /harness:knowledge verify <svc>: knowledge draft → verified, hanya bila lint bersih. Ditulis hook, bukan agent.
@@ -218,4 +219,4 @@ t = setFmKey(t, 'approved_by', who);
 fs.writeFileSync(item.planPath, t);
 audit(root, { event: 'approve', session: payload.session_id, slug, by: who });
 ctxOut(`[harness] Plan ${slug} sekarang APPROVED oleh ${who} (ditulis hook, bukan agent). ` +
-  'Balas maksimal 2 baris: konfirmasi dan instruksi membuka sesi baru lalu menjalankan "/harness:build ' + slug + '". Jangan mulai implementasi di sesi planning ini.');
+  'Balas maksimal 2 baris: konfirmasi dan instruksi membuka sesi baru lalu menjalankan "kerjakan ' + slug + '". Jangan mulai implementasi di sesi planning ini.');

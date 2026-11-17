@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.15.0
+Milestone 1 dari rancangan "Sederhana" (`docs/v1.15/`, keputusan D29–D35). Aditif; mematikan `tui.statusline` dan menghapus `outputStyle` mengembalikan tampilan 1.14.
+- **Status line harness** (`statusLine` → `.claude/hooks/statusline.mjs`): root, item sesi ini, status, `AC n/m`, checks; baris kedua keputusan terbuka, komentar Plane baru, jumlah pelajaran, konteks %. Tema `tui.theme` (`tenang`, `kontras`, `mono`), `NO_COLOR` dihormati, `tui.max_width`. Galat apa pun menghasilkan satu baris polos.
+- **Nama sesi untuk `/summarize`**: status line menyimpan `session_name` ke `.harness/state/session-name`.
+- **Gaya keluaran proyek** `harness` (`.claude/output-styles/harness.md`, `outputStyle`): tabel, maksimal 5 baris, kalimat pendek; `keep-coding-instructions: true`.
+- **Saran tanpa `/harness:`**: pesan gerbang, `next`, `sisa`, `decide`, rekap, handoff, dan konteks hook kini menyebut kalimat pendek. Dijaga test yang memindai sumber. `/harness:init` dan `/harness:update` tetap; bentuk slash lain tetap diterima.
+- **Kalimat pendek baru**: "kerjakan <slug>" (memicu skill build), "verifikasi knowledge <svc>", "terapkan pola <slug> <P1|semua>".
+- **Uji M0** (`node .claude/hooks/spike.mjs on | report | off`, dijalankan manusia): empat pemeriksaan di Claude Code asli; langkah di `docs/v1.15/SPIKE.md`.
+- `bench` mengukur `statusline.mjs`.
+- Rancangan direvisi: persona = spesialis per bidang, satu berkas per item, antislop disalin (`docs/v1.15/PRD.md`, `TECH.md`).
+
 ## 1.14.1
 - **`/summarize`** (skill proyek di `.claude/skills/summarize`, tanpa awalan `harness:`): merangkum percakapan sesi secara kronologis, hanya versi terakhir yang disepakati, ke `docs/sessions/<nama>.md`. Nama berkas pendek: argumen, nama sesi (`harness.mjs session-name`, terisi mulai 1.15 lewat status line), atau 2–4 kata topik. Berkas yang sudah ada **diperbarui**, bukan digandakan; bila user menyinggung berkas rangkuman, agent membacanya lalu memperbaruinya di akhir giliran.
 - Rancangan 1.15 "Sederhana": `docs/v1.15/PRD.md`, `docs/v1.15/TECH.md` (belum ada kode).

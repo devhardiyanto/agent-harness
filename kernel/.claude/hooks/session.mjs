@@ -34,12 +34,12 @@ try {
   const drafts = rows.filter((r) => r.status === 'draft').map((r) => r.service);
   if (missing.length) lines.push(`Knowledge belum ada: ${missing.slice(0, 8).join(', ')}${missing.length > 8 ? ` (+${missing.length - 8})` : ''} → /harness:init`);
   const heavy = stale.filter((r) => r.state === 'stale');
-  if (heavy.length) lines.push(`Knowledge tertinggal dari baseline: ${heavy.slice(0, 6).map((r) => `${r.service} (+${r.behind} commit)`).join(', ')}${heavy.length > 6 ? ` (+${heavy.length - 6})` : ''} → /harness:knowledge refresh <svc>`);
+  if (heavy.length) lines.push(`Knowledge tertinggal dari baseline: ${heavy.slice(0, 6).map((r) => `${r.service} (+${r.behind} commit)`).join(', ')}${heavy.length > 6 ? ` (+${heavy.length - 6})` : ''} → skill knowledge refresh <svc>`);
   else if (stale.length) lines.push(`Knowledge sedikit tertinggal: ${stale.slice(0, 6).map((r) => `${r.service} (+${r.behind})`).join(', ')} (di bawah ambang ${knowledgeCfg(cfg).stale_warn_commits}).`);
-  if (bad.length) lines.push(`Knowledge ${bad.join(', ')}: source_commit tidak dikenal repo → /harness:knowledge refresh.`);
-  if (drafts.length) lines.push(`Knowledge berstatus draft (belum diverifikasi manusia): ${drafts.slice(0, 8).join(', ')} → node .claude/hooks/harness.mjs knowledge-sample <svc>, lalu /harness:knowledge verify <svc>.`);
+  if (bad.length) lines.push(`Knowledge ${bad.join(', ')}: source_commit tidak dikenal repo → skill knowledge refresh.`);
+  if (drafts.length) lines.push(`Knowledge berstatus draft (belum diverifikasi manusia): ${drafts.slice(0, 8).join(', ')} → node .claude/hooks/harness.mjs knowledge-sample <svc>, lalu verifikasi knowledge <svc>.`);
 } catch { /* abaikan */ }
-lines.push('Aturan: kode di service hanya boleh diedit lewat work item approved. Mulai dari /harness:impact. Balasan chat ≤5 baris + path file.');
+lines.push('Aturan: kode di service hanya boleh diedit lewat work item approved. Mulai dari skill impact. Balasan chat ≤5 baris + path file.');
 if (payload.source === 'compact' || payload.source === 'resume') lines.push('Sesi dilanjutkan: baca progress.md work item in-progress sebelum bertindak.');
 // Upgrade dari < 1.10.0: item done/merged lama dimasukkan ke docs/memory/INDEX.md sekali (deterministik, tanpa token).
 try { if (cfg.memory.enabled && !hasIndex(root)) { const n = reindex(root, objectiveOf); if (n) lines.push(`Memori: ${n} pekerjaan lama diindeks ke docs/memory/INDEX.md (cari: harness.mjs recall <kata>; muat: ref:<slug>).`); } } catch { /* abaikan */ }

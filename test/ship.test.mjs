@@ -210,7 +210,7 @@ test('fase A dengan merge_on_request=false: skill ship tanpa izin merge', () => 
   const slug = doneItem(root, ['null']);
   fs.writeFileSync(path.join(root, 'docs/work', slug, 'plan.md'), fs.readFileSync(path.join(root, 'docs/work', slug, 'plan.md'), 'utf8').replace(/^pr: .*$/m, 'pr: null'));
   const r = prompt(root, `/harness:ship ${slug}`);
-  assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /mengetik \/harness:ship .* lagi/);
+  assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /mengetik push PR \+ merge .* lagi/);
   assert.equal(fs.existsSync(intent(root, slug)), false);
 });
 
