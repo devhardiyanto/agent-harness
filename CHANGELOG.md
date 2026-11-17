@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.19.1
+Patch dari uji di yhpa.
+- **`tidy`**: item lajur quick (bentuk folder) tidak lagi dilaporkan "brief.md tidak ada", karena lajur itu memang hanya punya `plan.md` dan `progress.md`. `--apply` tanpa item usang atau grup gabung kini menyatakan "Tidak ada yang diterapkan" (sebelumnya mencetak ulang rencana tanpa keterangan).
+- **`bidang`**: kalau `services` kosong, perintah ini memberi petunjuk dan tidak lagi mencetak tabel kosong.
+- **`spike.mjs report`**: uji 1 menampilkan `TIDAK ADA DATA` (bukan `TIDAK`) kalau tidak ada catatan pemilih, karena itu juga terjadi saat pemilih tidak pernah dipakai.
+- **Installer**: langkah berikutnya memakai kalimat pendek (`verifikasi knowledge <svc>`, `menu`), bukan `/harness:impact` atau `/harness:status`.
+
 ## 1.19.0
 Milestone 5 rancangan "Sederhana" (D30 b): antislop sebagai salinan teks aturan.
 - **Enam skill antislop 3.2.30** (MIT, commit `35b54dc`) di `kernel/.claude/skills/antislop*`, terpasang ke tiap root. Diubah: petunjuk installer hulu dan pembacaan berkas preferensi di luar project dibuang, mode dari `antislop.mode`, skrip pemeriksa kontras dan izin `Bash(python *)` tidak disertakan. Atribusi dan daftar perubahan: `THIRD_PARTY.md`.

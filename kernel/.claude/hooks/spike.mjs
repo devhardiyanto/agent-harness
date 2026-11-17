@@ -92,7 +92,7 @@ if (cmd === 'report') {
   const names = [...new Set(sl.map((r) => r.session_name).filter(Boolean))];
   if (!L.length) { console.log('Log kosong: belum ada sesi Claude yang dijalankan sejak "on". Buka sesi baru, jalankan langkahnya, keluar, lalu jalankan "report" lagi.'); process.exit(0); }
   const rows = [
-    ['1', 'hook menerima jawaban pemilih', ask.length ? 'YA' : 'TIDAK', ask.length ? `${ask.length} catatan; tool_response (${ask[0].response_type}): ${ask.map((r) => r.response).join('  ||  ')}` : 'tidak ada catatan PostToolUse untuk AskUserQuestion'],
+    ['1', 'hook menerima jawaban pemilih', ask.length ? 'YA' : 'TIDAK ADA DATA', ask.length ? `${ask.length} catatan; tool_response (${ask[0].response_type}): ${ask.map((r) => r.response).join('  ||  ')}` : 'tidak ada catatan PostToolUse untuk AskUserQuestion: pemilih belum dipakai di sesi ini, atau hook tidak terpanggil. Ulangi langkah 2 agar pasti.'],
     ['2', 'hook tahu agent mana yang mengedit', !edits.length ? 'TIDAK ADA DATA' : agentKeys.length || varying.length ? 'MUNGKIN' : 'TIDAK', !edits.length ? 'tidak ada catatan PreToolUse Edit/Write' : `${edits.length} catatan; kunci penanda agent: ${agentKeys.join(', ') || '-'}; kunci yang tidak selalu ada: ${varying.join(', ') || '-'}; nilai: ${short(edits.map((r) => r.agentish), 400)}`],
     ['3a', 'status line proyek tampil', sl.length ? 'YA' : 'TIDAK', sl.length ? `${sl.length} kali dipanggil; kunci: ${sl[sl.length - 1].keys.join(', ')}` : 'skrip status line tidak pernah dipanggil'],
     ['3b', 'nama sesi terkirim ke status line', names.length ? 'YA' : sl.length ? 'TIDAK' : 'TIDAK ADA DATA', names.length ? names.join(' | ') : 'session_name kosong'],
