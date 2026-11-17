@@ -39,4 +39,12 @@ Nama kunci payload hook, jawaban pemilih, nama sesi, dan nilai pendek dari kunci
 
 ## Hasil
 
-(diisi setelah uji dijalankan)
+Dijalankan 2026-11-17 di `event` (Claude Code 2.1.326, Windows, `claude agents`). Sumber: tangkapan layar user; `report` belum dijalankan setelah sesi.
+
+| uji | hasil | bukti |
+|---|---|---|
+| 1 hook menerima jawaban pemilih | menunggu `report` | pemilih tampil dan dijawab ("Warna? → Merah") |
+| 2 hook tahu agent mana yang mengedit | menunggu `report` | sesi utama menulis `docs/uji-utama.md`; subagent `general-purpose` menulis `docs/uji-sub.md` |
+| 3a status line proyek tampil | **YA** | baris `uji M0 · status line proyek tampil` muncul lewat `claude agents` |
+| 3b nama sesi terkirim | **YA** | `queued-unrelated-question-chat`, sama dengan nama di bingkai sesi |
+| 4 skill bisa disembunyikan dari user | **YA (sebagian)** | `/uji-tersembunyi` ditolak: "This skill can only be invoked by Claude, not directly by users". Belum diketahui apakah namanya masih muncul di daftar `/` |

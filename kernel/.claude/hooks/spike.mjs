@@ -90,6 +90,7 @@ if (cmd === 'report') {
   const varying = allKeys.filter((k) => edits.some((r) => !r.keys.includes(k)));
   const agentKeys = [...new Set(edits.flatMap((r) => Object.keys(r.agentish || {})))];
   const names = [...new Set(sl.map((r) => r.session_name).filter(Boolean))];
+  if (!L.length) { console.log('Log kosong: belum ada sesi Claude yang dijalankan sejak "on". Buka sesi baru, jalankan langkahnya, keluar, lalu jalankan "report" lagi.'); process.exit(0); }
   const rows = [
     ['1', 'hook menerima jawaban pemilih', ask.length ? 'YA' : 'TIDAK', ask.length ? `${ask.length} catatan; tool_response (${ask[0].response_type}): ${ask.map((r) => r.response).join('  ||  ')}` : 'tidak ada catatan PostToolUse untuk AskUserQuestion'],
     ['2', 'hook tahu agent mana yang mengedit', !edits.length ? 'TIDAK ADA DATA' : agentKeys.length || varying.length ? 'MUNGKIN' : 'TIDAK', !edits.length ? 'tidak ada catatan PreToolUse Edit/Write' : `${edits.length} catatan; kunci penanda agent: ${agentKeys.join(', ') || '-'}; kunci yang tidak selalu ada: ${varying.join(', ') || '-'}; nilai: ${short(edits.map((r) => r.agentish), 400)}`],
