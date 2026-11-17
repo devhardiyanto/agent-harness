@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { project, hx, hook, rd } from './helpers.mjs';
 import { parseTypedAnswers } from '../kernel/.claude/hooks/ask.mjs';
 
@@ -44,8 +45,8 @@ test('prompt: "C4 benar dan C5 benar" lalu "D1: a" dicatat hook ke berkas item',
 test('pemilih: klaim dugaan ikut ditanyakan; naskah ditulis ke berkas, pesan hook hanya menyebut path', async () => {
   const root = project({ v1: true });
   const { slug } = draftItem(root);
-  const { buildQuestions, askInstruction } = await import(path.join(root, '.claude/hooks/ask.mjs'));
-  const { readItem } = await import(path.join(root, '.claude/hooks/lib.mjs'));
+  const { buildQuestions, askInstruction } = await import(pathToFileURL(path.join(root, '.claude/hooks/ask.mjs')).href);
+  const { readItem } = await import(pathToFileURL(path.join(root, '.claude/hooks/lib.mjs')).href);
   const qs = buildQuestions(root, readItem(root, slug));
   assert.deepEqual(qs.map((q) => q.id), ['C4', 'C5', 'D1']);
   assert.deepEqual(qs[0].options.map((o) => o.label), ['benar', 'salah']);
