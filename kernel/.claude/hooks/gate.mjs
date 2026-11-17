@@ -167,7 +167,7 @@ export function evaluate(root, cfg, payload) {
     const quick = items.filter((i) => isQuick(i) && (!i.services.length || coversService(i, svc) || svc === '*'));
     if (!standard.length && !quick.length) {
       const bound = items.filter((i) => isQuick(i) && i.services.length);
-      return fail(`tidak ada work item berstatus approved/in-progress yang mencakup service "${svc}". Alurnya: skill impact → skill plan → user ketik setuju <slug> → sesi baru kerjakan <slug>; perubahan kecil: user ketik quick: <permintaan>.` +
+      return fail(`tidak ada work item berstatus approved/in-progress yang mencakup service "${svc}". Alurnya: buat item dari permintaan user (skill impact) → skill plan → user ketik setuju <slug> → kerjakan <slug>. Jangan menyarankan quick: ke user; lajur itu pilihan user sendiri.` +
         (items.length ? ` Item aktif saat ini: ${items.map((i) => `${i.slug}[${i.services.join(',') || '-'}]`).join('; ')}.` : '') +
         (bound.length ? ` Lajur quick hanya 1 service (${bound.map((i) => `${i.slug} → ${i.services.join(',')}`).join('; ')}); untuk menambah service: "node .claude/hooks/harness.mjs promote <slug>" lalu plan + approve.` : ''));
     }

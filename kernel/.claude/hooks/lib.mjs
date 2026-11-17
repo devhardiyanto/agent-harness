@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.19.2',
+  harness_version: '1.19.3',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -478,7 +478,8 @@ export function runCli(cmd, args, opts = {}) {
   if (args.some((a) => /[\s&|<>^"%'`;()]/.test(String(a)))) return { status: 1, stdout: '', stderr: 'argumen mengandung karakter terlarang', error: new Error('argumen tidak aman') };
   return spawnSync([cmd, ...args].join(' '), { encoding: 'utf8', ...opts, shell: true });
 }
-export const ghRun = (args, cwd, timeout = 45000) => runCli('gh', args, { cwd, timeout });
+// 1.19.3: HARNESS_GH = path skrip gh tiruan (sandbox latihan); hook memakainya tanpa bergantung pada PATH.
+export const ghRun = (args, cwd, timeout = 45000) => (process.env.HARNESS_GH ? runCli('node', [process.env.HARNESS_GH, ...args], { cwd, timeout }) : runCli('gh', args, { cwd, timeout }));
 export function checkMerged(item) {
   const prs = asList(item.fm.pr);
   if (!prs.length) return ['frontmatter plan.md belum punya "pr:" (URL PR).'];

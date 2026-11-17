@@ -50,7 +50,7 @@ const svcs = {
   },
 };
 for (const [name, files] of Object.entries(svcs)) repo(path.join(dir, 'source-code', name), name, files);
-repo(dir, 'root', { 'README.md': '# harness sandbox\n\nRoot latihan. Remote semua repo adalah folder lokal .sandbox/remotes; tidak ada yang sampai ke GitHub.\n', '.gitignore': 'source-code/\n.sandbox/\nstart.sh\nstart.cmd\n' });
+repo(dir, 'root', { 'README.md': '# harness sandbox\n\nRoot latihan. Remote semua repo adalah folder lokal .sandbox/remotes; tidak ada yang sampai ke GitHub.\n', '.gitignore': 'source-code/\n.sandbox/\nstart.sh\nstart.cmd\n.claude/settings.local.json\n' });
 
 const ins = spawnSync('node', [path.join(HARNESS, 'install.mjs'), dir, '--yes', '--in-place'], { cwd: dir, encoding: 'utf8' });
 if (ins.status !== 0) die(`install gagal:\n${ins.stdout}\n${ins.stderr}`);
@@ -69,14 +69,26 @@ fs.copyFileSync(path.join(HARNESS, 'scripts', 'fake-gh.mjs'), fake);
 wr(path.join(sb, 'bin', 'gh'), `#!/bin/sh\nexec node "${fake.replace(/\\/g, '/')}" "$@"\n`); fs.chmodSync(path.join(sb, 'bin', 'gh'), 0o755);
 wr(path.join(sb, 'bin', 'gh.cmd'), `@echo off\r\nnode "${fake}" %*\r\n`);
 const bin = path.join(sb, 'bin');
-wr(path.join(dir, 'start.sh'), `#!/bin/sh\n# Buka claude di sandbox dengan gh tiruan (hanya untuk sesi ini).\ncd "$(dirname "$0")"\nexport PATH="${bin.replace(/\\/g, '/')}:$PATH"\nexport HARNESS_SANDBOX=1\nexec claude "$@"\n`); fs.chmodSync(path.join(dir, 'start.sh'), 0o755);
-wr(path.join(dir, 'start.cmd'), `@echo off\r\ncd /d "%~dp0"\r\nset "PATH=${bin};%PATH%"\r\nset HARNESS_SANDBOX=1\r\nclaude %*\r\n`);
+const posix = (p) => p.replace(/\\/g, '/').replace(/^([A-Za-z]):/, (_, d) => `/${d.toLowerCase()}`);
+// Tiga lapis agar gh tiruan dipakai walau shell sesi membangun ulang PATH (Git Bash di Windows):
+//   1. CLAUDE_ENV_FILE: di-source sebelum tiap perintah Bash agent → fungsi `gh` menang atas PATH.
+//   2. HARNESS_GH: hook harness (ship, cek merged) memanggil tiruan langsung.
+//   3. PATH di peluncur. Ketiganya juga ditulis ke .claude/settings.local.json, jadi `claude` biasa pun memakai tiruan.
+const envSh = path.join(sb, 'env.sh');
+wr(envSh, `# gh tiruan sandbox harness\ngh() { node "${fake.replace(/\\/g, '/')}" "$@"; }\nexport PATH="${posix(bin)}:$PATH"\nexport HARNESS_SANDBOX=1\n`);
+const envVars = { CLAUDE_ENV_FILE: envSh, HARNESS_GH: fake, HARNESS_SANDBOX: '1' };
+const localF = path.join(dir, '.claude', 'settings.local.json');
+let local = {}; try { local = JSON.parse(fs.readFileSync(localF, 'utf8')); } catch { /* belum ada */ }
+local.env = { ...(local.env || {}), ...envVars };
+wr(localF, `${JSON.stringify(local, null, 2)}\n`);
+wr(path.join(dir, 'start.sh'), `#!/bin/sh\n# Buka claude di sandbox dengan gh tiruan.\ncd "$(dirname "$0")"\nexport PATH="${posix(bin)}:$PATH"\n${Object.entries(envVars).map(([k, v]) => `export ${k}="${v.replace(/\\/g, '/')}"`).join('\n')}\nexec claude "$@"\n`); fs.chmodSync(path.join(dir, 'start.sh'), 0o755);
+wr(path.join(dir, 'start.cmd'), `@echo off\r\ncd /d "%~dp0"\r\nset "PATH=${bin};%PATH%"\r\n${Object.entries(envVars).map(([k, v]) => `set "${k}=${v}"`).join('\r\n')}\r\nclaude %*\r\n`);
 
 console.log(`Sandbox siap: ${dir}
 - service: frontend (ProfileForm: tombol Save selalu aktif), backend (validasi bio belum dibatasi)
 - semua remote = folder lokal ${path.join(sb, 'remotes')}; push tidak sampai ke GitHub
-- gh = tiruan (PR/check/merge dicatat di ${path.join(sb, 'prs.json')}), aktif hanya lewat peluncur
+- gh = tiruan (PR/check/merge dicatat di ${path.join(sb, 'prs.json')}), aktif hanya di folder sandbox ini (env di .claude/settings.local.json + peluncur)
 
 Buka:  ${process.platform === 'win32' ? path.join(dir, 'start.cmd') : path.join(dir, 'start.sh')}
-Cek tiruan aktif (di sesi itu):  ! gh --version   → "gh version 0.0.0-sandbox"
+Cek di sesi claude (ketik persis):  ! gh --version\n  harus keluar: gh version 0.0.0-sandbox  (kalau versi gh asli, berhenti: kirim output \"! type -a gh\")
 Ulang dari nol:  node ${path.join(HARNESS, 'scripts', 'sandbox.mjs')} ${dir} --reset`);

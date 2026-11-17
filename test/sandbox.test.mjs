@@ -14,6 +14,13 @@ test('sandbox: semua remote lokal, gh tiruan menangani create/view/checks/merge,
   const g = (cwd, ...a) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { cwd, encoding: 'utf8' });
   for (const d of [dir, path.join(dir, 'source-code/frontend'), path.join(dir, 'source-code/backend')]) assert.match(g(d, 'remote', 'get-url', 'origin').stdout, /\.sandbox[\\/]remotes[\\/]/);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'harness.config.json'), 'utf8')).services, ['frontend', 'backend']);
+  const env = JSON.parse(fs.readFileSync(path.join(dir, '.claude/settings.local.json'), 'utf8')).env;
+  assert.ok(env.CLAUDE_ENV_FILE && env.HARNESS_GH && env.HARNESS_SANDBOX === '1');
+  assert.match(fs.readFileSync(env.CLAUDE_ENV_FILE, 'utf8'), /^gh\(\) \{ node /m);
+  const sh = spawnSync('bash', ['-c', `. "${env.CLAUDE_ENV_FILE}"; gh --version`], { encoding: 'utf8' });
+  if (sh.status === 0) assert.match(sh.stdout, /0\.0\.0-sandbox/);
+  const acc = spawnSync('node', ['-e', 'import("./.claude/hooks/ship.mjs").then((m) => console.log(JSON.stringify(m.ghAccess("source-code/frontend"))))'], { cwd: dir, encoding: 'utf8', env: { ...process.env, HARNESS_GH: env.HARNESS_GH } });
+  assert.match(acc.stdout, /"login":"sandbox"/);
   const gh = (cwd, ...a) => spawnSync('node', [path.join(dir, '.sandbox/bin/fake-gh.mjs'), ...a], { cwd, encoding: 'utf8' });
   const fe = path.join(dir, 'source-code/frontend');
   g(fe, 'checkout', '-qb', 'fix/x'); fs.appendFileSync(path.join(fe, 'src/format.js'), '// x\n'); g(fe, 'commit', '-qam', 'x'); g(fe, 'push', '-q', 'origin', 'fix/x');
