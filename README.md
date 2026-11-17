@@ -188,6 +188,16 @@ Merge tetap aman: ketikan ship menjadi **izin merge tertunda** (`.claude/state/m
 
 Belum terverifikasi di Claude Code asli: status line proyek saat sesi dibuka lewat `claude agents`, dan perintah relatif `node .claude/hooks/statusline.mjs` bila sesi tidak dimulai dari root. Keduanya diperiksa uji M0.
 
+## Spesialis per bidang (1.17.0)
+
+| bagian | perilaku |
+|---|---|
+| spesialis | agent `backend`, `frontend`, `devops` (baru) dan `dba` (diberi label bidang), di `.claude/agents/`. Sonnet, `omitClaudeMd`, tanpa worktree. Service tanpa bidang dikerjakan `implementer` (`bidang.fallback_agent`) |
+| bidang | urutan menang: frontmatter item `bidang:` → ucapan user sesi ini ("backend: …", "ini frontend", "minta DBA …") → `bidang.map` di config → tebakan dari nama service (`*-backend`, `api`, `*-go` → backend; `*-frontend`, `web`, `admin` → frontend; `infra`, `k8s` → devops). Lihat dan koreksi: `harness.mjs bidang` |
+| sejak diskusi | bidang tampil di status line (awal baris 2) dan di kartu Plane, sebelum eksekusi |
+| eksekusi | "kerjakan <slug>" memberi baris "Eksekusi oleh spesialis": satu agent per service, `dba` lebih dulu untuk item `schema`. Sesi utama merangkum dan menulis bukti |
+| penegakan (opsional) | `bidang.enforce: true` menolak edit kode service berbidang yang tidak datang dari subagent (payload hook tanpa `agent_type`). Bawaan mati; nyalakan hanya bila uji M0 nomor 2 menunjukkan subagent membawa `agent_type`, karena bila tidak, semua edit ditolak |
+
 ## Satu berkas, empat langkah, pemilih (1.16.0)
 
 | bagian | perilaku |

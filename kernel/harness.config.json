@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.16.0",
+  "harness_version": "1.17.0",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -138,5 +138,11 @@
   },
   "item": {
     "bentuk": "tunggal"
+  },
+  "bidang": {
+    "enabled": true,
+    "map": {},
+    "fallback_agent": "implementer",
+    "enforce": false
   }
 }

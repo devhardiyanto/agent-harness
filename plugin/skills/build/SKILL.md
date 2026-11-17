@@ -1,6 +1,6 @@
 ---
 name: build
-description: Eksekusi plan yang sudah approved di sesi baru. Menjalankan implementer per service, mencatat bukti verifikasi per AC di progress.md, lalu menaikkan status ke in-review.
+description: Eksekusi plan yang sudah approved di sesi baru. Menjalankan agent spesialis bidang (backend/frontend/devops/dba) per service, mencatat bukti verifikasi per AC di progress.md, lalu menaikkan status ke in-review.
 argument-hint: "<slug>"
 user-invocable: false
 ---
@@ -16,7 +16,7 @@ Masukan: `$ARGUMENTS` (slug). Sesi ini adalah sesi **eksekusi**.
 3. Baca `plan.md`, `impact.md`, dan `progress.md` (lanjutkan dari "Status terkini" bila ada). `TaskCreate` satu tugas per AC (subjek = `AC<n>: ...`, tandai yang sudah punya bukti sebagai selesai); `TaskUpdate` ke `in_progress` saat dikerjakan dan `completed` hanya setelah buktinya tertulis di `progress.md`. Daftar tugas hanya tampilan; sumber kebenaran tetap `progress.md`.
 4. Siapkan branch kerja di tiap service tercakup (bukan `root_branch`): `git -C source-code/<svc> switch -c <feat|fix|chore>/<slug-pendek>` (atau `switch` bila sudah ada).
 5. Kerjakan sesuai urutan di `plan.md`:
-   - kode → agent `implementer`, satu service pada satu waktu;
+   - kode → agent **spesialis bidang** service itu (`backend`, `frontend`, `devops`; lihat `node .claude/hooks/harness.mjs bidang` atau baris "Eksekusi oleh spesialis" dari hook), satu service pada satu waktu; service tanpa bidang → `implementer`. Sesi utama tidak mengedit kode service sendiri;
    - migrasi/skema → agent `dba` lebih dulu.
 6. Setiap AC selesai → tulis bukti nyata di `progress.md` bagian `## Verifikasi`: `- AC1: <output/respons/langkah+hasil>`. Perbarui "Status terkini".
 7. Bila hook memperingatkan konteks ±400k token: simpan status ke `progress.md`, berhenti, minta user lanjut di sesi baru dengan "kerjakan <slug>".

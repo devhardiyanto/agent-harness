@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.17.0
+Milestone 3 rancangan "Sederhana" (D29, D29b a): persona = spesialis per bidang.
+- **Agent spesialis** `backend`, `frontend`, `devops` (baru) dan `dba` (label bidang). `implementer` menjadi cadangan untuk service tanpa bidang.
+- **Bidang diketahui sejak diskusi**: dari frontmatter item, ucapan user ("backend: …", "ini frontend", "minta DBA …"), `bidang.map` di config, atau tebakan nama service. Tampil di status line (awal baris 2) dan di kartu Plane (baris "Bidang"; kartu yang bidangnya baru terdeteksi dikirim ulang sekali).
+- **Eksekusi oleh spesialis**: "kerjakan <slug>" menyebut agent per service (dba lebih dulu untuk `schema`); skill build memanggil spesialis, bukan `implementer`.
+- **`harness.mjs bidang`**: tabel service → bidang → sumber → spesialis.
+- **`bidang.enforce`** (bawaan mati): menolak edit kode service berbidang dari sesi utama, bila payload hook tanpa `agent_type`. Bergantung pada uji M0 nomor 2.
+
 ## 1.16.0
 Milestone 2 rancangan "Sederhana" (D34 a, D35 a, D33 a).
 - **Satu berkas per item** (`item.bentuk: "tunggal"`, bawaan): `plan.md` dengan empat bagian (Objective, Penjelasan, Dampak & konfirmasi, Eksekusi) menggantikan enam berkas. Item lama tidak dimigrasi dan tetap berjalan; `"folder"` mengembalikan bentuk lama.
