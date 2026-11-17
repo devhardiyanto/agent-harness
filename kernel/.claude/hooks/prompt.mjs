@@ -16,6 +16,7 @@ import { parseIntent } from './intent.mjs';
 import { addEntry, removeEntry, approvePending, refText } from './memory.mjs';
 import { resolveArchived } from './tidy.mjs';
 import { menuFor } from './ask.mjs';
+import { autoRecall, recallText } from './growth.mjs';
 import { bidangFromPrompt, setSessionBidang, execText } from './bidang.mjs';
 import { openRows, formatOpen } from './recap.mjs';
 
@@ -51,6 +52,8 @@ if (cfg.plane.enabled && cfg.plane.pull_comments) {
   planeKick(root, ['pull', '--auto', '--quiet']);
 }
 refCtx.push(...extra0);
+// 1.18.0: rujukan otomatis untuk prompt biasa (bukan perintah pendek), dicari kode
+if (!intent.command && !intent.kind && !slash && cfg.memory.enabled) { try { const rt = recallText(autoRecall(root, cfg, payload.prompt, sid)); if (rt) refCtx.push(rt); } catch { /* abaikan */ } }
 if (intent.command) prompt = intent.command;
 if (intent.kind) {
   const say = (txt) => { context('UserPromptSubmit', [...refCtx, txt].join('\n\n')); process.exit(0); };
@@ -79,7 +82,7 @@ if (intent.kind) {
     const mn = menuFor(root, cfg, sid);
     say(`[harness] User meminta menu. ${cfg.tui.menu ? `Panggil AskUserQuestion dengan argumen JSON ini apa adanya, lalu kerjakan pilihan user: ${JSON.stringify({ questions: mn.questions })}` : 'Tampilkan langkah berikutnya sebagai tabel.'}${mn.typed.length ? ` Sebut juga, sebagai teks (harus diketik user, bukan dipilih): ${mn.typed.join(' · ')}.` : ''}`);
   }
-  if (intent.kind === 'build') { const bi = readItem(root, intent.slug); say(`[harness] User meminta eksekusi ${intent.slug}. Jalankan skill harness:build untuk ${intent.slug} (gerbang: item harus approved/in-progress).${cfg.bidang.enabled && bi ? ` ${execText(cfg, bi)}` : ''}`); }
+  if (intent.kind === 'build') { const bi = readItem(root, intent.slug); say(`[harness] User meminta eksekusi ${intent.slug}. Jalankan skill harness:build untuk ${intent.slug} (gerbang: item harus approved/in-progress).${cfg.bidang.enabled && bi ? ` ${execText(cfg, bi, root)}` : ''}`); }
   if (intent.kind === 'open') say(`[harness] Tampilkan tabel ini APA ADANYA (tanpa narasi), lalu satu baris: langkah paling penting berikutnya.\n${formatOpen(openRows(root, cfg), cfg.recap.max_rows)}`);
   if (!cfg.memory.enabled) stop('memori mati (memory.enabled=false).');
   if (intent.kind === 'remember') { const r = addEntry(root, cfg, intent.text, who0(), intent.target); if (!r.ok) stop(`ingat ditolak: ${r.reason}`); logIntent(root, cfg, { type: 'intent', sid, kind: 'remember', ref: r.id, prompt: payload.prompt }); say(`[harness] ${intent.target === 'user' ? 'Profil user' : 'Memori'} ${r.id} disimpan oleh ${who0()} (ditulis hook; ${r.used}/${r.max} karakter). ${intent.target === 'user' ? 'Ikuti preferensi ini mulai sekarang; ' : ''}Dimuat otomatis mulai sesi berikutnya. Balas satu baris konfirmasi.`); }

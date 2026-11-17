@@ -10,6 +10,7 @@ paths:
 - P-04. Isi: `## Kapan dipakai`, `## Langkah` (bernomor, perintah persis), `## Jebakan`, `## Verifikasi`. Maks `playbooks.max_chars` (6000). Tanpa secret, tanpa data produksi.
 - P-05. Prosedur, bukan log kejadian: jangan menumpuk nomor PR/issue atau kronologi.
 - P-06. Periksa: `node .claude/hooks/harness.mjs playbook lint`. Playbook yang gagal lint tidak dimuat.
+- P-07. Opsional: `bidang: backend|frontend|devops|dba` di frontmatter. Playbook berlabel hanya disebut ke spesialis bidang itu saat eksekusi; tanpa label = umum.
 
 ```markdown
 ---
