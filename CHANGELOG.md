@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.16.0
+Milestone 2 rancangan "Sederhana" (D34 a, D35 a, D33 a).
+- **Satu berkas per item** (`item.bentuk: "tunggal"`, bawaan): `plan.md` dengan empat bagian (Objective, Penjelasan, Dampak & konfirmasi, Eksekusi) menggantikan enam berkas. Item lama tidak dimigrasi dan tetap berjalan; `"folder"` mengembalikan bentuk lama.
+- **Gerbang untuk bentuk tunggal**: satu lapisan baca (`readPart`) memberi brief/impact/align/progress/review dari bagian berkas, jadi `done`, Stop, rekap, ringkasan, Plane, dan `tidy` membaca kedua bentuk lewat jalan yang sama. `align: aligned` di frontmatter hanya ditulis hook ("align ok"); AC ditolak sebelum aligned; bagian 1–3 dan teks AC beku setelah approved, sementara `### Bukti`, `### Tinjauan`, dan log tetap bisa ditulis. Lajur quick dan `amend` ikut bentuk tunggal.
+- **Pemilih keputusan**: hook Stop memberi naskah `AskUserQuestion` dari baris D (maks 4, opsi dari kolom opsi). Hook `ask.mjs` (PostToolUse, matcher `AskUserQuestion`) mencatat jawaban ke baris D bila teks pertanyaannya cocok dengan naskah; pertanyaan lain diabaikan.
+- **Menu**: ketik "menu", "?", atau "lalu apa" untuk pemilih langkah berikutnya. "setuju" dan "push PR + merge" tetap diketik.
+- **Skill alur dipanggil agent**: `impact`, `align`, `plan`, `build`, `review`, `ship` menjadi `user-invocable: false` dan bisa dipanggil model; skill menjelaskan bentuk tunggal. `AGENTS.md` ditulis ulang mengikuti empat langkah.
+- Config baru: `item.bentuk`, `tui.ask`, `tui.menu`.
+
 ## 1.15.2
 Merapikan work item (keputusan D36 a, D37 b, D38 a).
 - **`harness.mjs tidy`**: rencana tiga bagian, dihitung kode. (1) Struktur: item yang tidak sesuai versi sekarang (berkas wajib, frontmatter, status, service, slug dari kalimat prompt), hanya dilaporkan. (2) Usang: `draft`/`approved`/`done` tanpa PR yang tidak disentuh 14 hari, `merged` lebih dari 30 hari (`tidy.stale_days`, `tidy.merged_days`). (3) Gabung: item terbuka yang disentuh satu sesi digabung ke item yang statusnya paling jauh; AC disambung dengan nomor lanjutan, bukti ikut.

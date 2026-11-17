@@ -1,10 +1,12 @@
 ---
 name: align
-description: Menyepakati objective sebelum plan. Agent skeptis menguji tiap klaim permintaan ke kode (tabel klaim vs bukti), debat maks 3 ronde, temuan sampingan ke parking lot. User menutup dengan "align ok <slug>" (atau "/harness:align <slug> ok"; "... terima C2" = menerima risiko klaim bertentangan).
+description: Menyepakati objective sebelum plan. Agent skeptis menguji tiap klaim permintaan ke kode (tabel klaim vs bukti), debat maks 3 ronde, temuan sampingan ke parking lot. User menutup dengan "align ok <slug>" ("... terima C2" = menerima risiko klaim bertentangan).
 argument-hint: "<slug>"
-disable-model-invocation: true
+user-invocable: false
 ---
 # /harness:align
+
+> **Bentuk tunggal** (frontmatter `bentuk: tunggal` di `plan.md`, bawaan item baru sejak 1.16): semua catatan ada di satu `plan.md`, bukan berkas terpisah. `brief` → `## 1. Objective` dan `## 2. Penjelasan` · `impact` dan `align` → `## 3. Dampak & konfirmasi` (tabel service, `### Klaim vs bukti kode`, `### Keputusan terbuka`; ronde di frontmatter `align_rounds`, jangan menulis `align: aligned`) · AC → `## 4. Eksekusi` (`- AC1: ...`) · bukti → `### Bukti` · review → `### Tinjauan` (`verdict: clean|blockers`) · `### Decision log`, `### Status terkini`. Bagian 1–3 dan teks AC beku setelah approved.
 
 Masukan: `$ARGUMENTS` (slug). Sesi ini **tidak mengubah kode** dan tidak menulis plan. Keluaran: `docs/work/<slug>/align.md` (sudah ada dari template; isi, jangan buat ulang).
 

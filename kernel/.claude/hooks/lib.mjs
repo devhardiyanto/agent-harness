@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.15.2',
+  harness_version: '1.16.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -57,7 +57,9 @@ export const DEFAULT_CONFIG = {
   // 1.15.0: status line harness (settings.json → statusLine). theme: tenang | kontras | mono. statusline:false = tidak mencetak apa pun.
   // 1.15.2: tidy. stale_days: draft/approved/done-tanpa-PR yang tidak disentuh selama itu diarsipkan; merged_days: item merged.
   tidy: { stale_days: 14, merged_days: 30 },
-  tui: { statusline: true, theme: 'tenang', max_width: 120 },
+  // 1.16.0: bentuk item baru. tunggal = satu plan.md empat bagian; folder = brief/impact/align/plan/progress/review.md
+  item: { bentuk: 'tunggal' },
+  tui: { statusline: true, theme: 'tenang', max_width: 120, ask: true, menu: true },
   pilot: { enabled: true, hours: 6, max_misfires: 0, min_ships: 1 },
   // 1.10.0 — feature flag. Semua aditif: perintah /harness:* lama tetap berlaku.
   // intent: kalimat pendek tanpa slash ("setuju <slug>", "sisa", "ingat: ...") dipetakan ke perintah. Hanya prompt <= max_chars; slug harus cocok persis satu item.
@@ -100,7 +102,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tui', 'tidy']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tui', 'tidy', 'item']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   cfg.plane.states = { ...DEFAULT_CONFIG.plane.states, ...((user.plane && user.plane.states) || {}) };
   return cfg;
 }
@@ -202,8 +204,55 @@ export function resolveSlug(root, query) {
 const AC_LINE = /^\s*[-*]\s*\**(AC\d+)\**\s*[:.–-]\s*(.+?)\s*$/;
 export function parseAcs(text) {
   const out = [];
-  for (const l of text.split(/\r?\n/)) { const m = AC_LINE.exec(l); if (m) out.push({ id: m[1], text: m[2] }); }
+  let skip = false; // 1.16.0: baris "- AC1: ..." di bawah "### Bukti" (bentuk tunggal) adalah bukti, bukan definisi AC
+  for (const l of String(text || '').split(/\r?\n/)) {
+    const h = /^(#{1,6})\s+(.*)$/.exec(l);
+    if (h) { skip = /^bukti\b/i.test(h[2].trim()); continue; }
+    if (skip) continue;
+    const m = AC_LINE.exec(l); if (m) out.push({ id: m[1], text: m[2] });
+  }
   return out;
+}
+
+// ---------- 1.16.0: satu berkas per item (bentuk: tunggal) ----------
+// Item baru = satu plan.md berisi "## 1. Objective", "## 2. Penjelasan", "## 3. Dampak & konfirmasi", "## 4. Eksekusi"
+// (dengan "### Bukti", "### Tinjauan", "### Decision log", "### Status terkini"). readPart() memberi teks "berkas lama"
+// (brief/impact/align/progress/review.md) dari bagian itu, sehingga gerbang, rekap, ringkasan, dan Plane membaca kedua bentuk
+// lewat satu jalan. Berkas terpisah yang benar-benar ada selalu menang (item lama, dan item tunggal yang ditambah berkas).
+export const isSingle = (item) => String((item && item.fm && item.fm.bentuk) || '') === 'tunggal';
+export function sectionOf(text, re, level = 2) {
+  const L = String(text || '').split(/\r?\n/);
+  const i = L.findIndex((l) => { const h = /^(#{1,6})\s+(.*)$/.exec(l); return h && h[1].length === level && re.test(h[2].trim()); });
+  if (i < 0) return null;
+  const out = [];
+  for (const l of L.slice(i + 1)) { const h = /^(#{1,6})\s/.exec(l); if (h && h[1].length <= level) break; out.push(l); }
+  return out.join('\n').trim();
+}
+const S1 = /^1\.?\s*Objective/i; const S2 = /^2\.?\s*Penjelasan/i; const S3 = /^3\.?\s*Dampak/i; const S4 = /^4\.?\s*Eksekusi/i;
+export function readPart(item, name) {
+  const f = item.dir ? path.join(item.dir, name) : null;
+  if (f && fs.existsSync(f)) return fs.readFileSync(f, 'utf8');
+  if (!isSingle(item)) return null;
+  const body = item.body !== undefined && item.body !== '' ? item.body : splitFrontmatter(item.text || '').body;
+  const fm = item.fm || {};
+  const s4 = sectionOf(body, S4) || '';
+  const sub = (re) => sectionOf(s4, re, 3);
+  if (name === 'brief.md') return `---\n---\n## Objective\n${sectionOf(body, S1) || ''}\n\n## Penjelasan\n${sectionOf(body, S2) || ''}\n`;
+  if (name === 'impact.md') { const s3 = sectionOf(body, S3); return s3 === null ? null : `---\n---\n${s3}\n`; }
+  if (name === 'align.md') { const s3 = sectionOf(body, S3); return s3 === null ? null : `---\nverdict: ${fm.align || 'open'}\nrounds: ${fm.align_rounds || 0}\n---\n${s3}\n`; }
+  if (name === 'progress.md') return `---\n---\n## Verifikasi\n${sub(/^Bukti/i) || ''}\n\n## Decision log\n${sub(/^Decision log/i) || ''}\n\n## Status terkini\n${sub(/^Status terkini/i) || ''}\n`;
+  if (name === 'review.md') {
+    const t = sub(/^Tinjauan/i); if (t === null) return null;
+    const v = /^\s*verdict:\s*(\S+)/im.exec(t);
+    return `---\nverdict: ${v ? v[1] : 'pending'}\n---\n${t.replace(/^\s*verdict:.*$/im, '').trim()}\n`;
+  }
+  return null;
+}
+export const hasPart = (item, name) => readPart(item, name) !== null;
+// Bagian yang beku setelah approved (bentuk tunggal): bagian 1–3 dan teks AC. Bukti, Tinjauan, log, status boleh berubah.
+export function frozenPart(text) {
+  const { body } = splitFrontmatter(text);
+  return [sectionOf(body, S1), sectionOf(body, S2), sectionOf(body, S3), JSON.stringify(parseAcs(sectionOf(body, S4) || ''))].join('\n--\n');
 }
 
 const PLACEHOLDER = /^(todo|tbd|n\/a|na|-|\.{3}|belum|\?+|<.*>)$/i;
@@ -212,18 +261,18 @@ const PLACEHOLDER = /^(todo|tbd|n\/a|na|-|\.{3}|belum|\?+|<.*>)$/i;
 // Hanya metadata: tanpa judul, teks AC, isi bukti, isi review, atau email approver.
 export function summarizeItem(item) {
   const evidence = new Map();
-  const progressPath = path.join(item.dir, 'progress.md');
-  if (fs.existsSync(progressPath)) {
-    for (const l of fs.readFileSync(progressPath, 'utf8').split(/\r?\n/)) { const m = AC_LINE.exec(l); if (m) evidence.set(m[1], m[2]); }
+  const prog = readPart(item, 'progress.md');
+  if (prog !== null) {
+    for (const l of prog.split(/\r?\n/)) { const m = AC_LINE.exec(l); if (m) evidence.set(m[1], m[2]); }
   }
   const ac = parseAcs(item.body).map((a) => {
     const e = evidence.get(a.id);
     return { id: a.id, evidence: e && e.trim().length >= 8 && !PLACEHOLDER.test(e.trim()) ? 'ok' : 'missing' };
   });
   let review = null;
-  const reviewPath = path.join(item.dir, 'review.md');
-  if (fs.existsSync(reviewPath)) {
-    const { fm, body } = splitFrontmatter(fs.readFileSync(reviewPath, 'utf8'));
+  const rvText = readPart(item, 'review.md');
+  if (rvText !== null) {
+    const { fm, body } = splitFrontmatter(rvText);
     const lines = body.split(/\r?\n/).filter((l) => /blocker/i.test(l));
     review = {
       verdict: String(fm.verdict || 'pending').toLowerCase(),
@@ -231,7 +280,7 @@ export function summarizeItem(item) {
       blockers_done: lines.filter((l) => /^\s*[-*]\s*\[[xX]\]/.test(l)).length,
     };
   }
-  const has = (f) => fs.existsSync(path.join(item.dir, f));
+  const has = (f) => hasPart(item, f);
   return {
     slug: item.slug, type: item.type, status: item.status, services: item.services,
     pr: asList(item.fm.pr), created: item.fm.created || null, updated: item.fm.updated || null, approved_at: item.fm.approved_at || null,
@@ -258,7 +307,7 @@ function worktreeHash(d) {
 // Sidik jari masukan gerbang: bukti, review, daftar service, checks, dan keadaan kode tiap service. Berubah = gate.md usang.
 export function gateFingerprint(root, cfg, item) {
   const h = crypto.createHash('sha1');
-  for (const f of ['progress.md', 'review.md']) { const p = path.join(item.dir, f); h.update(fs.existsSync(p) ? fs.readFileSync(p) : ''); }
+  for (const f of ['progress.md', 'review.md']) { const p = path.join(item.dir, f); h.update(hasPart(item, f) && !fs.existsSync(p) ? readPart(item, f) : fs.existsSync(p) ? fs.readFileSync(p) : ''); }
   h.update(JSON.stringify(item.services)); h.update(JSON.stringify(cfg.checks || {})); h.update(String(item.fm.lane || ''));
   for (const sv of item.services) {
     const d = serviceDirOf(root, cfg, sv === '*' ? '' : sv);
@@ -297,9 +346,9 @@ export const DECISION_ROW = /^\|\s*D\d+\s*\|/;
 const cells = (l) => l.split('|').slice(1, -1).map((x) => x.trim());
 const EMPTY_ANSWER = /^(|-|\?+|<.*>|belum|tbd)$/i;
 export function readAlign(item) {
-  const p = path.join(item.dir, 'align.md');
-  if (!fs.existsSync(p)) return null;
-  const { fm, body } = splitFrontmatter(fs.readFileSync(p, 'utf8'));
+  const at = readPart(item, 'align.md');
+  if (at === null) return null;
+  const { fm, body } = splitFrontmatter(at);
   const L = body.split(/\r?\n/);
   const claimRows = L.filter((l) => CLAIM_ROW.test(l)).map(cells);
   // 1.12.0: "## Keputusan terbuka" | D1 | pertanyaan | opsi (rekomendasi dulu) | jawaban |; jawaban kosong = masih terbuka
@@ -383,11 +432,11 @@ export function checkDone(root, item, cfg) {
   const problems = [];
   const acs = parseAcs(item.body);
   if (!acs.length) problems.push('plan.md tidak punya acceptance criteria (format: "- AC1: ...").');
-  const progressPath = path.join(item.dir, 'progress.md');
-  if (!fs.existsSync(progressPath)) problems.push('progress.md belum ada.');
+  const progText = readPart(item, 'progress.md');
+  if (progText === null) problems.push('progress.md belum ada.');
   else {
     const ev = new Map();
-    for (const l of fs.readFileSync(progressPath, 'utf8').split(/\r?\n/)) {
+    for (const l of progText.split(/\r?\n/)) {
       const m = AC_LINE.exec(l); if (m) ev.set(m[1], m[2]);
     }
     for (const ac of acs) {
@@ -395,12 +444,12 @@ export function checkDone(root, item, cfg) {
       if (!e || e.length < 8 || PLACEHOLDER.test(e.trim())) problems.push(`${ac.id}: belum ada catatan verifikasi di progress.md (output curl, langkah manual, atau hasil tes).`);
     }
   }
-  const reviewPath = path.join(item.dir, 'review.md');
+  const rvPart = readPart(item, 'review.md');
   if (isQuick(item)) {
     if (!asList(item.fm.files).length) problems.push('lajur quick: belum ada file yang diubah (files: kosong). Tidak ada yang perlu di-done.');
-  } else if (!fs.existsSync(reviewPath)) problems.push('review.md belum ada.');
+  } else if (rvPart === null) problems.push(isSingle(item) ? 'bagian "### Tinjauan" belum ada.' : 'review.md belum ada.');
   else {
-    const rv = fs.readFileSync(reviewPath, 'utf8');
+    const rv = rvPart;
     const { fm, body } = splitFrontmatter(rv);
     if (String(fm.verdict || '').toLowerCase() !== 'clean') problems.push('review.md: verdict harus "clean".');
     if (body.split(/\r?\n/).some((l) => /^\s*[-*]\s*\[ \]/.test(l) && /blocker/i.test(l))) problems.push('review.md masih punya BLOCKER yang belum dicentang.');
@@ -472,7 +521,7 @@ export function checkTransition(root, cfg, item, to, { actor = 'agent' } = {}) {
     ? `transisi ${from} → ${to} tidak diizinkan untuk lajur quick. Alur: approved → in-progress → done → merged (tanpa in-review).`
     : `transisi ${from} → ${to} tidak diizinkan. Alur: draft → approved → in-progress → in-review → done → merged.`];
   const need = table[key];
-  if (need === 'progress' && !fs.existsSync(path.join(item.dir, 'progress.md'))) return ['progress.md belum ada.'];
+  if (need === 'progress' && !hasPart(item, 'progress.md')) return ['progress.md belum ada.'];
   if (need === 'done') return checkDone(root, item, cfg);
   if (need === 'merged') return checkMerged(item);
   return [];
@@ -673,7 +722,11 @@ export function createQuick(root, text, who) {
   const now = new Date().toISOString();
   const title = cleanTitle(body, 80);
   fs.writeFileSync(path.join(dir, 'plan.md'), `---\ntitle: ${title.replace(/:/g, ' -')}\ntype: ${type}\nlane: quick\nstatus: approved\nservices: []\nfiles: []\ncreated: ${day}\nupdated: ${day}\napproved_at: ${now}\napproved_by: ${who}\ntest_command: null\npr: null\n---\n# Plan (quick) — ${title}\n\nLajur quick: satu service (terikat pada edit pertama), maksimal file sesuai config, bukan skema, tanpa review subagent.\n\n## Acceptance criteria\n- AC1: ${body}\n`);
-  fs.writeFileSync(path.join(dir, 'progress.md'), `# Progress — ${title}\n\n## Verifikasi\n- AC1:\n\n## Status terkini\n- dibuat oleh quick: <permintaan> (${day})\n`);
+  if ((process.env.HARNESS_ITEM_BENTUK || loadConfig(root).item.bentuk) === 'tunggal') { // 1.16.0: satu berkas
+    const t = fs.readFileSync(path.join(dir, 'plan.md'), 'utf8').replace('\n---\n', '\nbentuk: tunggal\n---\n');
+    const fm = t.slice(0, t.indexOf('\n---\n', 4) + 5);
+    fs.writeFileSync(path.join(dir, 'plan.md'), `${fm}# ${title} (quick)\n\n## 1. Objective\n${body}\n\n## 2. Penjelasan\nLajur quick: satu service (terikat pada edit pertama), maksimal file sesuai config, bukan skema, tanpa review subagent.\n\n## 3. Dampak & konfirmasi\nDisetujui lewat ketikan quick (${day}).\n\n## 4. Eksekusi\n- AC1: ${body}\n\n### Bukti\n- AC1:\n\n### Status terkini\n- dibuat oleh quick: <permintaan> (${day})\n`);
+  } else fs.writeFileSync(path.join(dir, 'progress.md'), `# Progress — ${title}\n\n## Verifikasi\n- AC1:\n\n## Status terkini\n- dibuat oleh quick: <permintaan> (${day})\n`);
   return { ok: true, slug, type };
 }
 
@@ -687,8 +740,11 @@ export function amendItem(root, cfg, item, acText) {
   const ids = parseAcs(item.text).map((a) => Number(a.id.slice(2)));
   const id = `AC${Math.max(0, ...ids) + 1}`;
   let t = item.text;
+  if (isSingle(item) && /^### Bukti\s*$/m.test(t)) t = t.replace(/^### Bukti\s*$/m, `- ${id}: ${text} (amandemen)\n\n### Bukti`);
+  else {
   if (!/^## Amandemen\s*$/m.test(t)) t = t.replace(/\s*$/, '\n\n## Amandemen\nTambahan kecil setelah approve (hanya menambah AC; tidak mengubah service, skema, atau AC yang ada).\n');
   t = t.replace(/\s*$/, `\n- ${id}: ${text}\n`);
+  }
   t = setFmKey(t, 'amendments', done + 1);
   t = setFmKey(t, 'updated', new Date().toISOString().slice(0, 10));
   fs.writeFileSync(item.planPath, t);

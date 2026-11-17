@@ -28,7 +28,7 @@ Masukan: `$ARGUMENTS`; kata pertama = subperintah. Daftar service: `harness.conf
 5. Tulis (kamu, bukan explorer) kedua file dengan frontmatter `service`, `source_commit: <sha baseline>`, `status: draft`, `updated`. Lalu `node .claude/hooks/harness.mjs lint-knowledge <svc>`; perbaiki ERROR (hapus klaim tak terbukti atau tulis `UNKNOWN`; jangan memutus sitasi hanya agar lint lolos). Maksimal dua putaran; sisanya laporkan.
 6. `worktree rm <svc>`. Perbarui `docs/_map.md` (baris service, relasi yang terbukti).
 
-Balasan (≤5 baris): service ter-onboard · baseline ref@sha · lint bersih/n ERROR · UNKNOWN n · berikutnya `knowledge-sample <svc>` lalu `/harness:knowledge verify <svc>`.
+Balasan (≤5 baris): service ter-onboard · baseline ref@sha · lint bersih/n ERROR · UNKNOWN n · berikutnya `knowledge-sample <svc>` lalu "verifikasi knowledge <svc>".
 
 ## refresh `<svc|all>`
 Peringatan "tertinggal N commit" muncul otomatis di awal sesi.
@@ -38,7 +38,7 @@ Peringatan "tertinggal N commit" muncul otomatis di awal sesi.
 4. **Pola**: jangan menulis pola baru atau mengubah maknanya. Bila diff menunjukkan pola baru/berubah: `harness.mjs new onboard "refresh-pola <svc>"` dan tulis `docs/work/<slug>/patterns-proposal.md` (`Status: proposed`, sitasi `path:baris@<sha baseline>`). Manusia menyetujui lewat `patterns`.
 5. `lint-knowledge <svc>` bersih; `worktree rm <svc>`; perbarui `_map.md` bila relasi berubah.
 
-Balasan (≤5 baris): n diperbarui, m dilewati · lint · usulan pola: slug · berikutnya `/harness:knowledge verify <svc>`.
+Balasan (≤5 baris): n diperbarui, m dilewati · lint · usulan pola: slug · berikutnya "verifikasi knowledge <svc>".
 
 ## verify `<svc>` (hook)
 Yang berubah: `docs/knowledge/<svc>/{summary,patterns}.md` → `status: verified` (+ `verified_by`, `verified_at`), hanya bila lint bersih.

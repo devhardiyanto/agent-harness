@@ -2,14 +2,14 @@
 // Tidak pernah memblokir. Tanpa model: murni dari file work item.
 import fs from 'node:fs';
 import path from 'node:path';
-import { readStdinJson, projectRoot, loadConfig, listItems, summarizeItem, readEvidence, nextStep, isQuick, audit, isMain } from './lib.mjs';
+import { readPart, readStdinJson, projectRoot, loadConfig, listItems, summarizeItem, readEvidence, nextStep, isQuick, audit, isMain } from './lib.mjs';
 
 export const handoffPath = (root) => path.join(root, '.harness', 'handoff.md');
 
 function statusTerkini(item, maxLines = 18) {
-  const p = path.join(item.dir, 'progress.md');
-  if (!fs.existsSync(p)) return [];
-  const t = fs.readFileSync(p, 'utf8').split(/\r?\n/);
+  const raw = readPart(item, 'progress.md');
+  if (raw === null) return [];
+  const t = raw.split(/\r?\n/);
   const i = t.findIndex((l) => /^##\s+Status terkini/i.test(l));
   if (i < 0) return [];
   const out = [];

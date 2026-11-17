@@ -22,4 +22,4 @@ Perintah ini diproses hook sebelum sampai ke kamu. Hook membuat `docs/work/<slug
 5. Hook menolak karena melebihi batas (service kedua, file ke-6, skema): berhenti dan tanyakan lewat `AskUserQuestion` apakah di-`promote` ke standard atau lingkupnya dipangkas. `node .claude/hooks/harness.mjs promote <slug>` mengubahnya ke lajur standard (`draft`), lalu minta user menjalankan `/harness:plan <slug>` dan `/harness:approve <slug>`.
 
 ## Balasan chat (maks 3 baris)
-Selesai: apa yang berubah · file n · berikutnya: `/harness:ship <slug>`
+Selesai: apa yang berubah · file n · berikutnya: "push PR + merge <slug>"

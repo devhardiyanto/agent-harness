@@ -4,7 +4,7 @@
 // Pemanggilan: `harness.mjs plane sync|check`, dan proses latar (planeKick di lib.mjs) setelah status berubah.
 import fs from 'node:fs';
 import path from 'node:path';
-import { STATUSES, listItems, setFmKey, emit, redact, readJson, splitFrontmatter, parseAcs, summarizeItem, readAlign, decisionRows, cleanTitle } from './lib.mjs';
+import { readPart, STATUSES, listItems, setFmKey, emit, redact, readJson, splitFrontmatter, parseAcs, summarizeItem, readAlign, decisionRows, cleanTitle } from './lib.mjs';
 import { section, bullets, objectiveOf } from './summary.mjs';
 
 const enc = encodeURIComponent;
@@ -168,7 +168,7 @@ export const inboxPath = (root) => path.join(root, '.harness', 'plane-inbox.json
 export const mirrorPath = (root, slug) => path.join(root, '.harness', 'plane', `${slug}.md`);
 const readContent = (root) => readJson(contentPath(root), {}) || {};
 function writeJson(f, o) { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(o, null, 2) + '\n'); }
-const readMd = (it, f) => { const p = path.join(it.dir, f); return fs.existsSync(p) ? splitFrontmatter(fs.readFileSync(p, 'utf8')).body : ''; };
+const readMd = (it, f) => { const t = readPart(it, f); return t === null ? '' : splitFrontmatter(t).body; };
 const real = (l) => l && !/^<.*>$/.test(l) && !/^(-|\.{3}|todo|tbd)$/i.test(l);
 const inline = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
 const remoteHash = (h) => hash(String(h || '').replace(/\s*data-checked="(?:true|false)"/g, '').replace(/\s*checked(?:="[^"]*")?/g, ''));

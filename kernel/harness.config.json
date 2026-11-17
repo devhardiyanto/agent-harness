@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.15.2",
+  "harness_version": "1.16.0",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -128,10 +128,15 @@
   "tui": {
     "statusline": true,
     "theme": "tenang",
-    "max_width": 120
+    "max_width": 120,
+    "ask": true,
+    "menu": true
   },
   "tidy": {
     "stale_days": 14,
     "merged_days": 30
+  },
+  "item": {
+    "bentuk": "tunggal"
   }
 }

@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+  isSingle, frozenPart, sectionOf,
   readStdinJson, projectRoot, loadConfig, relPath, matchAny, serviceOf, activeItems, coversService,
   splitFrontmatter, readItem, checkTransition, findSecret, SECRET_FILE, deny, STATUSES,
   isMain, isQuick, asList, setFmKey,
@@ -74,9 +75,21 @@ export function evaluate(root, cfg, payload) {
     const next = simulate(current, inc);
     const nextFm = splitFrontmatter(next).fm;
     const toStatus = nextFm.status || 'draft';
+    // 1.16.0: bentuk tunggal membawa align di frontmatter plan.md; aturannya sama dengan align.md (4a)
+    const curFm = splitFrontmatter(current).fm;
+    if (String(nextFm.bentuk || curFm.bentuk || '') === 'tunggal') {
+      const cv = String(curFm.align || 'open').toLowerCase(); const nv = String(nextFm.align || 'open').toLowerCase();
+      if (nv === 'aligned' && cv !== 'aligned') return fail(`"align: aligned" hanya oleh manusia: ketik align ok ${slug}. Tulis "align: open".`);
+      for (const k of ['aligned_at', 'aligned_by']) if (String(nextFm[k] || '') !== String(curFm[k] || '') && nv === 'aligned') return fail(`${k} hanya ditulis hook.`);
+      const s3 = (t) => sectionOf(splitFrontmatter(t).body, /^3\.?\s*Dampak/i);
+      if (cv === 'aligned' && nv === 'aligned' && s3(current) !== s3(next)) return fail(`item ${slug} sudah aligned (disetujui manusia). Mengubah bagian 3 = turunkan ke "align: open" dalam edit yang sama; user menutup lagi dengan align ok ${slug}.`);
+      const rn = Number(nextFm.align_rounds || 0);
+      if (rn > cfg.align.max_rounds) return fail(`debat align dibatasi ${cfg.align.max_rounds} ronde (diminta ${rn}). Berhenti: tanyakan titik beda ke user lewat pemilih (AskUserQuestion).`);
+      if (rn < Number(curFm.align_rounds || 0)) return fail('align_rounds tidak boleh diturunkan.');
+    }
     // 1.12.0 (F2): AC di plan.md (tambah/ubah) hanya setelah objective aligned (urutan impact → align → plan tidak bisa dilompati)
     if (cfg.align.block_plan_before_aligned && parseAcs(splitFrontmatter(next).body).length && JSON.stringify(parseAcs(splitFrontmatter(next).body)) !== JSON.stringify(parseAcs(splitFrontmatter(current).body))) {
-      const pseudo = { slug, dir: path.dirname(abs), type: nextFm.type || 'feature', fm: nextFm, status: toStatus, body: '' };
+      const pseudo = { slug, dir: path.dirname(abs), type: nextFm.type || 'feature', fm: { ...nextFm, align: curFm.align || 'open', align_rounds: curFm.align_rounds || 0 }, status: toStatus, body: splitFrontmatter(next).body, text: next };
       if (!alignExempt(pseudo, cfg) && alignProblems(pseudo, cfg).length) {
         let table = ''; try { table = `\n${formatDecision(root, pseudo)}`; } catch { /* abaikan */ }
         return fail(`plan ${slug} belum boleh diisi AC: objective belum aligned. Tampilkan tabel keputusan ini ke user apa adanya dan berhenti; jangan menulis plan dulu.${table}`);
@@ -88,11 +101,12 @@ export function evaluate(root, cfg, payload) {
       return { ok: true };
     }
     const item = readItem(root, slug);
-    if (item && item.status !== 'draft' && toStatus === item.status && fmStripped(current) !== fmStripped(next)) {
+    const changed = item && isSingle(item) ? frozenPart(current) !== frozenPart(next) || fmStripped(current).split('\n--\n')[0] !== fmStripped(next).split('\n--\n')[0] : fmStripped(current) !== fmStripped(next);
+    if (item && item.status !== 'draft' && toStatus === item.status && changed) {
       return fail(`plan ${slug} sudah ${item.status}; isinya beku. Untuk merevisi: "node .claude/hooks/harness.mjs reopen ${slug}" (status kembali draft, perlu setuju <slug> lagi).`);
     }
     if (item && toStatus !== item.status) {
-      if (item.status !== 'draft' && fmStripped(current) !== fmStripped(next)) return fail('ubah status dan isi plan dalam edit terpisah.');
+      if (item.status !== 'draft' && changed) return fail('ubah status dan isi plan dalam edit terpisah.');
       const problems = checkTransition(root, cfg, { ...item, status: item.status, body: item.body }, toStatus, { actor: 'agent' });
       if (problems.length) return fail(`transisi ${item.status} → ${toStatus} ditolak:\n- ${problems.join('\n- ')}`);
     }

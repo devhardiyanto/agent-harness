@@ -2,7 +2,7 @@
 // Isi: objective, hasil per AC, keputusan (decision log + debat align), review, gate/bukti test, PR, parking lot.
 import fs from 'node:fs';
 import path from 'node:path';
-import { splitFrontmatter, summarizeItem, readEvidence, readAlign, readGate, asList, isQuick, audit } from './lib.mjs';
+import { readPart, splitFrontmatter, summarizeItem, readEvidence, readAlign, readGate, asList, isQuick, audit } from './lib.mjs';
 
 export const section = (text, re) => {
   const L = text.split(/\r?\n/); const i = L.findIndex((l) => re.test(l));
@@ -14,14 +14,15 @@ export const section = (text, re) => {
 // butir bermakna: tanpa komentar HTML, tanpa baris placeholder kosong ("-")
 export const bullets = (lines) => lines.map((l) => l.replace(/<!--.*?-->/g, '').trim()).filter((l) => l && !/^[-*]$/.test(l) && !/^<!--/.test(l));
 const read = (p) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '');
+const part = (item, f) => readPart(item, f) || '';
 
-export const objectiveOf = (item) => bullets(section(splitFrontmatter(read(path.join(item.dir, 'brief.md'))).body, /^##\s+Objective/i)).filter((l) => !/^<.*>$/.test(l)).join(' ') || item.fm.title || item.slug;
+export const objectiveOf = (item) => bullets(section(splitFrontmatter(part(item, 'brief.md')).body, /^##\s+Objective/i)).filter((l) => !/^<.*>$/.test(l)).join(' ') || item.fm.title || item.slug;
 
 export function buildSummary(root, cfg, item) {
   const s = summarizeItem(item);
-  const brief = splitFrontmatter(read(path.join(item.dir, 'brief.md'))).body;
+  const brief = splitFrontmatter(part(item, 'brief.md')).body;
   const objective = bullets(section(brief, /^##\s+Objective/i)).filter((l) => !/^<.*>$/.test(l)).join(' ') || '(brief.md tidak memuat objective)';
-  const progress = read(path.join(item.dir, 'progress.md'));
+  const progress = part(item, 'progress.md');
   const decisions = bullets(section(progress, /^##\s+Decision log/i));
   const align = readAlign(item);
   const debate = align ? bullets(section(align.body, /^##\s+Debat/i)) : [];

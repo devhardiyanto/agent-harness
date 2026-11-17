@@ -38,6 +38,7 @@ export function parseIntent(prompt, cfg, resolve, soleDone = () => null) {
   if ((m = new RegExp(`^(?:terapkan|setujui)\\s+pola\\s+${SLUG}\\s+(all|semua|P\\d+(?:\\s*,\\s*P\\d+)*)$`, 'i').exec(t)) && ok(m[1])) return { command: `/harness:knowledge patterns ${ok(m[1])} ${/^semua$/i.test(m[2]) ? 'all' : m[2]}`, refs };
   if ((m = /^(?:quick|cepat)\s*:\s*(.{4,})$/is.exec(t))) return { command: `/harness:quick ${m[1].trim()}`, refs };
   if ((m = new RegExp(`^(?:keputusan|tabel\\s+keputusan|apa\\s+yang\\s+(?:harus|perlu)\\s+(?:aku|saya)\\s+jawab)(?:\\s+${SLUG})?\\s*\\??$`, 'i').exec(t))) return { kind: 'decide', slug: m[1] ? ok(m[1]) : null, refs };
+  if (/^(?:menu|\?|lalu\s+apa|terus\s+apa)\s*\??$/i.test(t)) return { kind: 'menu', refs };
   if (/^(?:sisa(?:nya)?|lanjut|next|todo|apa\s+(?:lagi|selanjutnya)|(?:yang\s+)?belum\s+selesai(?:\s+apa)?|yang\s+belum)\s*\??$/i.test(t)) return { kind: 'open', refs };
   if ((m = /^(?:ingat|remember)\s+(?:user|aku|saya|me)\s*:\s*(.+)$/is.exec(t))) return { kind: 'remember', target: 'user', text: m[1].trim(), refs };
   if ((m = /^(?:ingat|remember)\s*:\s*(.+)$/is.exec(t))) return { kind: 'remember', target: 'memory', text: m[1].trim(), refs };

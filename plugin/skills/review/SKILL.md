@@ -2,18 +2,20 @@
 name: review
 description: Review independen hasil kerja work item (agent reviewer read-only) menjadi review.md. Clean memungkinkan status done; blocker mengembalikan ke build. Juga untuk memasukkan feedback user.
 argument-hint: "<slug> [feedback user]"
-disable-model-invocation: true
+user-invocable: false
 ---
 # /harness:review
 
-Masukan: `$ARGUMENTS` (slug, opsional feedback). Item lajur quick tidak di-review (tidak punya `in-review`); langsung `/harness:ship <slug>`.
+> **Bentuk tunggal** (frontmatter `bentuk: tunggal` di `plan.md`, bawaan item baru sejak 1.16): semua catatan ada di satu `plan.md`, bukan berkas terpisah. `brief` → `## 1. Objective` dan `## 2. Penjelasan` · `impact` dan `align` → `## 3. Dampak & konfirmasi` (tabel service, `### Klaim vs bukti kode`, `### Keputusan terbuka`; ronde di frontmatter `align_rounds`, jangan menulis `align: aligned`) · AC → `## 4. Eksekusi` (`- AC1: ...`) · bukti → `### Bukti` · review → `### Tinjauan` (`verdict: clean|blockers`) · `### Decision log`, `### Status terkini`. Bagian 1–3 dan teks AC beku setelah approved.
+
+Masukan: `$ARGUMENTS` (slug, opsional feedback). Item lajur quick tidak di-review (tidak punya `in-review`); langsung "push PR + merge <slug>".
 
 ## Langkah
 1. `node .claude/hooks/harness.mjs show <slug>`; status harus `in-review` (atau `in-progress` bila user ingin review awal).
 2. Panggil agent `reviewer` (subagent, Opus, read-only: menyetujui atau menolak) dengan path `docs/work/<slug>/` dan daftar service. Reviewer memakai `LSP` (referensi/definisi) untuk memeriksa dampak perubahan simbol bila tersedia. Reviewer tidak menulis file; ia mengembalikan tabel temuan, blok `POLA` (pola baru/menyimpang), dan `VERDICT`.
 3. Tulis `review.md`: tabel temuan; setiap BLOCKER juga sebagai `- [ ] [BLOCKER] ...`; frontmatter `verdict: clean|blockers`, `reviewed: <tanggal>`. Tambahkan tabel "Dependency baru" dari `deps-report.md` bila ada.
 4. Feedback user (bila ada di argumen): catat di `review.md` bagian "Feedback user" sebagai checklist `- [ ]`. Feedback yang mengubah lingkup → butuh `reopen` + plan baru; feedback yang tidak → perbaikan di build.
-5. **Ada blocker/feedback terbuka** → `node .claude/hooks/harness.mjs set-status <slug> in-progress`. Balas: jumlah item + `/harness:build <slug>`. Siklus ini berulang tanpa batas sampai user puas.
+5. **Ada blocker/feedback terbuka** → `node .claude/hooks/harness.mjs set-status <slug> in-progress`. Balas: jumlah item + "kerjakan <slug>". Siklus ini berulang tanpa batas sampai user puas.
 6. **Clean** → `node .claude/hooks/harness.mjs set-status <slug> done`. Hook gerbang 2 memeriksa bukti tiap AC. Bila ditolak, perbaiki bukti di `progress.md`, jangan melewati gerbang.
 
 7. **Pola berubah (hanya bila verdict clean).** Dari blok `POLA` reviewer, tulis bagian `## Pola (usulan)` di `review.md` (tabel ringkas) dan, bila ada yang layak, `docs/work/<slug>/patterns-proposal.md`. Syarat usulan: pola dipakai ≥2 tempat di diff, atau menyimpang dari `patterns.md` dengan alasan; maksimal 3 usulan; bukti `path:baris@<sha>` dengan `<sha>` = `git -C source-code/<svc> rev-parse HEAD`. Format tiap item (persis):
@@ -28,7 +30,7 @@ Masukan: `$ARGUMENTS` (slug, opsional feedback). Item lajur quick tidak di-revie
    - <satu butir pola, ≤8 baris, dengan sitasi path:baris@<sha>>
    ```
    ````
-   Agent hanya boleh menulis `Status: proposed`; gate menolak `approved/applied`. Validasi: `node .claude/hooks/harness.mjs patterns-check <slug>`. AI **hanya mengusulkan**: pola adalah aturan yang akan diikuti sesi-sesi berikutnya, jadi persetujuannya milik manusia (`/harness:knowledge patterns <slug> P1,P3` atau `all`). Tidak disetujui = patterns.md tidak berubah.
+   Agent hanya boleh menulis `Status: proposed`; gate menolak `approved/applied`. Validasi: `node .claude/hooks/harness.mjs patterns-check <slug>`. AI **hanya mengusulkan**: pola adalah aturan yang akan diikuti sesi-sesi berikutnya, jadi persetujuannya milik manusia ("terapkan pola <slug> P1,P3" atau `all`). Tidak disetujui = patterns.md tidak berubah.
 
 ## Balasan chat (maks 5 baris)
-verdict · N temuan (b blocker) · usulan pola: n (`/harness:knowledge patterns <slug> ...`) · path `review.md` · berikutnya: `/harness:build` atau `/harness:ship <slug>`
+verdict · N temuan (b blocker) · usulan pola: n ("terapkan pola <slug> ...") · path `review.md` · berikutnya: "kerjakan <slug>" atau "push PR + merge <slug>"
