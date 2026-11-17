@@ -3,6 +3,7 @@
 // Best-effort: kegagalan jaringan/API tidak pernah menggagalkan transisi status; `plane sync` mengulang yang tertinggal (rekonsiliasi: status lokal ≠ status terakhir terkirim).
 // Pemanggilan: `harness.mjs plane sync|check`, dan proses latar (planeKick di lib.mjs) setelah status berubah.
 import fs from 'node:fs';
+import { itemBidang, bidangLabel } from './bidang.mjs';
 import path from 'node:path';
 import { readPart, STATUSES, listItems, setFmKey, emit, redact, readJson, splitFrontmatter, parseAcs, summarizeItem, readAlign, decisionRows, cleanTitle } from './lib.mjs';
 import { section, bullets, objectiveOf } from './summary.mjs';
@@ -194,6 +195,7 @@ export function renderCard(root, cfg, item, checked = []) {
   const li = (txt) => `<li>${txt.startsWith('<') ? txt : inline(txt)}</li>`;
   const html = [
     `<h2>Tujuan</h2><p>${inline(goal)}</p>`,
+    ...(cfg.bidang && cfg.bidang.enabled && bidangLabel(itemBidang(cfg, item)) ? [`<p><strong>Bidang:</strong> ${esc(bidangLabel(itemBidang(cfg, item)))}</p>`] : []),
     ctx.length ? `<h2>Konteks</h2><ul>${ctx.map(li).join('')}</ul>` : '',
     dec.length ? `<h2>Keputusan</h2><ul>${dec.map((d) => `<li>${d}</li>`).join('')}</ul>` : '',
     acs.length ? `<h2>Checklist</h2><ul data-type="taskList">${acs.map((x) => { const on = ev.get(x.id) || checked.includes(x.id); return `<li data-type="taskItem" data-checked="${on}"><label><input type="checkbox"${on ? ' checked=""' : ''}><span></span></label><div><p>${x.id}: ${inline(x.text)}</p></div></li>`; }).join('')}</ul>` : '',

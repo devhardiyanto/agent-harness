@@ -16,6 +16,7 @@ import { parseIntent } from './intent.mjs';
 import { addEntry, removeEntry, approvePending, refText } from './memory.mjs';
 import { resolveArchived } from './tidy.mjs';
 import { menuFor } from './ask.mjs';
+import { bidangFromPrompt, setSessionBidang, execText } from './bidang.mjs';
 import { openRows, formatOpen } from './recap.mjs';
 
 const payload = await readStdinJson();
@@ -28,6 +29,11 @@ const soleDone = () => { const d = listItems(root).filter((i) => i.status === 'd
 const intent = parseIntent(prompt, cfg, (q) => resolveSlug(root, q), soleDone);
 const refCtx = intent.refs.map((r) => resolveSlug(root, r) || resolveArchived(root, r)).filter(Boolean).map((s) => refText(root, cfg, s)).filter(Boolean);
 const sid = payload.session_id || 'unknown';
+// 1.17.0: bidang dari ucapan ("backend: …", "ini frontend") → ditandai sejak diskusi; spesialis dipanggil saat eksekusi
+if (cfg.bidang.enabled) {
+  const ub = bidangFromPrompt(payload.prompt);
+  if (ub) { setSessionBidang(root, sid, ub); refCtx.push(`[harness] Bidang pekerjaan: ${ub} (dari ucapan user). Tulis \`bidang: [${ub}]\` di frontmatter item. Spesialis \`${ub}\` dipanggil saat eksekusi ("kerjakan <slug>"), bukan sekarang.`); }
+}
 // 1.13.0: log pilot (lokal) + peringatan slash usang (D8: di 2.0 hanya init/update yang tampil sebagai slash)
 const DEPRECATED = { approve: 'setuju <slug>', status: 'sisa', next: 'sisa', quick: 'quick: <permintaan>' };
 const slash = /^\s*\/harness:([\w-]+)/i.exec(String(payload.prompt || ''));
@@ -73,7 +79,7 @@ if (intent.kind) {
     const mn = menuFor(root, cfg, sid);
     say(`[harness] User meminta menu. ${cfg.tui.menu ? `Panggil AskUserQuestion dengan argumen JSON ini apa adanya, lalu kerjakan pilihan user: ${JSON.stringify({ questions: mn.questions })}` : 'Tampilkan langkah berikutnya sebagai tabel.'}${mn.typed.length ? ` Sebut juga, sebagai teks (harus diketik user, bukan dipilih): ${mn.typed.join(' · ')}.` : ''}`);
   }
-  if (intent.kind === 'build') say(`[harness] User meminta eksekusi ${intent.slug}. Jalankan skill harness:build untuk ${intent.slug} (gerbang: item harus approved/in-progress).`);
+  if (intent.kind === 'build') { const bi = readItem(root, intent.slug); say(`[harness] User meminta eksekusi ${intent.slug}. Jalankan skill harness:build untuk ${intent.slug} (gerbang: item harus approved/in-progress).${cfg.bidang.enabled && bi ? ` ${execText(cfg, bi)}` : ''}`); }
   if (intent.kind === 'open') say(`[harness] Tampilkan tabel ini APA ADANYA (tanpa narasi), lalu satu baris: langkah paling penting berikutnya.\n${formatOpen(openRows(root, cfg), cfg.recap.max_rows)}`);
   if (!cfg.memory.enabled) stop('memori mati (memory.enabled=false).');
   if (intent.kind === 'remember') { const r = addEntry(root, cfg, intent.text, who0(), intent.target); if (!r.ok) stop(`ingat ditolak: ${r.reason}`); logIntent(root, cfg, { type: 'intent', sid, kind: 'remember', ref: r.id, prompt: payload.prompt }); say(`[harness] ${intent.target === 'user' ? 'Profil user' : 'Memori'} ${r.id} disimpan oleh ${who0()} (ditulis hook; ${r.used}/${r.max} karakter). ${intent.target === 'user' ? 'Ikuti preferensi ini mulai sekarang; ' : ''}Dimuat otomatis mulai sesi berikutnya. Balas satu baris konfirmasi.`); }

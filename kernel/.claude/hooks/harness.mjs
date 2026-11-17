@@ -20,6 +20,7 @@
 //   run-checks <slug>       jalankan checks per service (lint/test/build) dan tulis bukti .harness/evidence/<slug>/tests.json (dipakai gerbang Stop; dipanggil agent runner)
 //   log [n] [--handoff]     handoff terakhir + n event terbaru dari .harness/events.jsonl (default 15)
 //   watch [--once]          TUI papan kerja (Backlog/Todo/In Progress/Review/Done) + event terakhir; q keluar
+//   bidang                  bidang tiap service (config/tebakan) dan agent spesialisnya
 //   tidy [--apply] [--json]  rapikan item: struktur tidak sesuai, item usang → docs/work/_archive, item satu sesi digabung; --apply hanya manusia
 //   gc [--days N] [--yes]   rencana pembersihan berkas sementara (bukti item merged, tiket/penanda kedaluwarsa, audit > N hari, default 30); --yes hanya manusia
 //   measure <transcript.jsonl> [--json] [--label x]   token per model, panggilan tool/subagent, durasi → .harness/metrics/ (baseline sebelum/sesudah routing)
@@ -83,6 +84,7 @@ console.log = (...a) => rawLog(tableMode === 'compact' ? format(...a) : alignTab
 import { pilotReport } from './pilot.mjs';
 import { checkV2, fixAlign } from './migrate.mjs';
 import { planTidy, applyTidy, formatTidy } from './tidy.mjs';
+import { bidangOfService } from './bidang.mjs';
 
 const root = projectRoot();
 const cfg = loadConfig(root);
@@ -354,6 +356,10 @@ switch (cmd) {
   case 'watch': {
     if (args.includes('--once') || !process.stdout.isTTY) { console.log(renderFrame(root, { width: Number((args[args.indexOf('--width') + 1])) || 110 })); break; }
     runWatch(root);
+    break;
+  }
+  case 'bidang': { // 1.17.0: bidang tiap service (config atau tebakan) dan spesialisnya
+    console.log(`| service | bidang | sumber | spesialis |\n|---|---|---|---|\n${(cfg.services || []).map((s) => { const b = bidangOfService(cfg, s); return `| ${s} | ${b ? b.bidang : '-'} | ${b ? b.sumber : '-'} | ${b ? b.bidang : cfg.bidang.fallback_agent} |`; }).join('\n')}\n\nUbah tebakan: isi "bidang": { "map": { "<service>": "backend|frontend|devops|dba" } } di harness.config.json.`);
     break;
   }
   case 'tidy': {

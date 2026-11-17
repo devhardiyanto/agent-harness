@@ -10,6 +10,7 @@ import {
   parseAcs, alignProblems, alignExempt, formatDecision,
 } from './lib.mjs';
 import { proposalStatuses } from './knowledge.mjs';
+import { bidangOfService } from './bidang.mjs';
 
 function incoming(tool, input) {
   if (tool === 'Write') return { full: input.content ?? '' };
@@ -174,6 +175,13 @@ export function evaluate(root, cfg, payload) {
       return fail(quick.length && !standard.length
         ? `${rel} adalah perubahan skema; lajur quick tidak boleh menyentuh skema. "node .claude/hooks/harness.mjs promote ${quick[0].slug}", lalu plan bertipe "schema" dan approve.`
         : `${rel} adalah perubahan skema. Work item harus bertipe "schema" (atau schema_change: true) dan melewati agent dba.`);
+    }
+    // 1.17.0 (opsional, bidang.enforce): item standard dikerjakan spesialis. Hanya berlaku bila payload hook menyebut agent
+    // (uji M0 nomor 2). Nyalakan hanya bila uji itu menunjukkan subagent membawa agent_type; bila tidak, semua edit ditolak.
+    if (cfg.bidang.enabled && cfg.bidang.enforce && standard.length) {
+      const who = payload.agent_type || payload.agent_name || payload.subagent_type || null;
+      const b = bidangOfService(cfg, svc);
+      if (b && !who) return fail(`${rel}: service "${svc}" berbidang ${b.bidang}. Panggil agent \`${b.bidang}\` (tool Agent) untuk mengedit kode ini; sesi utama merangkum dan menulis bukti.`);
     }
     // batas lajur quick hanya berlaku bila tidak ada item standard yang mencakup edit ini
     if (!standard.length) {
