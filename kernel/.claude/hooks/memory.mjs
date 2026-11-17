@@ -153,7 +153,7 @@ export function recall(root, query, n = 5) {
   const terms = String(query || '').toLowerCase().split(/\s+/).filter((t) => t.length >= 3);
   if (!terms.length) return [];
   const files = [];
-  for (const it of listItems(root)) for (const f of ['summary.md', 'brief.md', 'align.md']) { const p = path.join(it.dir, f); if (fs.existsSync(p)) files.push(p); }
+  for (const it of listItems(root)) for (const f of ['summary.md', 'brief.md', 'align.md', 'plan.md']) { const p = path.join(it.dir, f); if (fs.existsSync(p)) files.push(p); }
   // 1.15.2: item arsip tetap bisa dicari
   const arch = path.join(root, 'docs', 'work', '_archive');
   if (fs.existsSync(arch)) for (const d of fs.readdirSync(arch)) for (const f of ['summary.md', 'brief.md']) { const p = path.join(arch, d, f); if (fs.existsSync(p)) files.push(p); }

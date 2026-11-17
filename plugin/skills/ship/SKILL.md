@@ -2,6 +2,7 @@
 name: ship
 description: Kirim work item berstatus done — commit, push, buka PR (mendukung PR bertumpuk), merge saat check hijau, ringkasan. Agent memanggilnya HANYA bila konteks memuat "[harness] ... meminta SHIP <slug>" dari hook (ketikan user "push PR + merge", "kirim <slug>", atau /harness:ship).
 argument-hint: "<slug>"
+user-invocable: false
 ---
 # /harness:ship
 
@@ -18,9 +19,9 @@ Masukan: `$ARGUMENTS` (slug). Agent tidak pernah menjalankan `gh pr merge`. Merg
 8. Bila konteks hook menyebut izin merge tercatat (`ship.merge_on_request`, bawaan): semua check hijau → `node .claude/hooks/harness.mjs ship <slug>` (kode menerbitkan tiket dari izin itu dan memeriksa ulang gate, check, akses, SHA), lalu skill `summarize <slug>` dan tampilkan `docs/work/<slug>/summary.md`. Check merah → laporkan; jangan memperbaiki di item `done` (perlu `reopen`).
 
 ## Fase B — `pr:` terisi
-User mengetik `/harness:ship <slug>` lagi setelah check hijau. Hook memeriksa gate, check tiap PR (merah atau berjalan = ditolak), draft, dan akun gh, lalu menerbitkan tiket. Bila konteksmu memuat "memutuskan MERGE":
+User mengetik "push PR + merge <slug>" lagi setelah check hijau. Hook memeriksa gate, check tiap PR (merah atau berjalan = ditolak), draft, dan akun gh, lalu menerbitkan tiket. Bila konteksmu memuat "memutuskan MERGE":
 1. `node .claude/hooks/harness.mjs ship <slug>`: merge berurutan (PR yang basenya bukan PR lain lebih dulu; PR bertumpuk diarahkan ke base induknya setelah induk masuk), lalu `merged`.
-2. Ditolak → sampaikan alasannya; jangan memaksa, jangan merge manual. Sebagian sudah merged → user mengetik `/harness:ship <slug>` lagi untuk sisanya.
+2. Ditolak → sampaikan alasannya; jangan memaksa, jangan merge manual. Sebagian sudah merged → user mengetik "push PR + merge <slug>" lagi untuk sisanya.
 3. Setelah status `merged` (semua PR masuk), jalankan skill `summarize <slug>` supaya sesi bisa dilanjutkan tanpa kehilangan konteks.
 4. Tanpa pesan "memutuskan MERGE" di konteksmu, hook menolak sendiri (alasan sudah tampil ke user): jangan mengulang, jangan mencari jalan lain.
 

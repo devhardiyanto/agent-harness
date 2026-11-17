@@ -7,7 +7,7 @@ import { planeProblems } from './plane.mjs';
 
 const DEC_SECTION = '## Keputusan terbuka\n| # | pertanyaan | opsi | jawaban |\n|---|---|---|---|\n';
 const oldAlign = (it) => {
-  const p = path.join(it.dir, 'align.md');
+  const p = path.join(it.dir, 'align.md'); // bentuk tunggal (1.16) tidak punya align.md: tidak pernah "format lama"
   return fs.existsSync(p) && !/^##\s+Keputusan terbuka/m.test(fs.readFileSync(p, 'utf8')) ? p : null;
 };
 

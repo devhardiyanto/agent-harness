@@ -188,6 +188,18 @@ Merge tetap aman: ketikan ship menjadi **izin merge tertunda** (`.claude/state/m
 
 Belum terverifikasi di Claude Code asli: status line proyek saat sesi dibuka lewat `claude agents`, dan perintah relatif `node .claude/hooks/statusline.mjs` bila sesi tidak dimulai dari root. Keduanya diperiksa uji M0.
 
+## Satu berkas, empat langkah, pemilih (1.16.0)
+
+| bagian | perilaku |
+|---|---|
+| satu berkas | item baru = satu `docs/work/<slug>/plan.md` (`bentuk: tunggal`): `## 1. Objective`, `## 2. Penjelasan`, `## 3. Dampak & konfirmasi` (klaim, keputusan D), `## 4. Eksekusi` (AC, `### Bukti`, `### Tinjauan`, `### Decision log`, `### Status terkini`). `item.bentuk: "folder"` = enam berkas seperti sebelumnya. Item lama tidak dimigrasi dan tetap berjalan |
+| gerbang | sama untuk kedua bentuk (satu lapisan baca `readPart`): `align: aligned` hanya oleh hook saat user mengetik "align ok"; AC ditolak sebelum aligned; setelah approved bagian 1–3 dan teks AC beku, `### Bukti`/`### Tinjauan`/log tetap boleh ditulis; `done` butuh bukti tiap AC + `verdict: clean` |
+| pemilih keputusan | saat hook Stop menahan giliran untuk tabel keputusan, ia juga memberi naskah `AskUserQuestion` (baris D yang opsinya jelas, maks 4). Jawaban user dicatat hook `ask.mjs` (PostToolUse) ke kolom jawaban baris D, ditandai `(pemilih)`. Pertanyaan yang tidak ada di naskah diabaikan. `tui.ask: false` mematikan |
+| menu | ketik "menu" (atau "?", "lalu apa"): pemilih berisi langkah sah item sesi ini. "setuju" dan "push PR + merge" tetap diketik, tidak pernah lewat pemilih |
+| skill | `impact`, `align`, `plan`, `build`, `review`, `ship` dipanggil agent (`user-invocable: false`); user cukup mengetik permintaan atau kalimat pendek ("kerjakan <slug>", "push PR + merge"). `init`, `update`, `knowledge`, `quick`, `approve`, `status`, `next`, `/summarize` tetap bisa diketik |
+
+Belum terverifikasi di Claude Code asli: bentuk `tool_response` AskUserQuestion yang diterima hook (pencatat mencarinya secara longgar; bila tidak cocok, agent tetap menulis jawaban seperti sebelumnya).
+
 ## Merapikan work item (1.15.2)
 
 `node .claude/hooks/harness.mjs tidy` menampilkan rencana; `! node .claude/hooks/harness.mjs tidy --apply` menjalankannya (hanya manusia; agent ditolak `guard-bash`).

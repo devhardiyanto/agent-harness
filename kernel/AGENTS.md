@@ -6,24 +6,20 @@ Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file
 - Pertama kali di workspace: `/harness:init` (inventaris, baseline production/main, knowledge, usulan checks). Peringatan "tertinggal" di awal sesi → `/harness:knowledge refresh <svc>`.
 - `docs/_map.md` — service, peran, relasi antar-service (L0). Baca dulu.
 - `docs/knowledge/<svc>/` — ringkasan (L2) dan pola + contoh emas (L3) per service. Baca hanya service yang kena. Status `draft` = belum diverifikasi manusia: petunjuk, bukan fakta. Kutipannya diberi label `[draft]` dan dicek ke kode sebelum jadi dasar AC.
-- `docs/work/<tanggal-slug>/` — `brief.md` `impact.md` `align.md` `plan.md` `progress.md` `review.md`.
+- `docs/work/<tanggal-slug>/plan.md` — satu berkas per item (`bentuk: tunggal`): `## 1. Objective`, `## 2. Penjelasan`, `## 3. Dampak & konfirmasi`, `## 4. Eksekusi` (AC, `### Bukti`, `### Tinjauan`). Item lama: berkas terpisah (`brief/impact/align/progress/review.md`), tetap berlaku.
 - Model: sesi utama Sonnet; `scout`/`runner` Haiku (murah, read-only / menjalankan test); `reviewer` Opus (menolak/menyetujui). Handoff otomatis: `.harness/handoff.md` disuntik di awal sesi berikutnya.
 - Advisor (1.14.0, opsional, dinyalakan user dengan `/advisor opus`): hanya bila aktif, konsultasikan saat (a) menulis AC/plan item standard, (b) keputusan lintas service atau skema, (c) dua kali gagal di galat yang sama. Jangan untuk langkah rutin (edit kecil, menjalankan checks, menulis progres). Bila tidak aktif, abaikan baris ini; jangan meminta user menyalakannya.
 
-## Alur (satu work item = satu alur penuh)
-1. `/harness:impact <permintaan>` — dampak dari prompt pertama → `brief.md` (objective saja), `impact.md`.
-2. `/harness:align <slug>` — uji klaim permintaan ke kode secara skeptis → `align.md`. Pertanyaan untuk user = baris D di `## Keputusan terbuka`, bukan narasi. Tutup giliran dengan keluaran `harness.mjs decide <slug> --md` apa adanya (hook Stop menahan sampai itu ditampilkan). Debat maks 3 ronde; user menutup dengan `align ok <slug>` (hook menulis `aligned`). Temuan sampingan → parking lot.
-3. `/harness:plan <slug>` — hanya setelah `aligned` (hook menolak AC di `plan.md` sebelumnya). `plan.md` berstatus `draft` (AC bernomor `- AC1: ...`). **Sesi planning berhenti di sini.**
-4. User mengetik `/harness:approve <slug>` → hook menulis `approved` (butuh `aligned`). Agent tidak boleh.
-5. Sesi baru: `/harness:build <slug>` → `in-progress`, catat bukti per AC di `progress.md`. Test dijalankan agent `runner` (bukti ditulis kode, bukan agent); sesi tidak bisa berhenti bila bukti test belum ada.
-6. `/harness:review <slug>` → `review.md` (`verdict: clean|blockers`, agent `reviewer`). Ada blocker → kembali ke build.
-7. `done` hanya bila tiap AC punya bukti + review `clean` (hook memeriksa). 
-8. `/harness:ship <slug>` atau ketikan user "push PR + merge" — branch kerja, commit, push, PR via `gh`; dengan izin merge dari hook, `harness.mjs ship <slug>` setelah check hijau, lalu ringkasan. `merged` setelah PR benar-benar MERGED.
+## Alur: empat langkah dalam satu berkas
+1. **Objective** — dari permintaan user, item dibuat (skill impact): satu kalimat tujuan di bagian 1, penjelasan sekilas (apa dan di mana) di bagian 2.
+2. **Dampak & konfirmasi** — bagian 3: tabel service, klaim vs bukti kode (uji skeptis, skill align), baris D di `### Keputusan terbuka`. Tutup giliran dengan keluaran `harness.mjs decide <slug> --md`; bila hook memberi naskah pemilih, panggil `AskUserQuestion` dengan naskah itu apa adanya (jawaban dicatat hook). User menutup dengan "align ok <slug>" (hook menulis `align: aligned`).
+3. **AC** — setelah aligned (hook menolak AC sebelumnya), tulis AC bernomor di bagian 4 (skill plan). Berhenti. User mengetik "setuju <slug>" → `approved` (hanya manusia, tidak lewat pemilih).
+4. **Eksekusi** — "kerjakan <slug>" (skill build): bukti per AC di `### Bukti`, test oleh agent `runner`, tinjauan oleh `reviewer` di `### Tinjauan` (`verdict: clean|blockers`), lalu "push PR + merge" dari user. `merged` setelah PR benar-benar MERGED.
 
-Status: `draft → approved → in-progress → in-review → done → merged`. Plan beku setelah approved; revisi besar = `reopen` lalu approve ulang; tambahan AC kecil = `harness.mjs amend <slug> --ac "..."` (maks 3).
+Status: `draft → approved → in-progress → in-review → done → merged`. Bagian 1–3 dan teks AC beku setelah approved; revisi besar = `reopen` lalu "setuju" ulang; tambahan AC kecil = `harness.mjs amend <slug> --ac "..."` (maks 3). Bingung langkah berikutnya: user mengetik "menu".
 
 ## Lajur quick (perubahan kecil)
-User mengetik `/harness:quick <permintaan>`: hook membuat item `approved` (ketikan itu = persetujuan). Satu service, maks 5 file, bukan skema, dikerjakan di sesi yang sama, tanpa `in-review` (bukti AC + checks). Melebihi batas → `harness.mjs promote <slug>` lalu plan + approve. Bingung langkah berikutnya: `/harness:next`.
+User mengetik "quick: <permintaan>": hook membuat item `approved` (ketikan itu = persetujuan). Satu service, maks 5 file, bukan skema, dikerjakan di sesi yang sama, tanpa `in-review` (bukti AC + checks). Melebihi batas → `harness.mjs promote <slug>` lalu plan + approve. 
 
 ## Bahasa pendek user (diproses hook)
 Saran langkah ke user selalu dalam bentuk ini, bukan `/harness:…` (kecuali `/harness:init`, `/harness:update`).

@@ -70,7 +70,7 @@ import {
 import {
   projectRoot, loadConfig, checkTransition, checkDone, setFmKey, STATUSES,
   splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli, globToRegex,
-  updateTicket, updateTicketPath, readEvents, readAlign, formatDecision, slugify, cleanTitle, alignTables,
+  readPart, isSingle, updateTicket, updateTicketPath, readEvents, readAlign, formatDecision, slugify, cleanTitle, alignTables,
 } from './lib.mjs';
 
 // 1.13.2: tabel keluaran CLI bergaris kotak (tampil sebagai tabel walau mentah lewat "!"). --md = Markdown untuk ditempel agent
@@ -131,7 +131,7 @@ const write = (item, to, extra = {}) => {
     // 1.10.0: jejak di docs/memory/INDEX.md + keputusan Decision log diusulkan sebagai pelajaran (antrean; manusia yang menerapkan)
     if (cfg.memory.enabled) try {
       const it = readItem(root, item.slug);
-      const rd = (f) => { const p = path.join(it.dir, f); return fs.existsSync(p) ? splitFrontmatter(fs.readFileSync(p, 'utf8')).body : ''; };
+      const rd = (f) => { const t = readPart(it, f); return t === null ? '' : splitFrontmatter(t).body; };
       indexItem(root, it, bullets(section(rd('brief.md'), /^##\s+Objective/i)).filter((l) => !/^<.*>$/.test(l)).join(' ') || it.fm.title || it.slug);
       if (to === 'done') learnFrom(root, cfg, it, bullets(section(rd('progress.md'), /^##\s+Decision log/i)));
     } catch { /* memori tidak boleh menggagalkan transisi */ }
@@ -148,11 +148,11 @@ switch (cmd) {
     if (fs.existsSync(dir)) die(`sudah ada: docs/work/${slug}`);
     const tpl = path.join(root, 'docs', 'work', '_TEMPLATE');
     fs.mkdirSync(dir, { recursive: true });
-    for (const f of fs.readdirSync(tpl)) {
-      let t = fs.readFileSync(path.join(tpl, f), 'utf8');
-      t = t.replaceAll('{{slug}}', slug).replaceAll('{{title}}', title).replaceAll('{{type}}', type).replaceAll('{{date}}', today());
-      fs.writeFileSync(path.join(dir, f), t);
-    }
+    // 1.16.0: item.bentuk "tunggal" (bawaan) = satu plan.md empat bagian; "folder" = enam berkas seperti sebelumnya
+    const single = (process.env.HARNESS_ITEM_BENTUK || cfg.item.bentuk) === 'tunggal' && fs.existsSync(path.join(tpl, 'tunggal.md'));
+    const fill = (t) => t.replaceAll('{{slug}}', slug).replaceAll('{{title}}', title).replaceAll('{{type}}', type).replaceAll('{{date}}', today());
+    if (single) fs.writeFileSync(path.join(dir, 'plan.md'), fill(fs.readFileSync(path.join(tpl, 'tunggal.md'), 'utf8')));
+    else for (const f of fs.readdirSync(tpl).filter((x) => x !== 'tunggal.md')) fs.writeFileSync(path.join(dir, f), fill(fs.readFileSync(path.join(tpl, f), 'utf8')));
     console.log(`docs/work/${slug}`);
     break;
   }

@@ -8,6 +8,7 @@ import {
   readAlign, alignExempt, formatDecision, planeKick,
 } from './lib.mjs';
 import { logIntent } from './pilot.mjs';
+import { buildQuestions, saveNaskah, askInstruction } from './ask.mjs';
 import crypto from 'node:crypto';
 import { openRows, formatOpen } from './recap.mjs';
 
@@ -18,12 +19,12 @@ import { openRows, formatOpen } from './recap.mjs';
 export function decisionFor(root, cfg, payload) {
   if (!cfg.align.decision_table || payload.stop_hook_active) return null;
   const mine = touchedSlugs(root, payload.session_id);
-  const parts = []; const slugs = [];
+  const parts = []; const slugs = []; const asked = [];
   for (const it of listItems(root)) {
     if (!mine.has(it.slug) || it.status !== 'draft' || alignExempt(it, cfg)) continue;
     const a = readAlign(it);
     if (!a || a.verdict === 'aligned' || !a.claims) continue;
-    parts.push(formatDecision(root, it)); if (it.fm.plane_id) slugs.push(it.slug);
+    parts.push(formatDecision(root, it)); if (it.fm.plane_id) slugs.push(it.slug); asked.push(it);
   }
   if (!parts.length) return null;
   const text = parts.join('\n\n');
@@ -35,7 +36,10 @@ export function decisionFor(root, cfg, payload) {
   logIntent(root, cfg, { type: 'stop-hold', sid: payload.session_id || 'unknown' });
   // 1.13.0 (D19): keputusan yang menahan pekerjaan juga dikirim ke kartu Plane dengan @mention (latar, sekali per isi tabel)
   if (cfg.plane.enabled) for (const sl of slugs) planeKick(root, ['ask', sl, '--decide']);
-  return `tutup giliran ini dengan tabel keputusan berikut, APA ADANYA (dibuat kode dari align.md). Jangan menambah narasi, jangan menyarankan perintah lain selain baris "Berikutnya". Pertanyaan baru untuk user ditulis dulu sebagai baris D di "## Keputusan terbuka" align.md.\n\n${text}`;
+  // 1.16.0: keputusan D dengan opsi jelas ditanyakan lewat pemilih; jawabannya dicatat hook ask.mjs
+  let pick = '';
+  if (cfg.tui.ask) { const qs = []; for (const it of asked) { const q = buildQuestions(root, it); if (q.length) { saveNaskah(root, payload.session_id, it.slug, q); qs.push(...q); } } if (qs.length) pick = `\n\n${askInstruction(qs.slice(0, 4))}`; }
+  return `tutup giliran ini dengan tabel keputusan berikut, APA ADANYA (dibuat kode dari align.md). Jangan menambah narasi, jangan menyarankan perintah lain selain baris "Berikutnya". Pertanyaan baru untuk user ditulis dulu sebagai baris D di "## Keputusan terbuka" align.md (atau bagian 3 berkas item).\n\n${text}${pick}`;
 }
 
 export function recapFor(root, cfg, sid) {

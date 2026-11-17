@@ -3,7 +3,7 @@
 // yang belum aligned, AC tanpa bukti, blocker review terbuka, usulan memori yang menunggu. Deterministik, nol token.
 import fs from 'node:fs';
 import path from 'node:path';
-import { listItems, nextStep, summarizeItem, splitFrontmatter, isQuick, decisionRows, shortSlug } from './lib.mjs';
+import { readPart, listItems, nextStep, summarizeItem, splitFrontmatter, isQuick, decisionRows, shortSlug } from './lib.mjs';
 import { section, bullets } from './summary.mjs';
 import { pending } from './memory.mjs';
 
@@ -18,9 +18,9 @@ export function openRows(root, cfg, { slugs = null } = {}) {
     const label = shortSlug(root, it.slug);
     const n = nextStep(it, cfg);
     rows.push({ item: it.slug, label, jenis: 'langkah', apa: `${it.status}${isQuick(it) ? ' (quick)' : ''}`, siapa: n.who, aksi: n.cmd });
-    const bp = path.join(it.dir, 'brief.md');
-    if (fs.existsSync(bp) && ['draft'].includes(it.status)) {
-      const qs = bullets(section(splitFrontmatter(fs.readFileSync(bp, 'utf8')).body, /^##\s+Open questions/i)).map((q) => q.replace(/^[-*]\s*/, '')).filter((q) => q && !PH.test(q));
+    const bt = readPart(it, 'brief.md');
+    if (bt !== null && ['draft'].includes(it.status)) {
+      const qs = bullets(section(splitFrontmatter(bt).body, /^##\s+Open questions/i)).map((q) => q.replace(/^[-*]\s*/, '')).filter((q) => q && !PH.test(q));
       for (const q of qs.slice(0, 3)) rows.push({ item: it.slug, label, jenis: 'pertanyaan', apa: q, siapa: 'kamu', aksi: 'jawab di chat; agent mencatat di brief.md' });
     }
     // 1.12.0: sumber yang sama dengan tabel keputusan (klaim bertentangan/dugaan + keputusan D terbuka)

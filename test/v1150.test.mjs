@@ -54,7 +54,7 @@ test('pasang: settings.json memuat statusLine dan outputStyle; gaya keluaran dan
   assert.deepEqual(st.statusLine, { type: 'command', command: 'node .claude/hooks/statusline.mjs', padding: 0, refreshInterval: 5 });
   assert.equal(st.outputStyle, 'harness');
   assert.match(rd(root, '.claude/output-styles/harness.md'), /^---\nname: harness\n[\s\S]*keep-coding-instructions: true/);
-  assert.deepEqual(jr(root, 'harness.config.json').tui, { statusline: true, theme: 'tenang', max_width: 120 });
+  assert.deepEqual(jr(root, 'harness.config.json').tui, { statusline: true, theme: 'tenang', max_width: 120, ask: true, menu: true });
 });
 
 test('keluaran kode tidak menyarankan /harness: selain init dan update (sumber + keluaran next/open/decide)', () => {

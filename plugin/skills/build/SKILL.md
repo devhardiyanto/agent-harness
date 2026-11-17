@@ -2,9 +2,11 @@
 name: build
 description: Eksekusi plan yang sudah approved di sesi baru. Menjalankan implementer per service, mencatat bukti verifikasi per AC di progress.md, lalu menaikkan status ke in-review.
 argument-hint: "<slug>"
-disable-model-invocation: true
+user-invocable: false
 ---
 # /harness:build
+
+> **Bentuk tunggal** (frontmatter `bentuk: tunggal` di `plan.md`, bawaan item baru sejak 1.16): semua catatan ada di satu `plan.md`, bukan berkas terpisah. `brief` → `## 1. Objective` dan `## 2. Penjelasan` · `impact` dan `align` → `## 3. Dampak & konfirmasi` (tabel service, `### Klaim vs bukti kode`, `### Keputusan terbuka`; ronde di frontmatter `align_rounds`, jangan menulis `align: aligned`) · AC → `## 4. Eksekusi` (`- AC1: ...`) · bukti → `### Bukti` · review → `### Tinjauan` (`verdict: clean|blockers`) · `### Decision log`, `### Status terkini`. Bagian 1–3 dan teks AC beku setelah approved.
 
 Masukan: `$ARGUMENTS` (slug). Sesi ini adalah sesi **eksekusi**.
 
@@ -17,7 +19,7 @@ Masukan: `$ARGUMENTS` (slug). Sesi ini adalah sesi **eksekusi**.
    - kode → agent `implementer`, satu service pada satu waktu;
    - migrasi/skema → agent `dba` lebih dulu.
 6. Setiap AC selesai → tulis bukti nyata di `progress.md` bagian `## Verifikasi`: `- AC1: <output/respons/langkah+hasil>`. Perbarui "Status terkini".
-7. Bila hook memperingatkan konteks ±400k token: simpan status ke `progress.md`, berhenti, minta user lanjut di sesi baru dengan `/harness:build <slug>`.
+7. Bila hook memperingatkan konteks ±400k token: simpan status ke `progress.md`, berhenti, minta user lanjut di sesi baru dengan "kerjakan <slug>".
 8. Semua AC punya bukti → panggil agent `runner` (Haiku) dengan slug: ia menjalankan `node .claude/hooks/harness.mjs run-checks <slug>`, dan KODE harness menulis bukti `.harness/evidence/<slug>/tests.json`. Sesi tidak bisa berhenti selagi bukti itu belum ada, gagal, atau usang (kode berubah setelahnya). FAIL → perbaiki lalu jalankan runner lagi. Bukti PASS → `node .claude/hooks/harness.mjs set-status <slug> in-review`. Gerbang pengiriman (`gate`) tetap berlaku saat `done`.
 
 ## Aturan
@@ -27,4 +29,4 @@ Masukan: `$ARGUMENTS` (slug). Sesi ini adalah sesi **eksekusi**.
 - Perlu mengubah plan → berhenti dan minta user (`reopen` + approve ulang).
 
 ## Balasan chat (maks 5 baris)
-Status akhir · AC terbukti x/y · path `progress.md` · berikutnya: `/harness:review <slug>`
+Status akhir · AC terbukti x/y · path `progress.md` · berikutnya: skill review

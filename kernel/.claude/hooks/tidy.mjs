@@ -6,11 +6,11 @@
 // tidak dihapus, dan dicatat satu baris di docs/memory/ARCHIVE.md agar tetap bisa dicari (recall, ref:). Plane tidak disentuh (D38).
 import fs from 'node:fs';
 import path from 'node:path';
-import { listItems, readItem, workDir, splitFrontmatter, setFmKey, asList, parseAcs, STATUSES, isQuick, readJson, audit } from './lib.mjs';
+import { readPart, hasPart, isSingle, listItems, readItem, workDir, splitFrontmatter, setFmKey, asList, parseAcs, STATUSES, isQuick, readJson, audit } from './lib.mjs';
 
 export const archiveDir = (root) => path.join(workDir(root), '_archive');
 export const archiveIndex = (root) => path.join(root, 'docs', 'memory', 'ARCHIVE.md');
-const REQUIRED = ['brief.md', 'plan.md', 'progress.md'];
+const REQUIRED = ['brief.md', 'plan.md', 'progress.md']; // bentuk tunggal: hanya plan.md
 const PROMPTISH = /^(?:\d{4}-\d{2}-\d{2}-)?(?:kerjakan|tolong|disini|oke|aku|saya|coba|ini|update|bikin|buatkan|please)-/;
 const RANK = { 'in-progress': 5, 'in-review': 4, done: 3, approved: 2, draft: 1, merged: 0 };
 const day = (s) => { const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(s || '')); return m ? Date.parse(`${m[1]}T00:00:00Z`) : NaN; };
@@ -20,7 +20,7 @@ export function ageDays(it, now = Date.now()) {
   return t === undefined ? 0 : Math.floor((now - t) / 86400000);
 }
 const objectiveOf = (it) => {
-  try { const t = fs.readFileSync(path.join(it.dir, 'brief.md'), 'utf8'); const m = /##\s*Objective\s*\n+([^\n#][^\n]*)/i.exec(t); if (m) return m[1].trim(); } catch { /* abaikan */ }
+  const t = readPart(it, 'brief.md'); const m = t && /##\s*Objective\s*\n+([^\n#][^\n]*)/i.exec(t); if (m) return m[1].trim();
   return String(it.fm.title || it.slug);
 };
 
@@ -37,7 +37,8 @@ export function checkStructure(root, cfg) {
   const svcs = new Set(cfg.services || []);
   for (const it of listItems(root)) {
     const p = [];
-    for (const f of REQUIRED) if (!fs.existsSync(path.join(it.dir, f))) p.push(`${f} tidak ada`);
+    for (const f of REQUIRED) if (!hasPart(it, f) && !(f === 'plan.md')) p.push(`${f} tidak ada`);
+    if (isSingle(it)) for (const h of [/^## 1\.? *Objective/m, /^## 3\.? *Dampak/m, /^## 4\.? *Eksekusi/m]) if (!h.test(it.body)) p.push(`bagian ${String(h).slice(5, 20).replace(/[\\/?*.^ ]+/g, ' ').trim()} tidak ada`);
     if (!STATUSES.includes(it.status)) p.push(`status "${it.status}" tidak dikenal`);
     for (const k of ['title', 'type', 'created']) if (!it.fm[k]) p.push(`frontmatter ${k} kosong`);
     if (!asList(it.fm.services).length && it.type !== 'analysis') p.push('services kosong');
@@ -119,17 +120,23 @@ export function mergeInto(root, targetSlug, otherSlugs) {
     const map = {};
     const acs = parseAcs(o.body).map((a) => { map[a.id] = `AC${next}`; return `- AC${next++}: ${a.text}`; });
     plan += `\n## Digabung dari ${sl} (${o.status})\n${objectiveOf(o)}\n\n${acs.join('\n') || '(tanpa AC)'}\n`;
-    let ev = ''; try { ev = fs.readFileSync(path.join(o.dir, 'progress.md'), 'utf8'); } catch { /* tidak ada */ }
+    const ev = readPart(o, 'progress.md') || '';
     const evl = ev.split(/\r?\n/).map((l) => { const m = /^\s*[-*]\s*\**(AC\d+)\**\s*[:.–-]\s*(.+)$/.exec(l); return m && map[m[1]] ? `- ${map[m[1]]}: ${m[2].trim()}` : null; }).filter(Boolean);
     if (evl.length) prog += `\n## Bukti dari ${sl}\n${evl.join('\n')}\n`;
     for (const s of asList(o.fm.services)) services.add(s);
     archiveItem(root, sl, `digabung ke ${targetSlug}`);
     merged.push(sl);
   }
+  if (isSingle(t)) { // bentuk tunggal: AC gabungan ke bagian 4 (sebelum "### Bukti"), buktinya ke "### Bukti"
+    const added = plan.slice(t.text.replace(/\s*$/, '\n').length);
+    const acLines = added.split('\n').filter((l) => /^- AC\d+:/.test(l) || /^## Digabung/.test(l)).map((l) => l.replace(/^## /, '<!-- ') + (/^## /.test(l) ? ' -->' : ''));
+    const evLines = prog.slice(prog.indexOf('\n## Bukti dari') >= 0 ? prog.indexOf('\n## Bukti dari') : prog.length).split('\n').filter((l) => /^- AC\d+:/.test(l));
+    plan = t.text.replace(/^### Bukti\s*$/m, `${acLines.join('\n')}\n\n### Bukti`).replace(/^### Bukti\s*$/m, `### Bukti\n${evLines.join('\n')}`);
+  }
   plan = setFmKey(plan, 'services', JSON.stringify([...services]));
   plan = setFmKey(plan, 'updated', new Date().toISOString().slice(0, 10));
   fs.writeFileSync(t.planPath, plan);
-  fs.writeFileSync(path.join(t.dir, 'progress.md'), prog);
+  if (!isSingle(t)) fs.writeFileSync(path.join(t.dir, 'progress.md'), prog);
   return { ok: true, merged };
 }
 

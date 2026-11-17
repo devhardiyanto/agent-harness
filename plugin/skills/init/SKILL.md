@@ -25,7 +25,7 @@ Ikuti `/harness:knowledge onboard <svc>` (langkah 1–6: worktree baseline → e
 7. `node .claude/hooks/harness.mjs propose-checks all` → tampilkan blok `checks` hasilnya dan minta user menyalinnya ke `harness.config.json` secara manual (file itu dilindungi dari agent).
 
 ## Tahap 5 — verifikasi manusia (draft → verified)
-8. Per service: `node .claude/hooks/harness.mjs knowledge-sample <svc>` menampilkan 6 klaim acak + potongan kodenya. User memeriksa; bila cocok ia mengetik `/harness:knowledge verify <svc>`. Hanya itu yang menaikkan status; lint yang bersih saja tidak cukup (lint membuktikan sitasi ada, bukan bahwa penjelasannya benar).
+8. Per service: `node .claude/hooks/harness.mjs knowledge-sample <svc>` menampilkan 6 klaim acak + potongan kodenya. User memeriksa; bila cocok ia mengetik "verifikasi knowledge <svc>". Hanya itu yang menaikkan status; lint yang bersih saja tidak cukup (lint membuktikan sitasi ada, bukan bahwa penjelasannya benar).
 
 ## Balasan chat (maks 5 baris)
-Service ter-init: n/total · baseline: ... · UNKNOWN: n (di `_map.md`) · checks diusulkan: path/blok · berikutnya: `knowledge-sample` lalu `/harness:knowledge verify <svc>`
+Service ter-init: n/total · baseline: ... · UNKNOWN: n (di `_map.md`) · checks diusulkan: path/blok · berikutnya: `knowledge-sample` lalu "verifikasi knowledge <svc>"

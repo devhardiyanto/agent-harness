@@ -2,13 +2,15 @@
 name: impact
 description: Langkah pertama setiap permintaan. Membuat work item (brief.md, impact.md) dan memetakan service, kontrak, dan risiko yang terdampak dari prompt pertama.
 argument-hint: "<feature|improvement|hotfix|analysis|cross-repo|schema|onboard> <permintaan>"
-disable-model-invocation: true
+user-invocable: false
 ---
 # /harness:impact
 
+> **Bentuk tunggal** (frontmatter `bentuk: tunggal` di `plan.md`, bawaan item baru sejak 1.16): semua catatan ada di satu `plan.md`, bukan berkas terpisah. `brief` → `## 1. Objective` dan `## 2. Penjelasan` · `impact` dan `align` → `## 3. Dampak & konfirmasi` (tabel service, `### Klaim vs bukti kode`, `### Keputusan terbuka`; ronde di frontmatter `align_rounds`, jangan menulis `align: aligned`) · AC → `## 4. Eksekusi` (`- AC1: ...`) · bukti → `### Bukti` · review → `### Tinjauan` (`verdict: clean|blockers`) · `### Decision log`, `### Status terkini`. Bagian 1–3 dan teks AC beku setelah approved.
+
 Masukan: `$ARGUMENTS`. Keluaran: file, bukan narasi.
 
-Perubahan kecil (satu service, ≤5 file, bukan skema)? Sarankan user mengetik `/harness:quick <permintaan>` dan berhenti; jangan membuat item standard.
+Perubahan kecil (satu service, ≤5 file, bukan skema)? Sarankan user mengetik "quick: <permintaan>" dan berhenti; jangan membuat item standard.
 
 ## Langkah
 1. Tentukan `type` dari kata pertama (feature, improvement, hotfix, analysis, cross-repo, schema, onboard). Bila tidak ada, simpulkan dan sebut asumsimu di `brief.md`.
