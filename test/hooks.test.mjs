@@ -299,5 +299,5 @@ test('bench: mencetak tabel latensi tanpa menulis audit; --json valid', () => {
   assert.match(t.stdout, /Read\/Grep\/Glob \(tanpa hook\) ≈ 0 ms/);
   assert.equal(fs.existsSync(path.join(root, '.claude', 'audit')), false, 'bench tidak mencemari audit');
   const j = JSON.parse(cli(root, 'bench', '--n', '3', '--json').stdout);
-  assert.equal(j.rows.length, 6); assert.ok(j.rows.every((x) => x.error === 0));
+  assert.equal(j.rows.length, 7); assert.ok(j.rows.every((x) => x.error === 0));
 });

@@ -89,7 +89,7 @@ export function evaluate(root, cfg, payload) {
     }
     const item = readItem(root, slug);
     if (item && item.status !== 'draft' && toStatus === item.status && fmStripped(current) !== fmStripped(next)) {
-      return fail(`plan ${slug} sudah ${item.status}; isinya beku. Untuk merevisi: "node .claude/hooks/harness.mjs reopen ${slug}" (status kembali draft, perlu /harness:approve lagi).`);
+      return fail(`plan ${slug} sudah ${item.status}; isinya beku. Untuk merevisi: "node .claude/hooks/harness.mjs reopen ${slug}" (status kembali draft, perlu setuju <slug> lagi).`);
     }
     if (item && toStatus !== item.status) {
       if (item.status !== 'draft' && fmStripped(current) !== fmStripped(next)) return fail('ubah status dan isi plan dalam edit terpisah.');
@@ -106,8 +106,8 @@ export function evaluate(root, cfg, payload) {
     const current = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
     const c = splitFrontmatter(current); const n = splitFrontmatter(simulate(current, inc));
     const cv = String(c.fm.verdict || 'open').toLowerCase(); const nv = String(n.fm.verdict || 'open').toLowerCase();
-    if (nv === 'aligned' && cv !== 'aligned') return fail(`verdict "aligned" hanya oleh manusia: ketik /harness:align ${am[1]} ok. Tulis "verdict: open".`);
-    if (cv === 'aligned' && nv === 'aligned' && c.body !== n.body) return fail(`align ${am[1]} sudah aligned (disetujui manusia). Mengubah isinya = turunkan ke "verdict: open" dalam edit yang sama; user menutup lagi dengan /harness:align ${am[1]} ok.`);
+    if (nv === 'aligned' && cv !== 'aligned') return fail(`verdict "aligned" hanya oleh manusia: ketik align ok ${am[1]}. Tulis "verdict: open".`);
+    if (cv === 'aligned' && nv === 'aligned' && c.body !== n.body) return fail(`align ${am[1]} sudah aligned (disetujui manusia). Mengubah isinya = turunkan ke "verdict: open" dalam edit yang sama; user menutup lagi dengan align ok ${am[1]}.`);
     const rn = Number(n.fm.rounds || 0);
     if (rn > cfg.align.max_rounds) return fail(`debat align dibatasi ${cfg.align.max_rounds} ronde (diminta ${rn}). Berhenti: ringkas titik beda lewat AskUserQuestion dan biarkan user memutuskan.`);
     if (rn < Number(c.fm.rounds || 0)) return fail('rounds tidak boleh diturunkan.');
@@ -122,9 +122,9 @@ export function evaluate(root, cfg, payload) {
     const next = simulate(current, inc);
     const c = splitFrontmatter(current); const n = splitFrontmatter(next);
     const cs = c.fm.status || null; const ns = n.fm.status || 'draft';
-    if (ns === 'verified' && cs !== 'verified') return fail(`status "verified" hanya oleh manusia: ketik /harness:knowledge verify ${km[1]} (atau "! node .claude/hooks/harness.mjs verify-knowledge ${km[1]}"). Tulis sebagai draft.`);
+    if (ns === 'verified' && cs !== 'verified') return fail(`status "verified" hanya oleh manusia: ketik verifikasi knowledge ${km[1]} (atau "! node .claude/hooks/harness.mjs verify-knowledge ${km[1]}"). Tulis sebagai draft.`);
     if (cs === 'verified' && ns === 'verified' && (c.body !== n.body || c.fm.source_commit !== n.fm.source_commit)) {
-      return fail(`${rel} berstatus verified (diverifikasi manusia). Perubahan oleh agent harus menurunkan status ke draft dalam edit yang sama; verifikasi ulang dengan /harness:knowledge verify ${km[1]}.`);
+      return fail(`${rel} berstatus verified (diverifikasi manusia). Perubahan oleh agent harus menurunkan status ke draft dalam edit yang sama; verifikasi ulang dengan verifikasi knowledge ${km[1]}.`);
     }
     return { ok: true };
   }
@@ -135,7 +135,7 @@ export function evaluate(root, cfg, payload) {
     const current = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
     const before = proposalStatuses(current); const after = proposalStatuses(simulate(current, inc));
     for (const [id, st] of Object.entries(after)) {
-      if (st !== 'proposed' && before[id] !== st) return fail(`${id}: status "${st}" hanya boleh ditulis hook saat manusia mengetik /harness:knowledge patterns ${pp[1]} ${id}. Agent hanya menulis "Status: proposed".`);
+      if (st !== 'proposed' && before[id] !== st) return fail(`${id}: status "${st}" hanya boleh ditulis hook saat manusia mengetik terapkan pola ${pp[1]} ${id}. Agent hanya menulis "Status: proposed".`);
     }
     for (const [id, st] of Object.entries(before)) {
       if (st !== 'proposed' && after[id] !== st) return fail(`${id}: item yang sudah ${st} tidak boleh diubah atau dihapus.`);
@@ -152,7 +152,7 @@ export function evaluate(root, cfg, payload) {
     const quick = items.filter((i) => isQuick(i) && (!i.services.length || coversService(i, svc) || svc === '*'));
     if (!standard.length && !quick.length) {
       const bound = items.filter((i) => isQuick(i) && i.services.length);
-      return fail(`tidak ada work item berstatus approved/in-progress yang mencakup service "${svc}". Alurnya: /harness:impact → /harness:plan → user ketik /harness:approve <slug> → sesi baru /harness:build <slug>; perubahan kecil: user ketik /harness:quick <permintaan>.` +
+      return fail(`tidak ada work item berstatus approved/in-progress yang mencakup service "${svc}". Alurnya: skill impact → skill plan → user ketik setuju <slug> → sesi baru kerjakan <slug>; perubahan kecil: user ketik quick: <permintaan>.` +
         (items.length ? ` Item aktif saat ini: ${items.map((i) => `${i.slug}[${i.services.join(',') || '-'}]`).join('; ')}.` : '') +
         (bound.length ? ` Lajur quick hanya 1 service (${bound.map((i) => `${i.slug} → ${i.services.join(',')}`).join('; ')}); untuk menambah service: "node .claude/hooks/harness.mjs promote <slug>" lalu plan + approve.` : ''));
     }
@@ -166,7 +166,7 @@ export function evaluate(root, cfg, payload) {
       const q = quick[0];
       const files = asList(q.fm.files);
       if (!files.includes(rel) && files.length >= cfg.quick.max_files) {
-        return fail(`lajur quick dibatasi ${cfg.quick.max_files} file (sudah: ${files.join(', ')}). "node .claude/hooks/harness.mjs promote ${q.slug}" lalu /harness:plan ${q.slug} dan /harness:approve ${q.slug}.`);
+        return fail(`lajur quick dibatasi ${cfg.quick.max_files} file (sudah: ${files.join(', ')}). "node .claude/hooks/harness.mjs promote ${q.slug}" lalu skill plan ${q.slug} dan setuju ${q.slug}.`);
       }
       let t = q.text;
       if (!q.services.length) t = setFmKey(t, 'services', `[${svc}]`);

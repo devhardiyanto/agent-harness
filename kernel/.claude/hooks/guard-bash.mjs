@@ -22,11 +22,11 @@ export function evaluate(root, cfg, payload) {
   const flat = cmd.replace(/\s+/g, ' ');
 
   // approve hanya manusia
-  if (/harness\.mjs\s+approve\b/.test(flat)) return fail('approve hanya boleh dilakukan manusia (ketik /harness:approve <slug>, atau jalankan sendiri dengan awalan "!").');
-  if (/harness\.mjs\s+quick\b/.test(flat)) return fail('item quick hanya dibuat dari ketikan manusia: /harness:quick <permintaan> (atau jalankan sendiri dengan awalan "!").');
+  if (/harness\.mjs\s+approve\b/.test(flat)) return fail('approve hanya boleh dilakukan manusia (ketik setuju <slug>, atau jalankan sendiri dengan awalan "!").');
+  if (/harness\.mjs\s+quick\b/.test(flat)) return fail('item quick hanya dibuat dari ketikan manusia: quick: <permintaan> (atau jalankan sendiri dengan awalan "!").');
 
   // verifikasi knowledge dan persetujuan pola hanya manusia
-  if (/harness\.mjs\s+(verify-knowledge|patterns-approve)\b/.test(flat)) return fail('verify-knowledge / patterns-approve hanya manusia: ketik /harness:knowledge verify <svc> atau /harness:knowledge patterns <slug> <P1,P3|all>, atau jalankan sendiri dengan awalan "!".');
+  if (/harness\.mjs\s+(verify-knowledge|patterns-approve)\b/.test(flat)) return fail('verify-knowledge / patterns-approve hanya manusia: ketik verifikasi knowledge <svc> atau terapkan pola <slug> <P1,P3|all>, atau jalankan sendiri dengan awalan "!".');
 
   if (!cfg.memory.write_approval && /^\s*node\s+\.claude\/hooks\/harness\.mjs\s+memory\s+(add|forget)\s[^;&|<>`$]*$/.test(flat)) return { ok: true };
   // memori project (hanya bila write_approval=true): menerapkan/menghapus/menolak = keputusan manusia ("ingat P1", "lupakan M2"); agent hanya mengusulkan (memory add → antrean bila write_approval)

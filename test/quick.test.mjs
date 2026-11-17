@@ -164,7 +164,7 @@ test('next: siapa dan perintah persis per status, lajur quick vs standard', () =
   const std = cli(root, 'new', 'feature', 'fitur biasa').stdout.trim().split('/').pop();
   const out = cli(root, 'next').stdout;
   assert.match(out, new RegExp(`\\| ${q} \\| quick \\| approved \\| agent \\| kerjakan di sesi ini`));
-  assert.match(out, new RegExp(`\\| ${std} \\| standard \\| draft \\| agent \\| /harness:plan (${std}|${std.replace(/^\d{4}-\d{2}-\d{2}-/, '')})`));
+  assert.match(out, new RegExp(`\\| ${std} \\| standard \\| draft \\| agent \\| skill plan (${std}|${std.replace(/^\d{4}-\d{2}-\d{2}-/, '')})`));
   assert.match(cli(root, 'next', q).stdout, /set-status .* done/);
 });
 

@@ -212,7 +212,7 @@ export function lintService(root, cfg, svc) {
   const add = (sev, at, msg) => findings.push({ sev, at, msg });
   const dir = svcDir(root, cfg, svc); const kd = knowDir(root, svc);
   if (!SAFE_SVC.test(svc)) { add('ERROR', svc, 'nama service tidak valid'); return finish(svc, findings, info); }
-  if (!fs.existsSync(path.join(kd, 'summary.md'))) { add('ERROR', `docs/knowledge/${svc}/summary.md`, 'belum ada (jalankan /harness:init atau /harness:knowledge onboard)'); return finish(svc, findings, info); }
+  if (!fs.existsSync(path.join(kd, 'summary.md'))) { add('ERROR', `docs/knowledge/${svc}/summary.md`, 'belum ada (jalankan /harness:init atau skill knowledge onboard)'); return finish(svc, findings, info); }
   if (!isRepo(dir)) { add('ERROR', `${cfg.services_dir}/${svc}`, 'bukan repo git: sitasi tidak bisa diperiksa'); return finish(svc, findings, info); }
   const read = mkReader(dir);
   for (const f of FILES) {
@@ -236,7 +236,7 @@ export function lintService(root, cfg, svc) {
     findings.push(...c.findings);
     // sha non-baseline: info agar di-ground ulang saat refresh
     const pinned = [...body.matchAll(/:\d+(?:[-–]\d+)?@([0-9a-f]{7,40})/g)].length;
-    if (pinned) add('INFO', rel, `${pinned} sitasi memakai @sha (dari work item); ground ulang ke source_commit saat /harness:knowledge refresh`);
+    if (pinned) add('INFO', rel, `${pinned} sitasi memakai @sha (dari work item); ground ulang ke source_commit saat skill knowledge refresh`);
     // jalur nyata di backtick (peringatan saja; mungkin artefak runtime/build)
     const seen = new Set();
     lines.forEach((ln, i) => {
@@ -402,7 +402,7 @@ export function checkProposal(root, cfg, slug, only = null) {
     const at = `${i.id}`;
     if (!(cfg.services || []).includes(i.service)) { problems.push(`${at}: service "${i.service}" tidak ada di config.`); continue; }
     const pp = path.join(knowDir(root, i.service), 'patterns.md');
-    if (!fs.existsSync(pp)) { problems.push(`${at}: docs/knowledge/${i.service}/patterns.md belum ada (jalankan /harness:init atau /harness:knowledge onboard).`); continue; }
+    if (!fs.existsSync(pp)) { problems.push(`${at}: docs/knowledge/${i.service}/patterns.md belum ada (jalankan /harness:init atau skill knowledge onboard).`); continue; }
     if (i.block === null) problems.push(`${at}: blok \`\`\`pola tidak ada.`);
     else if (i.action === 'tambah' && !i.block.trim()) problems.push(`${at}: blok pola kosong.`);
     else if (i.block.split(/\r?\n/).length > 8) problems.push(`${at}: blok pola > 8 baris; ringkas.`);

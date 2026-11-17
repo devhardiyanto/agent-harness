@@ -107,7 +107,7 @@ export function issueTicket(root, cfg, item, by) {
   const problems = [];
   const prs = asList(item.fm.pr).filter((x) => x && x !== 'null');
   if (item.status !== 'done') return { ok: false, problems: [`status ${item.status}; merge hanya untuk item "done".`] };
-  if (!prs.length) return { ok: false, problems: ['pr: belum terisi. Jalankan /harness:ship dulu sampai PR terbuka, tunggu check hijau, lalu ketik /harness:ship lagi.'] };
+  if (!prs.length) return { ok: false, problems: ['pr: belum terisi. Jalankan "push PR + merge" dulu sampai PR terbuka, tunggu check hijau, lalu ketik "push PR + merge" lagi.'] };
   problems.push(...gateProblems(root, cfg, item));
   const ap = accessProblems(root, cfg, item);
   problems.push(...ap);
@@ -161,12 +161,12 @@ export function runShip(root, cfg, item, log = console.log) {
       if (r.allMerged) return { ok: true, merged: [], problems: [] };
     }
   }
-  if (!fs.existsSync(p)) return { ok: false, problems: [`tidak ada tiket merge untuk ${item.slug}. Keputusan merge hanya dari ketikan manusia: /harness:ship ${item.slug} (setelah PR terbuka dan check hijau).`] };
+  if (!fs.existsSync(p)) return { ok: false, problems: [`tidak ada tiket merge untuk ${item.slug}. Keputusan merge hanya dari ketikan manusia: push PR + merge ${item.slug} (setelah PR terbuka dan check hijau).`] };
   let t = null; try { t = JSON.parse(fs.readFileSync(p, 'utf8')); } catch { /* abaikan */ }
   fs.rmSync(p, { force: true }); // sekali pakai, apa pun hasilnya
   if (t && !['merge', 'squash', 'rebase'].includes(t.method)) t = null;
-  if (!t || t.slug !== item.slug || !Array.isArray(t.prs)) return { ok: false, problems: ['tiket rusak; ketik /harness:ship lagi.'] };
-  if (Date.parse(t.expires_at) < Date.now()) return { ok: false, problems: ['tiket kedaluwarsa; ketik /harness:ship lagi.'] };
+  if (!t || t.slug !== item.slug || !Array.isArray(t.prs)) return { ok: false, problems: ['tiket rusak; ketik "push PR + merge" lagi.'] };
+  if (Date.parse(t.expires_at) < Date.now()) return { ok: false, problems: ['tiket kedaluwarsa; ketik "push PR + merge" lagi.'] };
   const gp = gateProblems(root, cfg, item);
   if (gp.length) return { ok: false, problems: gp };
   const ap = accessProblems(root, cfg, item);
@@ -178,7 +178,7 @@ export function runShip(root, cfg, item, log = console.log) {
     if (v.error) return { ok: false, merged, problems: [`${pr.url}: ${v.error}`] };
     if (v.state === 'MERGED') { merged.push(pr); log(`${pr.url}: sudah MERGED`); continue; }
     if (v.state !== 'OPEN') return { ok: false, merged, problems: [`${pr.url}: berstatus ${v.state}.`] };
-    if (v.sha !== pr.sha) return { ok: false, merged, problems: [`${pr.url}: commit PR berubah sejak tiket (${String(pr.sha).slice(0, 7)} → ${String(v.sha).slice(0, 7)}). Tunggu check, lalu ketik /harness:ship lagi.`] };
+    if (v.sha !== pr.sha) return { ok: false, merged, problems: [`${pr.url}: commit PR berubah sejak tiket (${String(pr.sha).slice(0, 7)} → ${String(v.sha).slice(0, 7)}). Tunggu check, lalu ketik "push PR + merge" lagi.`] };
     if (!BRANCH.test(String(v.base)) || !/^\w+$/.test(String(pr.sha))) return { ok: false, merged, problems: [`${pr.url}: nama branch/SHA tidak aman.`] };
     const parent = merged.find((m) => m.head === v.base); // PR induk sudah masuk; arahkan ke base induk supaya perubahan sampai ke branch utama
     if (parent) {
