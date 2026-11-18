@@ -22,14 +22,17 @@ export const WAITING = /(background agent|agen(?:t)? latar|di latar belakang|(?:
 export function decisionFor(root, cfg, payload) {
   if (!cfg.align.decision_table || payload.stop_hook_active) return null;
   const mine = touchedSlugs(root, payload.session_id);
-  const parts = []; const slugs = []; const asked = [];
+  const parts = []; const slugs = []; const asked = []; const noClaims = [];
   for (const it of listItems(root)) {
     if (!mine.has(it.slug) || it.status !== 'draft' || alignExempt(it, cfg)) continue;
     const a = readAlign(it);
+    // 1.19.6: item satu berkas dengan baris D tetapi tanpa klaim = skill align terlewat; "align ok" user akan ditolak
+    if (a && a.verdict !== 'aligned' && !a.claims && isSingle(it) && a.decisions.length) { noClaims.push(it.slug); continue; }
     if (!a || a.verdict === 'aligned' || !a.claims) continue;
     if (!decisionRows(it).length) continue; // 1.19.2: tanpa keputusan/klaim terbuka tidak ada yang perlu ditanyakan; giliran tidak ditahan
     parts.push(formatDecision(root, it)); if (it.fm.plane_id) slugs.push(it.slug); asked.push(it);
   }
+  if (!parts.length && noClaims.length) return `belum boleh berhenti: ${noClaims.join(', ')} belum punya klaim vs bukti kode. Jalankan skill align ${noClaims[0]} sekarang: tulis minimal satu baris "| C1 | klaim | bukti path:baris | status |" di "### Klaim vs bukti kode" bagian 3 plan.md (cek ke kode), lalu tutup giliran dengan keluaran "node .claude/hooks/harness.mjs decide ${noClaims[0]} --md" apa adanya.`;
   if (!parts.length) return null;
   const text = parts.join('\n\n');
   const mark = path.join(root, '.harness', 'state', `decision-${String(payload.session_id || 'x').replace(/\W/g, '')}.json`);

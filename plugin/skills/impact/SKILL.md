@@ -10,7 +10,9 @@ user-invocable: false
 
 Masukan: `$ARGUMENTS`. Keluaran: file, bukan narasi.
 
-Perubahan kecil (satu service, ≤5 file, bukan skema)? Sarankan user mengetik "quick: <permintaan>" dan berhenti; jangan membuat item standard.
+Item **selalu** dibuat, sekecil apa pun perubahannya. Jangan menyarankan `quick:`; lajur cepat hanya bila user sendiri mengetik "quick: <permintaan>" (diproses hook).
+
+**Bentuk tunggal: giliran pertama belum selesai sebelum `### Klaim vs bukti kode` berisi minimal satu klaim** (`| C1 | klaim | bukti path:baris | status |`, status `terbukti`/`dugaan`/`bertentangan`) selain baris D. Tanpa klaim, "align ok" user tidak dicatat hook.
 
 ## Langkah
 1. Tentukan `type` dari kata pertama (feature, improvement, hotfix, analysis, cross-repo, schema, onboard). Bila tidak ada, simpulkan dan sebut asumsimu di `brief.md`.
