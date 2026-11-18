@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.19.5
+Patch dari uji B sandbox (item `validasi-bio-profil-maks-300-karakter-di`).
+- **"push PR + merge" tidak lagi macet di commit**: guard-bash membaca isi pesan commit (mis. `301 -> galat`, `> 300`, kata `rm`/`mv`) sebagai operasi tulis ke service, lalu menolaknya karena item sudah `done`. Sekarang isi string berkutip dan badan heredoc diabaikan saat mendeteksi tulis lewat shell. `sh -c "..."` dan `eval` tetap diperiksa utuh.
+- **Cabang untuk larangan commit/push dibaca dari `git -C <dir>` atau `cd <dir> &&`**, bukan dari cwd sesi. Sebelumnya `git -C source-code/<svc> commit` dari root dinilai memakai cabang root (`main`).
+- **Pemilih pelajaran dengan satu pelajaran tidak lagi gagal** ("Invalid tool parameters"; AskUserQuestion butuh minimal 2 opsi). Opsi kedua "Jangan simpan" ditambahkan dan tidak dipetakan ke pelajaran mana pun.
+- **Rekap tidak tampil dua kali**: giliran tidak ditahan bila tiap sel "aksi" di tabel rekap sudah ada di pesan terakhir agent.
+- **Item satu berkas**: teks "jawab temuan di align.md" dan "dibuat kode dari align.md" menjadi "bagian 3 plan.md".
+- **Sandbox**: `checks` untuk frontend dan backend diisi `npm test`, jadi gate menjalankan test dan tidak berhenti di TIDAK DIPERIKSA. `package.json` frontend diberi `"type": "module"`.
+
 ## 1.19.4
 Patch dari uji sandbox (item `tombol-save-profileform-nonaktif-sampai`).
 - **Klaim dugaan ikut pemilih** (benar/salah). Jawabannya ditulis hook ke kolom status klaim: `dikonfirmasi (user, pemilih)` atau `bertentangan (user, pemilih)`; yang kedua wajib dikoreksi agent.

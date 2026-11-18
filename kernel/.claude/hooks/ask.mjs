@@ -44,7 +44,7 @@ export function saveNaskah(root, sid, slug, questions) {
 export function saveLessonNaskah(root, sid, la) {
   const f = naskahPath(root, sid);
   const prev = readJson(f, { items: {} }) || { items: {} };
-  prev.lessons = { question: la.question.question, map: Object.fromEntries(la.question.options.map((o, i) => [norm(o.label), la.ids[i]])), ids: la.ids };
+  prev.lessons = { question: la.question.question, map: Object.fromEntries(la.question.options.slice(0, la.ids.length).map((o, i) => [norm(o.label), la.ids[i]])), ids: la.ids };
   fs.mkdirSync(path.dirname(f), { recursive: true });
   fs.writeFileSync(f, JSON.stringify(prev, null, 2));
 }

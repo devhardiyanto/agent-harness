@@ -9,6 +9,19 @@ import {
 
 const WRITE_OP = /(\bsed\s+(-[a-zA-Z]*i|--in-place)|\btee\b|(^|[^<>&=\d])>>?(?![>&=])|\bmv\b|\bcp\b|\brm\b|\bpatch\b|\bgit\s+apply\b|\bperl\s+-[a-z]*i|\btruncate\b|\binstall\s+-|\bdd\b)/;
 
+// 1.19.5: isi string berkutip dan badan heredoc (mis. pesan commit "bio > 300", "AC1 -> galat", "rm cache") bukan operasi tulis.
+export const unquoted = (cmd) => cmd
+  .replace(/<<-?\s*(['"]?)(\w+)\1[^\n]*\n[\s\S]*?\n\s*\2(?=\s|$)/g, '<<HEREDOC')
+  .replace(/"(?:[^"\\]|\\.)*"|'[^']*'/g, '""');
+// 1.19.5: direktori tempat git benar-benar jalan: `git -C <dir>` atau `cd <dir> &&` di awal, bukan cwd sesi.
+export function gitDir(flat, cwd) {
+  const strip = (d) => d.replace(/^["']|["']$/g, '');
+  const c = /\bgit\s+-C\s+(\S+)/.exec(flat);
+  if (c) return path.resolve(cwd, strip(c[1]));
+  const d = /^\s*cd\s+(\S+)\s*&&/.exec(flat);
+  return d ? path.resolve(cwd, strip(d[1])) : cwd;
+}
+
 function currentBranch(cwd) {
   const r = spawnSync('git', ['symbolic-ref', '--short', '-q', 'HEAD'], { cwd, encoding: 'utf8' });
   return r.status === 0 ? r.stdout.trim() : null;
@@ -64,13 +77,13 @@ export function evaluate(root, cfg, payload) {
     const named = target ? target[1].replace(/^refs\/heads\//, '') : null;
     if (named && isProtectedBranch(cfg, named)) return fail(`push langsung ke branch ${named} dilarang. Push branch kerja lalu buka PR.`);
     if (!named || named === 'HEAD') {
-      const b = currentBranch(cwd);
+      const b = currentBranch(gitDir(flat, cwd));
       if (isProtectedBranch(cfg, b)) return fail(`kamu sedang di branch ${b}; push dari branch ini dilarang. Buat branch kerja dan buka PR.`);
     }
   }
   // git commit di branch dilindungi
   if (/\bgit\b[^;&|]*\bcommit\b/.test(flat)) {
-    const b = currentBranch(cwd);
+    const b = currentBranch(gitDir(flat, cwd));
     if (isProtectedBranch(cfg, b)) return fail(`commit langsung di branch ${b} dilarang. Buat branch kerja dulu (mis. feat/<slug>).`);
   }
 
@@ -83,7 +96,7 @@ export function evaluate(root, cfg, payload) {
   if (/\b(printenv|env)\s*(\||$|;)/.test(flat) || /\bcat\s+\/proc\/\S*environ/.test(flat)) return fail('dump environment dilarang (bisa membocorkan secret).');
 
   // tulis ke file harness / plan.md lewat shell
-  if (WRITE_OP.test(cmd)) {
+  if (WRITE_OP.test(/\b(?:ba|z)?sh\s+-c\b|\beval\b/.test(flat) ? cmd : unquoted(cmd))) {
     if (/docs\/work\/[^\s'"]*plan\.md/.test(flat)) return fail('jangan ubah plan.md lewat shell; pakai Edit/Write (transisi status diperiksa hook) atau harness.mjs set-status.');
     if (/docs\/knowledge\/[^\s'"]*(summary|patterns)\.md|docs\/work\/[^\s'"]*patterns-proposal\.md/.test(flat)) return fail('jangan ubah summary.md/patterns.md/patterns-proposal.md lewat shell; pakai Edit/Write (status verified/approved dijaga hook).');
     if (!process.env.HARNESS_ADMIN && /(\.claude\/(hooks|agents)\/|\.claude\/settings\.json|harness\.config\.json|merge-tickets|update-ticket|\.harness\/evidence)/.test(flat)) return fail('file harness dilindungi; ubah manual di luar sesi agent.');

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   readStdinJson, projectRoot, loadConfig, listItems, summarizeItem, readEvidence, codeFingerprint, isQuick, readJson, audit, isMain, touchedSlugs,
-  readAlign, alignExempt, formatDecision, planeKick, decisionRows,
+  readAlign, alignExempt, formatDecision, planeKick, decisionRows, isSingle,
 } from './lib.mjs';
 import { logIntent } from './pilot.mjs';
 import { buildQuestions, saveNaskah, askInstruction, saveLessonNaskah } from './ask.mjs';
@@ -43,7 +43,17 @@ export function decisionFor(root, cfg, payload) {
   // 1.16.0: keputusan D dengan opsi jelas ditanyakan lewat pemilih; jawabannya dicatat hook ask.mjs
   let pick = '';
   if (cfg.tui.ask) { const qs = []; for (const it of asked) { const q = buildQuestions(root, it); if (q.length) { saveNaskah(root, payload.session_id, it.slug, q); qs.push(...q); } } if (qs.length) pick = `\n\n${askInstruction(qs.slice(0, 4), root, payload.session_id)}`; }
-  return `tutup giliran ini dengan tabel keputusan berikut, APA ADANYA (dibuat kode dari align.md). Jangan menambah narasi, jangan menyarankan perintah lain selain baris "Berikutnya". Pertanyaan baru untuk user ditulis dulu sebagai baris D di "## Keputusan terbuka" align.md (atau bagian 3 berkas item).\n\n${text}${pick}`;
+  const src = asked.every(isSingle) ? 'bagian 3 plan.md' : 'align.md';
+  return `tutup giliran ini dengan tabel keputusan berikut, APA ADANYA (dibuat kode dari ${src}). Jangan menambah narasi, jangan menyarankan perintah lain selain baris "Berikutnya". Pertanyaan baru untuk user ditulis dulu sebagai baris D di ${src === 'align.md' ? '"## Keputusan terbuka" align.md (atau "### Keputusan terbuka" bagian 3 berkas item)' : '"### Keputusan terbuka" bagian 3 plan.md'}.\n\n${text}${pick}`;
+}
+
+// 1.19.5: tabel rekap dianggap sudah tampil bila tiap sel "aksi" sudah ada di pesan terakhir agent (mis. dari
+// harness.mjs next --md); giliran tidak ditahan agar tabel tidak muncul dua kali.
+export function alreadyShown(table, last) {
+  const flat = (x) => String(x || '').replace(/[`*]/g, '').replace(/\s+/g, ' ').trim();
+  const acts = String(table || '').split('\n').filter((l) => /^\|\s*\d+\s*\|/.test(l)).map((l) => flat(l.split('|').slice(-2, -1)[0]));
+  const L = flat(last);
+  return acts.length > 0 && acts.every((a) => a && L.includes(a.replace(/\s*\([^)]*\)\s*$/, '')));
 }
 
 export function recapFor(root, cfg, sid) {
@@ -128,7 +138,7 @@ if (isMain(import.meta.url)) {
     const t = recapFor(root, cfg, payload.session_id);
     if (t) {
       const last = String(payload.last_assistant_message || '');
-      if (cfg.recap.render === 'assistant' && !payload.stop_hook_active && !/Belum selesai[^\n]*\(\d+\)/.test(last)) {
+      if (cfg.recap.render === 'assistant' && !payload.stop_hook_active && !/Belum selesai[^\n]*\(\d+\)/.test(last) && !alreadyShown(t, last)) {
         process.stderr.write(`[harness] Tutup giliran ini dengan tabel berikut sebagai Markdown, APA ADANYA (dibuat kode). Tanpa narasi tambahan, tanpa mengulang isi giliran.\n\n${t}\n`);
         process.exit(2);
       }
