@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.19.4',
+  harness_version: '1.19.5',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -681,7 +681,7 @@ function alignNext(item, cfg) {
   const hasPlan = parseAcs(item.body).length > 0;
   const a = readAlign(item);
   const needAlign = cfg ? alignProblems(item, cfg).length > 0 : !a || a.verdict !== 'aligned';
-  if (needAlign) return a && a.claims > 0 ? ['kamu', `jawab temuan di align.md; sepaham → ketik align ok ${sl}`] : ['agent', `skill align ${sl}`];
+  if (needAlign) return a && a.claims > 0 ? ['kamu', `jawab temuan di ${isSingle(item) ? 'bagian 3 plan.md' : 'align.md'}; sepaham → ketik align ok ${sl}`] : ['agent', `skill align ${sl}`];
   if (!hasPlan) return ['agent', `skill plan ${sl}`];
   return ['kamu', `tinjau plan.md; bila setuju ketik setuju ${sl}`];
 }

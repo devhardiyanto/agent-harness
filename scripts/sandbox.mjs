@@ -38,7 +38,7 @@ function repo(cwd, name, files) {
 wr(path.join(sb, 'MARKER'), 'harness sandbox\n');
 const svcs = {
   frontend: {
-    'package.json': '{\n  "name": "frontend",\n  "private": true,\n  "scripts": { "test": "node --test" },\n  "dependencies": { "react": "18.3.1" }\n}\n',
+    'package.json': '{\n  "name": "frontend",\n  "private": true,\n  "type": "module",\n  "scripts": { "test": "node --test" },\n  "dependencies": { "react": "18.3.1" }\n}\n',
     'src/ProfileForm.tsx': `import { useState } from 'react';\n\n// Form profil: tombol Save selalu aktif walau belum ada perubahan.\nexport function ProfileForm({ initial, onSave }: { initial: { name: string; bio: string }; onSave: (v: { name: string; bio: string }) => void }) {\n  const [value, setValue] = useState(initial);\n  return (\n    <form onSubmit={(e) => { e.preventDefault(); onSave(value); }}>\n      <input value={value.name} onChange={(e) => setValue({ ...value, name: e.target.value })} />\n      <textarea value={value.bio} onChange={(e) => setValue({ ...value, bio: e.target.value })} />\n      <button type="submit">Save</button>\n    </form>\n  );\n}\n`,
     'src/format.js': 'export const initials = (name) => name.split(/\\s+/).filter(Boolean).map((w) => w[0].toUpperCase()).join("");\n',
     'test/format.test.js': 'import test from "node:test";\nimport assert from "node:assert/strict";\nimport { initials } from "../src/format.js";\ntest("initials", () => assert.equal(initials("ada lovelace"), "AL"));\n',
@@ -58,6 +58,7 @@ const cfgF = path.join(dir, 'harness.config.json');
 const cfg = JSON.parse(fs.readFileSync(cfgF, 'utf8'));
 cfg.services = ['frontend', 'backend'];
 cfg.ship = { ...(cfg.ship || {}), base: { frontend: 'main', backend: 'main' } };
+cfg.checks = { frontend: { test: 'npm test' }, backend: { test: 'npm test' } }; // 1.19.5: gate menjalankan test, bukan TIDAK DIPERIKSA
 if (cfg.plane) cfg.plane.enabled = false;
 fs.writeFileSync(cfgF, `${JSON.stringify(cfg, null, 2)}\n`);
 git(dir, 'add', '-A'); git(dir, 'commit', '-qm', 'sandbox: config'); git(dir, 'push', '-q', 'origin', 'main');

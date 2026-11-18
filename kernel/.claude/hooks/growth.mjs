@@ -82,6 +82,7 @@ export function formatGrowth(r) {
 }
 
 // Pelajaran yang menunggu dari item yang disentuh sesi ini → naskah pemilih (sekali per set usulan).
+export const SKIP_LESSON = 'Jangan simpan';
 export function lessonsAsk(root, cfg, sid) {
   if (!cfg.tui.ask) return null;
   const mine = touchedSlugs(root, sid);
@@ -92,5 +93,7 @@ export function lessonsAsk(root, cfg, sid) {
   if ((readJson(mark, {}) || {}).key === key) return null;
   try { fs.mkdirSync(path.dirname(mark), { recursive: true }); fs.writeFileSync(mark, JSON.stringify({ key })); } catch { /* abaikan */ }
   const opts = list.slice(0, 4).map((p) => ({ label: p.text.length > 60 ? `${p.text.slice(0, 59)}…` : p.text, description: `${p.id} · ${p.source}` }));
+  // 1.19.5: AskUserQuestion butuh minimal 2 opsi; satu pelajaran → tambah opsi "Jangan simpan" (tidak dipetakan ke id: dibuang)
+  if (opts.length < 2) opts.push({ label: SKIP_LESSON, description: 'buang usulan pelajaran ini' });
   return { ids: list.slice(0, 4).map((p) => p.id), question: { header: 'Pelajaran', question: 'Simpan pelajaran dari pekerjaan ini?', options: opts, multiSelect: true } };
 }
