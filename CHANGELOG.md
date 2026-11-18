@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.19.6
+Patch dari ulangan uji B: agent menulis keputusan D tanpa klaim, lalu "align ok" user ditolak ("tabel klaim kosong") tanpa jalan keluar.
+- **"align ok" tanpa klaim tidak lagi ditolak**. Hook tidak mencatat aligned, tetapi mengarahkan agent menjalankan skill align sekarang (klaim vs bukti kode), lalu menutup dengan tabel keputusan. User mengetik "align ok" lagi setelah tabel itu dijawab.
+- **Stop menahan giliran** bila item satu berkas yang disentuh sesi ini punya baris D tetapi belum punya klaim, agar celah ini tertutup sebelum user mengetik apa pun.
+- **`decide` tanpa klaim**: "Berikutnya (agent): skill align …", bukan menyuruh user mengetik "align ok".
+- **Skill impact**: baris lama "sarankan quick:" (sisa sebelum 1.19.3) dihapus. Ditambah aturan bahwa giliran pertama item satu berkas belum selesai tanpa minimal satu klaim.
+
 ## 1.19.5
 Patch dari uji B sandbox (item `validasi-bio-profil-maks-300-karakter-di`).
 - **"push PR + merge" tidak lagi macet di commit**: guard-bash membaca isi pesan commit (mis. `301 -> galat`, `> 300`, kata `rm`/`mv`) sebagai operasi tulis ke service, lalu menolaknya karena item sudah `done`. Sekarang isi string berkutip dan badan heredoc diabaikan saat mendeteksi tulis lewat shell. `sh -c "..."` dan `eval` tetap diperiksa utuh.

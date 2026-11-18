@@ -96,7 +96,7 @@ test('align: /harness:align <slug> ok butuh klaim, menolak klaim bertentangan, l
   const root = mk();
   const slug = newItem(root);
   const p = path.join(root, 'docs/work', slug, 'align.md');
-  assert.match(prompt(root, `/harness:align ${slug} ok`).stdout, /tabel klaim kosong/);
+  assert.match(prompt(root, `/harness:align ${slug} ok`).stdout, /BELUM dicatat: tabel klaim vs bukti kode masih kosong/);
   fs.writeFileSync(p, '---\nverdict: open\nrounds: 1\n---\n| C1 | tabel orders ada | - | bertentangan |\n');
   assert.match(prompt(root, `/harness:align ${slug} ok`).stdout, /bertentangan/);
   fs.writeFileSync(p, '---\nverdict: open\nrounds: 2\n---\n| C1 | tabel orders ada | db/schema.sql:4 | terverifikasi |\n');

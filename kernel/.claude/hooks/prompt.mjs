@@ -127,8 +127,9 @@ if (ma) {
   if (!ia) block(`work item "${ma[1]}" tidak ditemukan / ambigu.`);
   if (alignExempt(ia, cfg)) block(`item ${sa} tidak butuh align (lajur quick, tipe dikecualikan, atau align.required=false).`);
   const a = readAlign(ia);
-  if (!a) block(`align.md belum ada. Minta agent menjalankan skill align ${sa} dulu.`);
-  if (a.claims < 1) block('tabel klaim kosong (baris "| C1 | klaim | bukti path:baris | status |").');
+  // 1.19.6: klaim belum ditulis = pekerjaan agent yang terlewat, bukan kesalahan user. Ketikan tidak ditolak: agent diarahkan
+  // menjalankan skill align sekarang; user mengetik "align ok" lagi setelah tabel keputusan tampil.
+  if (!a || a.claims < 1) { ctxOut(`[harness] "align ok ${sa}" BELUM dicatat: tabel klaim vs bukti kode masih kosong (pekerjaan agent yang terlewat). Jalankan skill align ${sa} SEKARANG: tulis klaim (baris "| C1 | klaim | bukti path:baris | status |") di ${isSingle(ia) ? '"### Klaim vs bukti kode" bagian 3 plan.md' : 'align.md'}, lalu tutup giliran dengan keluaran "node .claude/hooks/harness.mjs decide ${sa} --md" apa adanya. Beri tahu user satu baris: align ok diketik lagi setelah tabel itu dijawab.`); process.exit(0); }
   const single = isSingle(ia) && !fs.existsSync(path.join(ia.dir, 'align.md')); // 1.16.0: align di plan.md
   const ap = single ? ia.planPath : path.join(ia.dir, 'align.md');
   let t = fs.readFileSync(ap, 'utf8');

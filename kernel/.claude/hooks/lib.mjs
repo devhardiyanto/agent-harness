@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.19.5',
+  harness_version: '1.19.6',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -396,7 +396,7 @@ export function formatDecision(root, item) {
     ? ['| # | jenis | yang perlu kamu putuskan | opsi (rekomendasi dulu) | jawab dengan |', '|---|---|---|---|---|',
       ...rows.map((r) => `| ${r.id} | ${r.kind} | ${String(r.ask).replace(/\|/g, '/').slice(0, 160)} | ${String(r.options).replace(/\|/g, '/').slice(0, 100)} | ${r.answer} |`)]
     : [];
-  const next = !a ? `Berikutnya (agent): skill align ${sl}`
+  const next = !a || !a.claims ? `Berikutnya (agent): skill align ${sl} (klaim vs bukti kode belum ditulis)`
     : hard.length ? `Berikutnya (kamu): jawab tabel di atas. "align ok ${sl}" baru diterima setelah ${hard.join(', ')} dikoreksi, atau ketik "align ok ${sl} terima ${hard.join(',')}".`
     : rows.length ? `Berikutnya (kamu): jawab tabel di atas (cukup kode + jawaban, mis. "${rows[0].id} a"), lalu ketik "align ok ${sl}".`
     : `Berikutnya (kamu): bila sepaham, ketik "align ok ${sl}".`;
