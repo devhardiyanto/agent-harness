@@ -47,6 +47,16 @@ try {
   if (/^(Bash|PowerShell)$/.test(payload.tool_name)) for (const t of String(input.command || '').match(/\d{4}-\d{2}-\d{2}-[\w.-]+/g) || []) slugs.add(t.replace(/[.-]+$/, ''));
   if (slugs.size) markTouched(root, payload.session_id, [...slugs]);
 } catch { /* abaikan */ }
+// 1.21.0: topik yang ditulis sesi ini (docs/topics/<slug>.md) atau dibuat lewat "harness.mjs topic new/promote"
+try {
+  const rel = relPath(root, input.file_path || input.notebook_path || '');
+  const tm = /^docs\/topics\/([^/]+)\.md$/.exec(rel);
+  const { markTopic } = await import('./topic.mjs');
+  if (tm && !tm[1].startsWith('_')) markTopic(root, payload.session_id, tm[1]);
+  const out = String((payload.tool_response && (payload.tool_response.stdout || payload.tool_response.output)) || '');
+  const bm = /^(Bash|PowerShell)$/.test(payload.tool_name) && /harness\.mjs\s+topic\s+new\b/.test(String(input.command || '')) ? /docs\/topics\/([\w.-]+)\.md/.exec(out) : null;
+  if (bm) markTopic(root, payload.session_id, bm[1]);
+} catch { /* abaikan */ }
 
 try {
   const rel = relPath(root, input.file_path || '');

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.21.0
+Feedback pilot: setiap diskusi baru langsung dijadikan work item, dan gaya jawaban harness terasa kaku dan naratif.
+- **Topik untuk diskusi, analisa, audit, dan review** (`docs/topics/<tanggal-slug>.md`, status `open | promoted | closed`):
+  - Berisi Pertanyaan, Temuan (fakta/dugaan/rekomendasi + bukti), Keputusan final, dan Lanjutan.
+  - Perintah: `harness.mjs topic new|list|promote|close`. User bisa memulai dengan "topik: <judul>".
+  - Sesi yang membahas topik terikat ke topik itu: prompt lanjutan dicatat di sana, dan `harness.mjs new` ditolak.
+  - Menjadi work item hanya bila user mengetik **"jadikan item"**. Hook memberi izin sekali untuk `topic promote <topik> <type>`; item baru membawa `topic: <slug>` dan bagian 1–3 diisi dari topik. "item baru" tetap berlaku.
+  - `docs/topics` dipertahankan saat pasang ulang.
+- **Persona baru** (`.claude/rules/persona.md`, P-01–P-16): rekan engineer yang skeptis tetapi fair.
+  - Bukti di atas klaim; fakta, dugaan, dan rekomendasi dipisah; tidak mengarang.
+  - Alur diskusi tangkap → pisahkan wajib/opsional/belum jelas → cek ke kode → opsi → rekomendasi berlabel **GAS / GAS DENGAN CATATAN / CEK DULU / JANGAN DULU**.
+  - Bahasa sehari-hari yang lugas, tanpa pembuka, penutup, atau narasi proses.
+- **Batas "maksimal 5 baris" dihapus** dari `AGENTS.md`, `output.md` (O-01/O-02), output style `harness`, pesan awal sesi, dan skill. Gantinya: panjang mengikuti isi. Laporan kerja tetap ringkas; diskusi boleh lebih panjang bila tiap baris membawa isi.
+
 ## 1.20.0
 Permintaan dari uji sandbox: hook Stop terlalu sering menahan giliran, dan diskusi panjang dalam satu sesi harus tetap satu work item.
 - **Satu sesi = satu work item** (`session_item.single`, bawaan `true`). Selama sesi chat (termasuk subagent-nya) punya item yang belum merged, prompt biasa diberi konteks "Sesi ini sedang membahas item … : permintaan ini LANJUTAN item itu". Draft: perbarui bagian 1–3. Setelah approved: Decision log, `amend`, atau reopen. `harness.mjs new` ditolak guard-bash. Item baru hanya bila user mengetik "item baru" (tiket sekali pakai) atau item aktif sudah merged. Semua diskusi, keputusan, dan pelajaran tetap terlacak di satu item.

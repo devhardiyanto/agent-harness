@@ -10,7 +10,9 @@ user-invocable: false
 
 Masukan: `$ARGUMENTS`. Keluaran: file, bukan narasi.
 
-Item **selalu** dibuat, sekecil apa pun perubahannya, **kecuali** sesi ini sudah punya item aktif (hook menyebutnya "Sesi ini sedang membahas item …"): permintaan itu lanjutan item tersebut, jadi perbarui berkasnya, jangan membuat item baru. Item baru hanya bila user mengetik "item baru". Jangan menyarankan `quick:`; lajur cepat hanya bila user sendiri mengetik "quick: <permintaan>" (diproses hook).
+**Diskusi bukan item** (1.21.0): pertanyaan, diskusi, analisa, audit, atau review yang belum meminta perubahan kode = topik (`node .claude/hooks/harness.mjs topic new <judul>`, isi `docs/topics/<slug>.md`), bukan work item; skill ini berhenti di situ. Topik menjadi item hanya bila user mengetik "jadikan item".
+
+Untuk permintaan **perubahan**: item **selalu** dibuat, sekecil apa pun perubahannya, **kecuali** sesi ini sudah punya item aktif (hook menyebutnya "Sesi ini sedang membahas item …"): permintaan itu lanjutan item tersebut, jadi perbarui berkasnya, jangan membuat item baru. Item baru hanya bila user mengetik "item baru". Jangan menyarankan `quick:`; lajur cepat hanya bila user sendiri mengetik "quick: <permintaan>" (diproses hook).
 
 **Bentuk tunggal: giliran pertama belum selesai sebelum `### Klaim vs bukti kode` berisi minimal satu klaim** (`| C1 | klaim | bukti path:baris | status |`, status `terbukti`/`dugaan`/`bertentangan`) selain baris D. Tanpa klaim, "align ok" user tidak dicatat hook.
 
@@ -34,5 +36,5 @@ Item **selalu** dibuat, sekecil apa pun perubahannya, **kecuali** sesi ini sudah
 | schema | pemilik skema, konsumen tabel, strategi expand/migrate/contract (agent `dba`) |
 | onboard | service yang belum ber-knowledge; arahkan ke `/harness:init` |
 
-## Balasan chat (maks 5 baris)
+## Balasan chat (ringkas, persona R-13)
 `docs/work/<slug>` dibuat · service terdampak: ... · N pertanyaan terbuka · lalu baris terakhir keluaran `node .claude/hooks/harness.mjs next <slug> --md` apa adanya. Jangan menulis plan di sesi ini sebelum align ditutup user (hook menolak).

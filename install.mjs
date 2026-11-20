@@ -255,7 +255,7 @@ const mode = existing.length ? 'existing' : 'new';
 // Pasang ulang di atas harness v1: pengetahuan (docs/knowledge) dan work item (docs/work) adalah DATA user, bukan perangkat; jangan dibuang.
 const hadV1 = exists('.claude/harness.version');
 // Dokumentasi/data user TIDAK PERNAH dibuang, juga pada root yang belum ber-harness v1 (docs/discussion bahkan tidak ada di daftar buang).
-const PRESERVE = ['docs/knowledge', 'docs/work', 'docs/sessions', 'docs/memory', 'docs/_map.md', 'docs/_archive', 'docs/_registry.md'];
+const PRESERVE = ['docs/knowledge', 'docs/work', 'docs/topics', 'docs/sessions', 'docs/memory', 'docs/_map.md', 'docs/_archive', 'docs/_registry.md'];
 const installedVer = hadV1 ? (() => { try { return JSON.parse(fs.readFileSync(path.join(target, '.claude', 'harness.version'), 'utf8')).version || null; } catch { return null; } })() : null;
 if (UPDATE) {
   if (!hadV1) die('--update butuh harness terpasang (.claude/harness.version tidak ada). Jalankan tanpa --update untuk memasang.');

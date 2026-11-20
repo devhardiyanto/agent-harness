@@ -7,6 +7,7 @@ import {
   isMain, updateTicket, activeSessionItem, newItemTicketPath,
 } from './lib.mjs';
 import fs from 'node:fs';
+import { activeSessionTopic } from './topic.mjs';
 
 const WRITE_OP = /(\bsed\s+(-[a-zA-Z]*i|--in-place)|\btee\b|(^|[^<>&=\d])>>?(?![>&=])|\bmv\b|\bcp\b|\brm\b|\bpatch\b|\bgit\s+apply\b|\bperl\s+-[a-z]*i|\btruncate\b|\binstall\s+-|\bdd\b)/;
 
@@ -38,11 +39,18 @@ export function evaluate(root, cfg, payload) {
   // approve hanya manusia
   if (/harness\.mjs\s+approve\b/.test(flat)) return fail('approve hanya boleh dilakukan manusia (ketik setuju <slug>, atau jalankan sendiri dengan awalan "!").');
   // 1.20.0: satu sesi = satu work item. "new" ditolak selama sesi punya item aktif, kecuali user mengetik "item baru" (tiket sekali pakai).
-  if (cfg.session_item.single && /harness\.mjs\s+new\b/.test(flat)) {
+  // 1.21.0: topik aktif juga mengikat sesi. Diskusi menjadi item hanya bila user mengetik "jadikan item" (topic promote) atau "item baru".
+  const mkNew = /harness\.mjs\s+new\b/.test(flat); const mkPromote = /harness\.mjs\s+topic\s+promote\b/.test(flat);
+  if (cfg.session_item.single && (mkNew || mkPromote)) {
     const act = activeSessionItem(root, payload.session_id);
-    if (act) {
-      const tk = newItemTicketPath(root, payload.session_id);
-      if (!fs.existsSync(tk)) return fail(`sesi ini sudah punya item ${act.slug} (${act.status}); permintaan lanjutan dicatat di item itu, bukan item baru. Item baru hanya bila user mengetik "item baru".`);
+    const top = activeSessionTopic(root, payload.session_id);
+    const tk = newItemTicketPath(root, payload.session_id);
+    if (act || top || mkPromote) {
+      if (!fs.existsSync(tk)) {
+        if (act) return fail(`sesi ini sudah punya item ${act.slug} (${act.status}); permintaan lanjutan dicatat di item itu, bukan item baru. Item baru hanya bila user mengetik "item baru".`);
+        if (top && mkNew) return fail(`sesi ini sedang membahas topik ${top.slug} (docs/topics/${top.slug}.md); catat diskusi di sana. Menjadi work item hanya bila user mengetik "jadikan item" (lalu harness.mjs topic promote ${top.slug} <type>).`);
+        return fail('topic promote hanya atas ketikan user "jadikan item [topik]".');
+      }
       fs.rmSync(tk, { force: true });
     }
   }

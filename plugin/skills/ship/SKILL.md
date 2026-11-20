@@ -25,6 +25,6 @@ User mengetik "push PR + merge <slug>" lagi setelah check hijau. Hook memeriksa 
 3. Setelah status `merged` (semua PR masuk), jalankan skill `summarize <slug>` supaya sesi bisa dilanjutkan tanpa kehilangan konteks.
 4. Tanpa pesan "memutuskan MERGE" di konteksmu, hook menolak sendiri (alasan sudah tampil ke user): jangan mengulang, jangan mencari jalan lain.
 
-## Balasan chat (maks 5 baris)
+## Balasan chat (ringkas, persona R-13)
 Fase A: URL PR (satu per baris) · urutan merge · status check · (izin tercatat) hasil merge + path ringkasan, atau (tanpa izin) "ketik `kirim <slug>` setelah hijau".
 Fase B: hasil tiap PR · status akhir · path ringkasan sesi.
