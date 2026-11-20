@@ -3,7 +3,7 @@
 > **Status per 2026-11-20 (harness 1.21.1)**
 > - **Selesai:** semua rilis 1.10–1.13 di bawah dan rancangan "Sederhana" 1.14–1.21 (§9).
 > - **Belum mulai:** 2.0.0. Gerbang pilot belum lewat (§10).
-> - **Arah 2.0 perlu diputuskan ulang** (D36, §11): sejak 1.16 berkas lokal justru diperkuat (`plan.md` tunggal, `docs/topics/`, jawaban dicatat hook ke berkas), jadi T1–T10 versi lama (§8) tidak lagi sinkron dengan harness.
+> - **Arah 2.0: B dipilih user** (D36, 2026-11-20, §11): berkas lokal tetap sumber kebenaran, Plane cermin + diskusi. Sejak 1.16 berkas lokal justru diperkuat (`plan.md` tunggal, `docs/topics/`, jawaban dicatat hook ke berkas), jadi T1–T10 versi lama (§8) tidak lagi sinkron dengan harness.
 
 Tujuan: **mudah dipakai, tidak mondar-mandir, dan makin pintar seiring umur project**, tanpa melepas gerbang yang membuat harness aman (approve, merge, dan memori tetap keputusan manusia).
 
@@ -259,7 +259,7 @@ Ukuran PRD §6 yang **belum diukur** di project nyata: ketikan perintah per item
 | `migrate` OK per root (event/astra/yhpa) | ❓ | hanya wajib untuk arah A (§11) |
 | `bidang.enforce` | ⏸ | boleh dinyalakan sekarang (M0-2b terbukti); keputusan user |
 
-## 11. Arah 2.0 ditinjau ulang (D36, keputusan terbuka)
+## 11. Arah 2.0 ditinjau ulang (D36: **B**, dijawab user 2026-11-20)
 
 **Pertanyaan:** apakah Plane tetap menjadi **sumber kebenaran** (rencana §8), atau **berkas lokal tetap sumber** dan Plane menjadi tampilan + pintu diskusi?
 
@@ -299,5 +299,9 @@ T1–T10 di §8 tetap berlaku, ditambah:
 
 ### Urutan
 1. Tutup §10 (S4 + GitHub asli).
-2. User menjawab **D36** (A atau B).
+2. ~~User menjawab D36~~ → **B**. Task 2.0 = B1–B7; cakupan orkestrator Plane menyusul dari user (§12).
 3. Rilis 2.0 dipecah per task, satu PR per rilis, seperti 1.19–1.21.
+
+## 12. Orkestrator dengan Plane (cakupan menyusul)
+
+User akan merinci cakupan "orkestrator" dengan Plane. Bagian ini diisi setelah diskusi dan dicatat sebagai keputusan D37 dan seterusnya. Task B3–B5 (komentar dua arah, topik di Plane, antrean offline) kemungkinan beririsan dengannya.
