@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.21.1
+- **ID persona `R-` → `G-`** (`G-01`–`G-16`). Prefiks `R-` bentrok dengan aturan antislop `R-01`–`R-40` yang dikutip reviewer di kolom `aturan`. Catatan 1.21.0 menyebut `P-01–P-16`, yang juga bentrok dengan playbook; yang terpasang `R-`, dan kini `G-`.
+- **ROADMAP diperbarui**:
+  - status per 2026-11-20;
+  - daftar rilis 1.14–1.21;
+  - gerbang pilot (S4 dan GitHub asli masih terbuka);
+  - arah 2.0 ditinjau ulang sebagai keputusan terbuka D36 (A: Plane sumber kebenaran; B: berkas lokal sumber, Plane cermin + diskusi), dengan task per arah.
+
 ## 1.21.0
 Feedback pilot: setiap diskusi baru langsung dijadikan work item, dan gaya jawaban harness terasa kaku dan naratif.
 - **Topik untuk diskusi, analisa, audit, dan review** (`docs/topics/<tanggal-slug>.md`, status `open | promoted | closed`):
