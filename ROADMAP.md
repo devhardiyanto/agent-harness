@@ -1,4 +1,9 @@
-# Roadmap: 1.10.0 → 1.11.0 → 2.0.0
+# Roadmap: 1.10.0 → 1.21 → 2.0.0
+
+> **Status per 2026-11-20 (harness 1.21.1)**
+> - **Selesai:** semua rilis 1.10–1.13 di bawah dan rancangan "Sederhana" 1.14–1.21 (§9).
+> - **Belum mulai:** 2.0.0. Gerbang pilot belum lewat (§10).
+> - **Arah 2.0 perlu diputuskan ulang** (D36, §11): sejak 1.16 berkas lokal justru diperkuat (`plan.md` tunggal, `docs/topics/`, jawaban dicatat hook ke berkas), jadi T1–T10 versi lama (§8) tidak lagi sinkron dengan harness.
 
 Tujuan: **mudah dipakai, tidak mondar-mandir, dan makin pintar seiring umur project**, tanpa melepas gerbang yang membuat harness aman (approve, merge, dan memori tetap keputusan manusia).
 
@@ -137,6 +142,7 @@ flowchart LR
 | 1.11.0 (rilis) | profil user per orang, playbook (skill dari pengalaman), ID rule, before/after | aditif |
 | 1.12.0 (rilis) | tabel keputusan dibuat kode + ditahan Stop, plan setelah aligned, langkah berikutnya dari kode, versi plugin di doctor | aditif; menutup T2/T3 |
 | 1.13.0 (rilis) | jembatan: Plane berisi kartu + checklist + diskusi (cermin lokal), `plane migrate` dry-run/apply/verify, log pilot + `bukan itu`, slash usang, `migrate` + doctor "siap 2.0", slug ringkas | aditif; folder lokal belum dihapus |
+| 1.14–1.21 (rilis) | rancangan "Sederhana" + pilot: status line, plan tunggal, pemilih, spesialis, pengetahuan tumbuh, antislop, sandbox, satu sesi satu item, topik, persona (§9) | aditif |
 | 2.0.0 | **satu pintu**: work item, diskusi, knowledge di Plane; lokal hanya cermin; folder `docs/work/*` dihapus per root setelah `migrate --verify` COCOK; slash tinggal `init`/`update`; format align lama dibuang. Hanya bila `pilot` S1–S4 OK | ada yang **dibuang** → major |
 
 ## 6. Target malam ini (1.10.0)
@@ -148,8 +154,8 @@ flowchart LR
 - [x] INDEX + usulan pelajaran saat done/merged, `recall`, `ref:<slug>`
 - [x] rule output + skill align/next + AGENTS.md
 - [x] tes `test/v1100.test.mjs` (9) + suite lama (180) hijau; `check-repo` 12/12
-- [ ] uji di Claude Code asli: `systemMessage` dari hook Stop tampil ke user di versimu (belum terverifikasi di sandbox)
-- [ ] pilot di satu root (yhpa), lalu `harness-update.mjs --all`
+- [x] ~~uji `systemMessage` dari hook Stop~~ digantikan: rekap ditampilkan agent sebagai tabel Markdown (`recap.render: assistant`, 1.13.1); diuji di Claude Code asli selama pilot
+- [ ] pilot di satu root (yhpa), lalu `harness-update.mjs --all`: update-all berjalan; pilot yhpa sampai merged masih terbuka (lihat §10)
 
 ## 7. Keputusan
 
@@ -179,7 +185,7 @@ sequenceDiagram
   A-->>U: URL PR, hasil merge, path ringkasan
 ```
 
-## 8. Menuju 2.0.0: satu pintu (keputusan D6–D19)
+## 8. Menuju 2.0.0: satu pintu (keputusan D6–D19) — rencana awal, ditinjau ulang di §11
 
 Objective: **work item, diskusi, dan knowledge tinggal di Plane; lokal hanya cermin untuk hook; user cukup membuka Plane dan menjawab @mention.**
 
@@ -221,3 +227,77 @@ Task 2.0:
 | T10 | gerbang rilis | `pilot` S1–S4 OK + `migrate` OK di event/astra/yhpa |
 
 > **Catatan untuk setelah 2.0.0 selesai (permintaan user, 2026-11-10):** work item yang sudah ada di event, astra, dan yhpa **diarsipkan** di Plane. User akan meminta agent di sesi cloud menghubungkan Plane lewat MCP (workspace `hardiyanto`: EVENT `39039364-1222-4a52-97c1-de1314305bed`, ASTRA `d8b0e13e-87ef-4ada-b405-7dd4a7bd8cdf`, YHPA `6c13b388-718a-4f06-b1bc-a0d57bc10f15`) untuk memeriksa dan mengarsipkan kartu (`workitem archive`; hanya kartu Done/Cancelled yang bisa diarsipkan). Folder lokal dihapus per root lewat T6, bukan lewat MCP.
+
+## 9. Yang sudah rilis sesudah 1.13 (rancangan "Sederhana", `docs/v1.15/`)
+
+| versi | isi | pilar PRD |
+|---|---|---|
+| 1.14.0 | advisor Opus opt-in; reviewer tanpa worktree | — |
+| 1.15.x | status line, nama sesi `/summarize`, output style, saran tanpa `/harness:`, "kerjakan", uji M0 (`spike.mjs`) | A1, E |
+| 1.16.0 | **satu berkas per item** (`plan.md` empat bagian), pemilih keputusan (`ask.mjs`), menu | B, A2, A3 |
+| 1.17.0 | spesialis per bidang (`backend`/`frontend`/`devops`/`dba`), `bidang.enforce` (mati) | C |
+| 1.18.0 | rujukan otomatis, pelajaran lewat pemilih, playbook per bidang, `growth` | D |
+| 1.19.0 | antislop sebagai salinan aturan (MIT) | F |
+| 1.19.1–1.19.6 | perbaikan dari pilot dan **sandbox** (`scripts/sandbox.mjs`, gh tiruan): klaim di pemilih, jawaban ketik dicatat hook, ship tidak macet di commit, align ok tanpa klaim | — |
+| 1.20.0 | **satu sesi = satu work item**; Stop lebih jarang menahan | — |
+| 1.21.0 | **topik** (`docs/topics/`) untuk diskusi/analisa/audit sebelum item ("jadikan item"); **persona** rekan engineer (`rules/persona.md`); batas 5 baris dihapus | — |
+| 1.21.1 | ID persona `R-` → `G-` (bentrok dengan ID antislop `R-xx` yang dikutip reviewer) | — |
+
+Ukuran PRD §6 yang **belum diukur** di project nyata: ketikan perintah per item ≤ 3, keputusan lewat pemilih ≥ 80%, eksekusi oleh spesialis benar ≥ 90%. Sumbernya log pilot dan audit (`agent` di audit sejak 1.19.2).
+
+## 10. Gerbang pilot (syarat T10)
+
+| syarat | status | bukti / yang kurang |
+|---|---|---|
+| S1 frasa ≥ slash | ✅ | sandbox: 5 frasa vs 0 slash |
+| S2 salah tangkap ≤ 0 | ✅ | sandbox: 0 |
+| S3 tabel keputusan ditahan Stop ≥ 1 | ✅ | sandbox: 1 penahanan |
+| S4 "push PR + merge" sampai merged ≥ 1 | ❌ | uji B macet di commit (diperbaiki 1.19.5); ulang uji sampai `prs.json` berisi `MERGED` |
+| GitHub asli | ❌ | satu item kecil di yhpa sampai PR merged |
+| M0-1 jawaban pemilih tercatat | ✅ | `(pemilih)` di plan.md sandbox |
+| M0-2b audit mencatat agent | ✅ | `"agent":"backend"` di audit sandbox |
+| `migrate` OK per root (event/astra/yhpa) | ❓ | hanya wajib untuk arah A (§11) |
+| `bidang.enforce` | ⏸ | boleh dinyalakan sekarang (M0-2b terbukti); keputusan user |
+
+## 11. Arah 2.0 ditinjau ulang (D36, keputusan terbuka)
+
+**Pertanyaan:** apakah Plane tetap menjadi **sumber kebenaran** (rencana §8), atau **berkas lokal tetap sumber** dan Plane menjadi tampilan + pintu diskusi?
+
+| | Arah A: Plane sumber (rencana awal) | Arah B: lokal sumber, Plane cermin + diskusi |
+|---|---|---|
+| Sumber kebenaran | kartu Plane; lokal hanya cermin `.harness/plane/<id>.json` | `docs/work/<slug>/plan.md` dan `docs/topics/`; Plane menerima push + komentar |
+| Gerbang hook | membaca cermin; bergantung pada tarikan terakhir | membaca berkas langsung (seperti sekarang) |
+| Offline / API Plane turun | butuh antrean (T7); gerbang bisa membaca data usang | tetap jalan; Plane menyusul |
+| Approve | tetap dari ketikan (D21, kartu tidak bisa membedakan manusia) | sama |
+| Riwayat di git | hilang dari repo (folder dihapus T6) | tetap di repo, bisa di-review di PR |
+| Fitur 1.16–1.21 | perlu dipetakan ulang ke kartu (plan tunggal, topik, jawaban yang dicatat hook) | tidak berubah |
+| Ukuran kerja | besar: T1–T10 + pemetaan baru | kecil: perampingan + Plane dua arah terbatas |
+| Yang dibuang (alasan major) | folder `docs/work/*`, format lama | bentuk folder lama, slash selain `init`/`update`, format align lama |
+
+**Rekomendasi: Arah B (GAS DENGAN CATATAN).**
+- **Alasan:** gerbang yang membuat harness aman membaca berkas secara langsung dan deterministik; seluruh kerja 1.16–1.21 dibangun di atas berkas; pilot belum membuktikan Plane sebagai sumber.
+- **Catatan:** user yang ingin "cukup membuka Plane" tetap terlayani lewat komentar dua arah dan @mention (T3, D19), tetapi kartu bukan tempat AC dan klaim diedit.
+
+### Task 2.0 bila Arah B dipilih
+
+| # | task | isi | asal |
+|---|---|---|---|
+| B1 | perampingan alur | skill selain `init`/`update` internal; slash lain dibuang; rule dan `AGENTS.md` ditulis ulang ≤ 60 baris | T8, D8 |
+| B2 | bentuk lama dibuang | `item.bentuk: folder` dan format `align.md` lama: migrasi otomatis item terbuka ke `plan.md` tunggal, item merged dibiarkan | D10 |
+| B3 | jawaban lewat komentar Plane | "D2: a", "C3 benar" di kartu → dicatat hook ke `plan.md` (parser 1.19.4 dipakai ulang) | T3 |
+| B4 | topik di Plane (opsional) | topik terbuka dikirim sebagai kartu berlabel "topik"; "jadikan item" juga bisa dari komentar | baru |
+| B5 | antrean offline | `plane-outbox` untuk push/komentar yang gagal | T7 |
+| B6 | panduan upgrade 1.21 → 2.0 | langkah per root + rollback | T9 |
+| B7 | gerbang rilis | §10 hijau (S1–S4 + GitHub asli) di yhpa, event, astra | T10 |
+
+### Task 2.0 bila Arah A dipilih
+
+T1–T10 di §8 tetap berlaku, ditambah:
+- **A11:** petakan `plan.md` tunggal (bagian 1–4, klaim, baris D, Bukti, Tinjauan) ke deskripsi kartu, checklist, dan komentar.
+- **A12:** topik → kartu Plane; "jadikan item" dari kartu.
+- **A13:** hook pemilih/jawaban ketik menulis ke kartu lewat cermin, dengan konflik dari D20.
+
+### Urutan
+1. Tutup §10 (S4 + GitHub asli).
+2. User menjawab **D36** (A atau B).
+3. Rilis 2.0 dipecah per task, satu PR per rilis, seperti 1.19–1.21.

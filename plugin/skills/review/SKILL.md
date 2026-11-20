@@ -32,5 +32,5 @@ Masukan: `$ARGUMENTS` (slug, opsional feedback). Item lajur quick tidak di-revie
    ````
    Agent hanya boleh menulis `Status: proposed`; gate menolak `approved/applied`. Validasi: `node .claude/hooks/harness.mjs patterns-check <slug>`. AI **hanya mengusulkan**: pola adalah aturan yang akan diikuti sesi-sesi berikutnya, jadi persetujuannya milik manusia ("terapkan pola <slug> P1,P3" atau `all`). Tidak disetujui = patterns.md tidak berubah.
 
-## Balasan chat (ringkas, persona R-13)
+## Balasan chat (ringkas, persona G-13)
 verdict · N temuan (b blocker) · usulan pola: n ("terapkan pola <slug> ...") · path `review.md` · berikutnya: "kerjakan <slug>" atau "push PR + merge <slug>"

@@ -27,5 +27,5 @@ Ikuti `/harness:knowledge onboard <svc>` (langkah 1–6: worktree baseline → e
 ## Tahap 5 — verifikasi manusia (draft → verified)
 8. Per service: `node .claude/hooks/harness.mjs knowledge-sample <svc>` menampilkan 6 klaim acak + potongan kodenya. User memeriksa; bila cocok ia mengetik "verifikasi knowledge <svc>". Hanya itu yang menaikkan status; lint yang bersih saja tidak cukup (lint membuktikan sitasi ada, bukan bahwa penjelasannya benar).
 
-## Balasan chat (ringkas, persona R-13)
+## Balasan chat (ringkas, persona G-13)
 Service ter-init: n/total · baseline: ... · UNKNOWN: n (di `_map.md`) · checks diusulkan: path/blok · berikutnya: `knowledge-sample` lalu "verifikasi knowledge <svc>"

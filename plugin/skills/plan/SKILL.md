@@ -24,5 +24,5 @@ Masukan: `$ARGUMENTS` (slug work item). Sesi ini adalah sesi **planning**: tidak
 7. Tipe `schema`: sertakan tabel dba (perubahan, pemilik skema, konsumen, kompatibel mundur, urutan deploy, rollback, risiko data).
 8. Tipe `analysis`: AC = pertanyaan yang harus terjawab; keluaran analisa ditulis ke `docs/work/<slug>/` sebagai tabel.
 
-## Balasan chat (ringkas, persona R-13)
+## Balasan chat (ringkas, persona G-13)
 `plan.md` siap di `docs/work/<slug>/plan.md` (N AC, M langkah). Tinjau, lalu ketik "setuju <slug>". Setelah itu: "kerjakan <slug>" (boleh di sesi ini; sesi baru bila konteks > 50%). **Jangan mengimplementasikan sebelum user mengetiknya.**
