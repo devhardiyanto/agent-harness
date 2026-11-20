@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.20.0
+Permintaan dari uji sandbox: hook Stop terlalu sering menahan giliran, dan diskusi panjang dalam satu sesi harus tetap satu work item.
+- **Satu sesi = satu work item** (`session_item.single`, bawaan `true`). Selama sesi chat (termasuk subagent-nya) punya item yang belum merged, prompt biasa diberi konteks "Sesi ini sedang membahas item … : permintaan ini LANJUTAN item itu". Draft: perbarui bagian 1–3. Setelah approved: Decision log, `amend`, atau reopen. `harness.mjs new` ditolak guard-bash. Item baru hanya bila user mengetik "item baru" (tiket sekali pakai) atau item aktif sudah merged. Semua diskusi, keputusan, dan pelajaran tetap terlacak di satu item.
+- **Stop lebih longgar**:
+  - Giliran yang menunggu agent latar belakang (mis. "reviewer sedang menilai") tidak ditahan sama sekali; gerbang berjalan di giliran berikutnya.
+  - `stop_gate.max_blocks` bawaan turun dari 2 ke 1.
+  - Rekap "Belum selesai" hanya menahan giliran bila status item sesi ini berubah (`recap.hold`: `status` bawaan, `always`, atau `never`).
+  - Peringatan "item belum punya klaim" sekali per item.
+- Config project yang sudah punya `stop_gate.max_blocks: 2` tetap memakai nilainya. Ubah sendiri di `harness.config.json` bila ingin 1.
+
 ## 1.19.6
 Patch dari ulangan uji B: agent menulis keputusan D tanpa klaim, lalu "align ok" user ditolak ("tabel klaim kosong") tanpa jalan keluar.
 - **"align ok" tanpa klaim tidak lagi ditolak**. Hook tidak mencatat aligned, tetapi mengarahkan agent menjalankan skill align sekarang (klaim vs bukti kode), lalu menutup dengan tabel keputusan. User mengetik "align ok" lagi setelah tabel itu dijawab.

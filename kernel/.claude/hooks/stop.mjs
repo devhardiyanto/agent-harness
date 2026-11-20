@@ -13,7 +13,7 @@ import { lessonsAsk } from './growth.mjs';
 import crypto from 'node:crypto';
 import { openRows, formatOpen } from './recap.mjs';
 
-export const WAITING = /(background agent|agen(?:t)? latar|di latar belakang|(?:sedang|masih) (?:mengerjakan|berjalan|bekerja)|menunggu (?:agen|agent|laporan|hasil)|hasilnya belum ada|setelah laporannya masuk)/i;
+export const WAITING = /(background agent|agen(?:t)? latar|di latar belakang|(?:sedang|masih) (?:mengerjakan|berjalan|bekerja|menilai|meninjau|mereview|menjalankan|menguji)|menunggu (?:agen|agent|laporan|hasil)|hasilnya belum ada|setelah laporannya masuk)/i;
 
 // 1.10.0: rekap "belum selesai" untuk item yang disentuh sesi ini, ditampilkan ke USER (systemMessage), hanya bila isinya berubah
 // sejak rekap terakhir sesi ini (agar tidak berulang tiap giliran).
@@ -31,6 +31,15 @@ export function decisionFor(root, cfg, payload) {
     if (!a || a.verdict === 'aligned' || !a.claims) continue;
     if (!decisionRows(it).length) continue; // 1.19.2: tanpa keputusan/klaim terbuka tidak ada yang perlu ditanyakan; giliran tidak ditahan
     parts.push(formatDecision(root, it)); if (it.fm.plane_id) slugs.push(it.slug); asked.push(it);
+  }
+  if (!parts.length && noClaims.length) {
+    const nm = path.join(root, '.harness', 'state', `noclaims-${String(payload.session_id || 'x').replace(/\W/g, '')}.json`);
+    const seen = new Set(readJson(nm, { slugs: [] }).slugs || []);
+    const fresh = noClaims.filter((x) => !seen.has(x));
+    if (!fresh.length) return null; // 1.20.0: sekali per item; sisanya ditangani saat user mengetik "align ok"
+    fs.mkdirSync(path.dirname(nm), { recursive: true });
+    fs.writeFileSync(nm, JSON.stringify({ slugs: [...seen, ...fresh] }));
+    noClaims.splice(0, noClaims.length, ...fresh);
   }
   if (!parts.length && noClaims.length) return `belum boleh berhenti: ${noClaims.join(', ')} belum punya klaim vs bukti kode. Jalankan skill align ${noClaims[0]} sekarang: tulis minimal satu baris "| C1 | klaim | bukti path:baris | status |" di "### Klaim vs bukti kode" bagian 3 plan.md (cek ke kode), lalu tutup giliran dengan keluaran "node .claude/hooks/harness.mjs decide ${noClaims[0]} --md" apa adanya.`;
   if (!parts.length) return null;
@@ -68,10 +77,13 @@ export function recapFor(root, cfg, sid) {
   const text = `${formatOpen(rows, cfg.recap.max_rows, 'Belum selesai (item sesi ini)')}${others ? `\n+${others} item lain terbuka → ketik "sisa"` : ''}`;
   const mark = path.join(root, '.harness', 'state', `recap-${String(sid || 'x').replace(/\W/g, '')}.json`);
   const h = crypto.createHash('sha1').update(text).digest('hex');
-  if (readJson(mark, {}).h === h) return null;
+  const prev = readJson(mark, {});
+  if (prev.h === h) return null;
+  // 1.20.0: kunci status (slug:status item sesi ini); rekap hanya MENAHAN giliran bila kunci ini berubah
+  const sk = listItems(root).filter((i) => mine.has(i.slug)).map((i) => `${i.slug}:${i.status}`).sort().join(',');
   fs.mkdirSync(path.dirname(mark), { recursive: true });
-  fs.writeFileSync(mark, JSON.stringify({ h, at: new Date().toISOString() }));
-  return text;
+  fs.writeFileSync(mark, JSON.stringify({ h, sk, at: new Date().toISOString() }));
+  return { text, statusChanged: prev.sk !== sk };
 }
 
 export function problemsFor(root, cfg, sid) {
@@ -109,6 +121,9 @@ if (isMain(import.meta.url)) {
   const payload = await readStdinJson();
   const root = projectRoot(payload);
   const cfg = loadConfig(root);
+  // 1.20.0: giliran yang menunggu agent latar belakang (reviewer, runner, spesialis) tidak ditahan sama sekali; semua
+  // pemeriksaan berjalan di giliran berikutnya setelah laporannya masuk.
+  if (WAITING.test(String(payload.last_assistant_message || ''))) process.exit(0);
   let r = { ok: true };
   try { r = evaluate(root, cfg, payload); } catch { /* gerbang Stop tidak boleh menjebak sesi bila rusak */ }
   if (!r.ok) {
@@ -138,10 +153,12 @@ if (isMain(import.meta.url)) {
   // berikutnya), agar tabel tidak tampil dua kali di tengah pekerjaan. Heuristik dari pesan terakhir agent.
   if (WAITING.test(String(payload.last_assistant_message || ''))) process.exit(0);
   try {
-    const t = recapFor(root, cfg, payload.session_id);
+    const rc = recapFor(root, cfg, payload.session_id);
+    const t = rc && rc.text;
     if (t) {
       const last = String(payload.last_assistant_message || '');
-      if (cfg.recap.render === 'assistant' && !payload.stop_hook_active && !/Belum selesai[^\n]*\(\d+\)/.test(last) && !alreadyShown(t, last)) {
+      const hold = cfg.recap.hold === 'always' || (cfg.recap.hold !== 'never' && rc.statusChanged);
+      if (cfg.recap.render === 'assistant' && hold && !payload.stop_hook_active && !/Belum selesai[^\n]*\(\d+\)/.test(last) && !alreadyShown(t, last)) {
         process.stderr.write(`[harness] Tutup giliran ini dengan tabel berikut sebagai Markdown, APA ADANYA (dibuat kode). Tanpa narasi tambahan, tanpa mengulang isi giliran.\n\n${t}\n`);
         process.exit(2);
       }

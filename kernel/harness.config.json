@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.19.6",
+  "harness_version": "1.20.0",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -65,7 +65,7 @@
   },
   "stop_gate": {
     "enabled": true,
-    "max_blocks": 2,
+    "max_blocks": 1,
     "recent_hours": 12
   },
   "handoff": {
@@ -102,7 +102,11 @@
     "enabled": true,
     "on_stop": true,
     "max_rows": 12,
-    "render": "assistant"
+    "render": "assistant",
+    "hold": "status"
+  },
+  "session_item": {
+    "single": true
   },
   "memory": {
     "enabled": true,

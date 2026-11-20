@@ -1,7 +1,7 @@
 // UserPromptSubmit: persetujuan plan oleh MANUSIA. Prompt "/harness:approve <slug>" diketik user;
 // agent tidak bisa memalsukannya. Hook inilah yang menulis status: approved.
 import fs from 'node:fs';
-import { isSingle,
+import { isSingle, activeSessionItem, newItemTicketPath, shortSlug,
   readStdinJson, projectRoot, loadConfig, resolveSlug, readItem, checkTransition, setFmKey, context, audit, contextWarning, createQuick,
   readAlign, alignExempt, updateTicketPath, CLAIM_ROW, nextStep, listItems, formatDecision, planeKick,
 } from './lib.mjs';
@@ -109,6 +109,23 @@ const mu = /^\s*\/(?:harness:)?update(?:\s+(all|rollback))?\s*$/i.exec(prompt)
 if (!m && !mv && !mp && !mq && !ms && !ma && !mu) {
   // Peringatan ambang konteks juga di sini (bukan hanya setelah tool): murah, sekali per prompt.
   const extra = [...refCtx];
+  // 1.20.0: satu sesi = satu work item. Prompt biasa di sesi yang sudah punya item aktif = lanjutan item itu.
+  if (cfg.session_item.single && !slash && !typed) {
+    try {
+      const act = activeSessionItem(root, sid);
+      if (/\bitem\s+baru\b/i.test(payload.prompt)) {
+        fs.mkdirSync(path.dirname(newItemTicketPath(root, sid)), { recursive: true });
+        fs.writeFileSync(newItemTicketPath(root, sid), JSON.stringify({ at: new Date().toISOString(), from: act ? act.slug : null }));
+        extra.push(`[harness] User meminta ITEM BARU: boleh satu kali "harness.mjs new" (skill impact)${act ? `; item ${act.slug} tetap tercatat dan tidak ditutup` : ''}.`);
+      } else if (act) {
+        const sl = shortSlug(root, act.slug);
+        const how = act.status === 'draft' ? 'perbarui bagian 1–3 plan.md (objective, penjelasan, klaim, baris D) bila lingkupnya berubah; diskusi dan keputusan dicatat di item ini'
+          : ['approved', 'in-progress'].includes(act.status) ? `catat di "### Decision log"; AC tambahan kecil lewat "harness.mjs amend ${sl} --ac ..."; perubahan lingkup besar = user mengetik reopen`
+          : 'catat di "### Decision log"; perbaikan kode setelah review/done = AC tambahan (amend) atau reopen';
+        extra.push(`[harness] Sesi ini sedang membahas item ${act.slug} (${act.status}). Permintaan ini LANJUTAN item itu, bukan item baru: ${how}. Jangan menjalankan "harness.mjs new" (ditolak hook). Item baru hanya bila user mengetik "item baru".`);
+      }
+    } catch { /* tidak boleh mengganggu prompt */ }
+  }
   try { const w = contextWarning(root, cfg, payload); if (w) extra.push(w); } catch { /* abaikan */ }
   if (extra.length) context('UserPromptSubmit', extra.join('\n\n'));
   process.exit(0);

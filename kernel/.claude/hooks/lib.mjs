@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.19.6',
+  harness_version: '1.20.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -40,7 +40,10 @@ export const DEFAULT_CONFIG = {
   // block_plan_before_aligned (1.12.0): Edit/Write yang menambah AC ke plan.md ditolak selama align belum aligned.
   align: { required: true, max_rounds: 3, exempt_types: ['onboard', 'analysis'], accept_contradictions: true, decision_table: true, block_plan_before_aligned: true },
   // gerbang Stop: sesi tidak boleh berhenti bila item yang baru dikerjakan siap review tetapi bukti test / review belum ada. max_blocks = batas penolakan per sesi (anti-loop).
-  stop_gate: { enabled: true, max_blocks: 2, recent_hours: 12 },
+  stop_gate: { enabled: true, max_blocks: 1, recent_hours: 12 },
+  // 1.20.0: satu sesi chat (termasuk subagent-nya) = satu work item. Permintaan lanjutan masuk ke item aktif sesi itu;
+  // item baru hanya bila user mengetik "item baru" (tiket sekali pakai) atau item aktif sudah merged.
+  session_item: { single: true },
   handoff: { max_chars: 6000 },
   update: { autoPush: false },  // `harness update`: push ke origin/root_branch hanya bila true
   // Plane (opsional, mati bawaan): sinkron status satu arah work item → kartu Plane. Token HANYA dari variabel lingkungan `token_env`, tidak pernah di config.
@@ -74,7 +77,8 @@ export const DEFAULT_CONFIG = {
   intent: { enabled: true, max_chars: 120 },
   // recap: tabel "belum selesai" (item, pertanyaan terbuka, klaim, AC tanpa bukti, blocker, usulan memori). on_stop = tampil ke user di akhir giliran yang menyentuh item (hanya bila isinya berubah).
   // render (1.13.1): "assistant" = agent menutup giliran dengan tabel Markdown (dirender TUI; +1 giliran pendek saat isi berubah); "system" = teks polos lama.
-  recap: { enabled: true, on_stop: true, max_rows: 12, render: 'assistant' },
+  // 1.20.0: hold = kapan giliran ditahan untuk menampilkan rekap: 'status' (hanya bila status item sesi ini berubah), 'always', 'never'
+  recap: { enabled: true, on_stop: true, max_rows: 12, render: 'assistant', hold: 'status' },
   // memory: catatan project berumur panjang (docs/memory/MEMORY.md, dibatasi max_chars, disuntik di awal sesi). Gaya Hermes (bawaan): agent menulis/menghapus sendiri.
   // write_approval: true = tulisan agent masuk antrean pending, manusia yang menerapkan.
   // learn_from_summary: saat done/merged, keputusan di Decision log diusulkan sebagai pelajaran (antrean, maks learn_max per item) dan item dicatat di docs/memory/INDEX.md.
@@ -110,7 +114,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tui', 'tidy', 'item', 'bidang', 'growth', 'antislop']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tui', 'tidy', 'item', 'bidang', 'growth', 'antislop', 'session_item']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   cfg.plane.states = { ...DEFAULT_CONFIG.plane.states, ...((user.plane && user.plane.states) || {}) };
   return cfg;
 }
@@ -425,6 +429,13 @@ export function codeFingerprint(root, cfg, item) {
 // mtime berkas tidak bisa jadi penanda: git clone/pull/switch/merge menulis ulang mtime semua berkas.
 const touchedPath = (root, sid) => path.join(root, '.harness', 'state', `touched-${String(sid || 'x').replace(/\W/g, '')}.json`);
 export const touchedSlugs = (root, sid) => new Set(readJson(touchedPath(root, sid), { slugs: [] }).slugs || []);
+// 1.20.0: item aktif sesi ini = item terakhir yang disentuh sesi, belum merged, bukan quick
+export function activeSessionItem(root, sid) {
+  const order = readJson(touchedPath(root, sid), { slugs: [] }).slugs || [];
+  for (const sl of [...order].reverse()) { const it = readItem(root, sl); if (it && it.status !== 'merged' && !isQuick(it)) return it; }
+  return null;
+}
+export const newItemTicketPath = (root, sid) => path.join(root, '.harness', 'state', `newitem-${String(sid || 'x').replace(/\W/g, '')}.json`);
 export function markTouched(root, sid, slugs) {
   const have = touchedSlugs(root, sid);
   const add = slugs.filter((x) => !have.has(x));

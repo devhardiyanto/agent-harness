@@ -16,6 +16,8 @@ Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file
 3. **AC** — setelah aligned (hook menolak AC sebelumnya), tulis AC bernomor di bagian 4 (skill plan). Berhenti. User mengetik "setuju <slug>" → `approved` (hanya manusia, tidak lewat pemilih).
 4. **Eksekusi** — "kerjakan <slug>" (skill build): bukti per AC di `### Bukti`, test oleh agent `runner`, tinjauan oleh `reviewer` di `### Tinjauan` (`verdict: clean|blockers`), lalu "push PR + merge" dari user. `merged` setelah PR benar-benar MERGED.
 
+**Satu sesi = satu work item** (1.20.0): selama sesi chat ini (termasuk subagent-nya) punya item yang belum merged, permintaan lanjutan dan diskusi panjang dicatat di item itu (draft: perbarui bagian 1–3; setelah approved: `### Decision log`, `amend`, atau reopen). Jangan `harness.mjs new` (ditolak hook) kecuali user mengetik "item baru".
+
 Status: `draft → approved → in-progress → in-review → done → merged`. Bagian 1–3 dan teks AC beku setelah approved; revisi besar = `reopen` lalu "setuju" ulang; tambahan AC kecil = `harness.mjs amend <slug> --ac "..."` (maks 3). Bingung langkah berikutnya: user mengetik "menu".
 
 ## Lajur quick (perubahan kecil)

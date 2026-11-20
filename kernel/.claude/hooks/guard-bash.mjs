@@ -4,8 +4,9 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
   readStdinJson, projectRoot, loadConfig, globToRegex, activeItems, coversService, posix, deny, SECRET_FILE,
-  isMain, updateTicket,
+  isMain, updateTicket, activeSessionItem, newItemTicketPath,
 } from './lib.mjs';
+import fs from 'node:fs';
 
 const WRITE_OP = /(\bsed\s+(-[a-zA-Z]*i|--in-place)|\btee\b|(^|[^<>&=\d])>>?(?![>&=])|\bmv\b|\bcp\b|\brm\b|\bpatch\b|\bgit\s+apply\b|\bperl\s+-[a-z]*i|\btruncate\b|\binstall\s+-|\bdd\b)/;
 
@@ -36,6 +37,15 @@ export function evaluate(root, cfg, payload) {
 
   // approve hanya manusia
   if (/harness\.mjs\s+approve\b/.test(flat)) return fail('approve hanya boleh dilakukan manusia (ketik setuju <slug>, atau jalankan sendiri dengan awalan "!").');
+  // 1.20.0: satu sesi = satu work item. "new" ditolak selama sesi punya item aktif, kecuali user mengetik "item baru" (tiket sekali pakai).
+  if (cfg.session_item.single && /harness\.mjs\s+new\b/.test(flat)) {
+    const act = activeSessionItem(root, payload.session_id);
+    if (act) {
+      const tk = newItemTicketPath(root, payload.session_id);
+      if (!fs.existsSync(tk)) return fail(`sesi ini sudah punya item ${act.slug} (${act.status}); permintaan lanjutan dicatat di item itu, bukan item baru. Item baru hanya bila user mengetik "item baru".`);
+      fs.rmSync(tk, { force: true });
+    }
+  }
   if (/harness\.mjs\s+quick\b/.test(flat)) return fail('item quick hanya dibuat dari ketikan manusia: quick: <permintaan> (atau jalankan sendiri dengan awalan "!").');
 
   // verifikasi knowledge dan persetujuan pola hanya manusia
