@@ -10,7 +10,7 @@ user-invocable: false
 
 Masukan: `$ARGUMENTS`. Keluaran: file, bukan narasi.
 
-Item **selalu** dibuat, sekecil apa pun perubahannya. Jangan menyarankan `quick:`; lajur cepat hanya bila user sendiri mengetik "quick: <permintaan>" (diproses hook).
+Item **selalu** dibuat, sekecil apa pun perubahannya, **kecuali** sesi ini sudah punya item aktif (hook menyebutnya "Sesi ini sedang membahas item …"): permintaan itu lanjutan item tersebut, jadi perbarui berkasnya, jangan membuat item baru. Item baru hanya bila user mengetik "item baru". Jangan menyarankan `quick:`; lajur cepat hanya bila user sendiri mengetik "quick: <permintaan>" (diproses hook).
 
 **Bentuk tunggal: giliran pertama belum selesai sebelum `### Klaim vs bukti kode` berisi minimal satu klaim** (`| C1 | klaim | bukti path:baris | status |`, status `terbukti`/`dugaan`/`bertentangan`) selain baris D. Tanpa klaim, "align ok" user tidak dicatat hook.
 

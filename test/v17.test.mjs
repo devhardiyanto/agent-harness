@@ -163,8 +163,7 @@ test('Stop: anti-loop (stop_hook_active, batas per sesi), item belum siap, dan d
   inProgress(root);
   assert.equal(stop(root, { stop_hook_active: true }).status, 0);
   assert.equal(stop(root).status, 2);
-  assert.equal(stop(root).status, 2);
-  assert.equal(stop(root).status, 0, 'max_blocks=2 lalu mengalah');
+  assert.equal(stop(root).status, 0, 'max_blocks=1 (1.20.0) lalu mengalah');
   // sesi lain dihitung sendiri; sesi yang tidak menyentuh item itu tidak ditahan
   assert.equal(stop(root, { session_id: 'lain' }).status, 0);
   touch(root, path.basename(fs.readdirSync(path.join(root, 'docs', 'work')).map((d) => path.join(root, 'docs', 'work', d)).find((d) => fs.existsSync(path.join(d, 'plan.md')))), 'lain');
