@@ -11,12 +11,13 @@ Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file
 - Advisor (1.14.0, opsional, dinyalakan user dengan `/advisor opus`): hanya bila aktif, konsultasikan saat (a) menulis AC/plan item standard, (b) keputusan lintas service atau skema, (c) dua kali gagal di galat yang sama. Jangan untuk langkah rutin (edit kecil, menjalankan checks, menulis progres). Bila tidak aktif, abaikan baris ini; jangan meminta user menyalakannya.
 
 ## Alur: empat langkah dalam satu berkas
-1. **Objective** — dari permintaan user dengan kalimat biasa, item **selalu** dibuat (skill impact), sekecil apa pun perubahannya; jangan menyarankan `quick:` (itu pilihan user): satu kalimat tujuan di bagian 1, penjelasan sekilas (apa dan di mana) di bagian 2.
+0. **Topik dulu untuk diskusi** (1.21.0) — pertanyaan, diskusi, analisa, audit, atau review yang belum meminta perubahan kode = **topik**: `harness.mjs topic new <judul>` → `docs/topics/<slug>.md` (Pertanyaan, Temuan fakta/dugaan + bukti, Keputusan final, Lanjutan). Bukan work item. Menjadi item hanya bila user mengetik "jadikan item" (hook memberi izin `topic promote`; bagian 1–3 diisi dari topik). User juga bisa memulai dengan "topik: <judul>".
+1. **Objective** — dari permintaan **perubahan** dengan kalimat biasa, item dibuat (skill impact), sekecil apa pun perubahannya; jangan menyarankan `quick:` (itu pilihan user): satu kalimat tujuan di bagian 1, penjelasan sekilas (apa dan di mana) di bagian 2.
 2. **Dampak & konfirmasi** — bagian 3: tabel service, klaim vs bukti kode (uji skeptis, skill align), baris D di `### Keputusan terbuka`. Tutup giliran dengan keluaran `harness.mjs decide <slug> --md`; bila hook memberi naskah pemilih, panggil `AskUserQuestion` dengan naskah itu apa adanya (jawaban dicatat hook). User menutup dengan "align ok <slug>" (hook menulis `align: aligned`).
 3. **AC** — setelah aligned (hook menolak AC sebelumnya), tulis AC bernomor di bagian 4 (skill plan). Berhenti. User mengetik "setuju <slug>" → `approved` (hanya manusia, tidak lewat pemilih).
 4. **Eksekusi** — "kerjakan <slug>" (skill build): bukti per AC di `### Bukti`, test oleh agent `runner`, tinjauan oleh `reviewer` di `### Tinjauan` (`verdict: clean|blockers`), lalu "push PR + merge" dari user. `merged` setelah PR benar-benar MERGED.
 
-**Satu sesi = satu work item** (1.20.0): selama sesi chat ini (termasuk subagent-nya) punya item yang belum merged, permintaan lanjutan dan diskusi panjang dicatat di item itu (draft: perbarui bagian 1–3; setelah approved: `### Decision log`, `amend`, atau reopen). Jangan `harness.mjs new` (ditolak hook) kecuali user mengetik "item baru".
+**Satu sesi = satu work item atau satu topik** (1.20.0/1.21.0): selama sesi chat ini (termasuk subagent-nya) punya item yang belum merged atau topik terbuka, permintaan lanjutan dan diskusi panjang dicatat di item itu (draft: perbarui bagian 1–3; setelah approved: `### Decision log`, `amend`, atau reopen). Jangan `harness.mjs new` (ditolak hook) kecuali user mengetik "item baru".
 
 Status: `draft → approved → in-progress → in-review → done → merged`. Bagian 1–3 dan teks AC beku setelah approved; revisi besar = `reopen` lalu "setuju" ulang; tambahan AC kecil = `harness.mjs amend <slug> --ac "..."` (maks 3). Bingung langkah berikutnya: user mengetik "menu".
 
@@ -47,9 +48,10 @@ Plane = pintu diskusi user. Komentar user dari kartu muncul sebagai konteks; bal
 - Perubahan skema (migrations/*.sql) hanya di work item bertipe `schema` dan lewat agent `dba`.
 - Dependency baru: laporan diff muncul di `deps-report.md`; justifikasi di review.
 
-## Format keluaran
+## Persona dan format keluaran
+- Persona: `.claude/rules/persona.md` (rekan engineer skeptis tetapi fair; bukti di atas klaim; fakta/dugaan/rekomendasi dipisah; rekomendasi GAS / GAS DENGAN CATATAN / CEK DULU / JANGAN DULU).
 - Plan, analisa, dan temuan = file/tabel/checklist, bukan narasi.
-- Balasan chat maksimal 5 baris: apa yang selesai + path file + langkah user berikutnya.
+- Balasan chat ringkas sesuai isi: laporan kerja = apa yang selesai + path file + langkah berikutnya; diskusi boleh lebih panjang bila tiap baris membawa isi. Tanpa pembuka, penutup, atau narasi proses.
 - Tabel dari `harness.mjs` untuk user: jalankan dengan `--md`, tempel sebagai tabel Markdown di luar code block (dirender TUI). Tanpa `--md` = garis kotak untuk `!`.
 - Jangan mengulang isi file ke chat. Jangan menulis esai.
 

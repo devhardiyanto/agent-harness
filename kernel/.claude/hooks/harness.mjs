@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // CLI harness: dipakai skill dan user. Usage: node .claude/hooks/harness.mjs <cmd> [args]
 //   new <type> <judul...>   buat work item dari template
+//   topic new|list|promote|close   1.21: topik diskusi/analisa/audit (docs/topics/) sebelum menjadi work item
 //   list [--json]           daftar work item
 //   show <slug> [--json]    ringkas satu item
 //   snapshot [--json]       metadata work item + baseline + kesegaran knowledge dalam satu JSON (untuk viewer; tanpa isi dokumen)
@@ -142,22 +143,54 @@ const write = (item, to, extra = {}) => {
   }
 };
 
+// 1.21.0: dipakai "new" dan "topic promote"
+function createItem(type, title) {
+  const slug = `${today()}-${slugify(title)}`;
+  const dir = path.join(root, 'docs', 'work', slug);
+  if (fs.existsSync(dir)) die(`sudah ada: docs/work/${slug}`);
+  const tpl = path.join(root, 'docs', 'work', '_TEMPLATE');
+  fs.mkdirSync(dir, { recursive: true });
+  // 1.16.0: item.bentuk "tunggal" (bawaan) = satu plan.md empat bagian; "folder" = enam berkas seperti sebelumnya
+  const single = (process.env.HARNESS_ITEM_BENTUK || cfg.item.bentuk) === 'tunggal' && fs.existsSync(path.join(tpl, 'tunggal.md'));
+  const fill = (t) => t.replaceAll('{{slug}}', slug).replaceAll('{{title}}', title).replaceAll('{{type}}', type).replaceAll('{{date}}', today());
+  if (single) fs.writeFileSync(path.join(dir, 'plan.md'), fill(fs.readFileSync(path.join(tpl, 'tunggal.md'), 'utf8')));
+  else for (const f of fs.readdirSync(tpl).filter((x) => x !== 'tunggal.md')) fs.writeFileSync(path.join(dir, f), fill(fs.readFileSync(path.join(tpl, f), 'utf8')));
+  return slug;
+}
+
 switch (cmd) {
   case 'new': {
     const type = args[0];
     const title = args.slice(1).join(' ');
     if (!TYPES.includes(type) || !title) die(`usage: new <${TYPES.join('|')}> <judul>`);
-    const slug = `${today()}-${slugify(title)}`;
-    const dir = path.join(root, 'docs', 'work', slug);
-    if (fs.existsSync(dir)) die(`sudah ada: docs/work/${slug}`);
-    const tpl = path.join(root, 'docs', 'work', '_TEMPLATE');
-    fs.mkdirSync(dir, { recursive: true });
-    // 1.16.0: item.bentuk "tunggal" (bawaan) = satu plan.md empat bagian; "folder" = enam berkas seperti sebelumnya
-    const single = (process.env.HARNESS_ITEM_BENTUK || cfg.item.bentuk) === 'tunggal' && fs.existsSync(path.join(tpl, 'tunggal.md'));
-    const fill = (t) => t.replaceAll('{{slug}}', slug).replaceAll('{{title}}', title).replaceAll('{{type}}', type).replaceAll('{{date}}', today());
-    if (single) fs.writeFileSync(path.join(dir, 'plan.md'), fill(fs.readFileSync(path.join(tpl, 'tunggal.md'), 'utf8')));
-    else for (const f of fs.readdirSync(tpl).filter((x) => x !== 'tunggal.md')) fs.writeFileSync(path.join(dir, f), fill(fs.readFileSync(path.join(tpl, f), 'utf8')));
-    console.log(`docs/work/${slug}`);
+    console.log(`docs/work/${createItem(type, title)}`);
+    break;
+  }
+  case 'topic': { // 1.21.0: diskusi/analisa/audit sebelum menjadi work item
+    const T = await import('./topic.mjs');
+    const sub = args[0];
+    if (sub === 'new') {
+      const title = args.slice(1).join(' ');
+      if (!title) die('usage: topic new <judul>');
+      const r = T.createTopic(root, title); if (!r.ok) die(r.reason);
+      console.log(r.rel);
+    } else if (sub === 'list' || !sub) {
+      const all = T.listTopics(root).filter((t) => args.includes('--all') || t.status === 'open');
+      console.log(all.length ? ['| topik | status | item |', '|---|---|---|', ...all.map((t) => `| ${t.slug} | ${t.status} | ${t.item || '-'} |`)].join('\n') : 'Tidak ada topik terbuka.');
+    } else if (sub === 'promote') {
+      const t = T.resolveTopic(root, args[1]); if (!t) die(`topik "${args[1] || ''}" tidak ditemukan / ambigu.`);
+      if (t.status !== 'open') die(`topik ${t.slug} berstatus ${t.status}.`);
+      const type = TYPES.includes(args[2]) ? args[2] : 'feature';
+      const slug = createItem(type, t.title);
+      const ip = path.join(root, 'docs', 'work', slug, 'plan.md');
+      if (fs.existsSync(ip)) fs.writeFileSync(ip, setFmKey(fs.readFileSync(ip, 'utf8'), 'topic', t.slug));
+      T.setTopicStatus(root, t.slug, 'promoted', { item: slug });
+      audit(root, { event: 'topic-promote', topic: t.slug, slug });
+      console.log(`docs/work/${slug} (dari topik docs/topics/${t.slug}.md)`);
+    } else if (sub === 'close') {
+      const t = T.resolveTopic(root, args[1]); if (!t) die(`topik "${args[1] || ''}" tidak ditemukan / ambigu.`);
+      T.setTopicStatus(root, t.slug, 'closed'); console.log(`topik ${t.slug} ditutup.`);
+    } else die('usage: topic new <judul> | list [--all] | promote <topik> [type] | close <topik>');
     break;
   }
   case 'list': {

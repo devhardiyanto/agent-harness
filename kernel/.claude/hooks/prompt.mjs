@@ -113,7 +113,19 @@ if (!m && !mv && !mp && !mq && !ms && !ma && !mu) {
   if (cfg.session_item.single && !slash && !typed) {
     try {
       const act = activeSessionItem(root, sid);
-      if (/\bitem\s+baru\b/i.test(payload.prompt)) {
+      const { activeSessionTopic, resolveTopic } = await import('./topic.mjs');
+      const top = act ? null : activeSessionTopic(root, sid);
+      const jm = /^\s*jadikan\s+(?:work\s+)?item\b\s*([\w.-]+)?/i.exec(payload.prompt);
+      const tm = /^\s*topik\s*:\s*(.+)/i.exec(payload.prompt);
+      if (jm) {
+        const t = (jm[1] && resolveTopic(root, jm[1])) || top;
+        fs.mkdirSync(path.dirname(newItemTicketPath(root, sid)), { recursive: true });
+        fs.writeFileSync(newItemTicketPath(root, sid), JSON.stringify({ at: new Date().toISOString(), topic: t ? t.slug : null }));
+        extra.push(t ? `[harness] User meminta topik ${t.slug} DIJADIKAN WORK ITEM. Jalankan "node .claude/hooks/harness.mjs topic promote ${t.slug} <feature|improvement|hotfix|analysis|cross-repo|schema>", lalu lanjutkan skill impact di item itu: isi bagian 1–3 plan.md dari Pertanyaan/Temuan/Keputusan topik (jangan ditanyakan ulang).`
+          : '[harness] User meminta "jadikan item", tetapi sesi ini tidak punya topik terbuka: buat item langsung (skill impact; harness.mjs new diizinkan sekali).');
+      } else if (tm) {
+        extra.push(`[harness] User membuka TOPIK (diskusi, bukan work item): "${tm[1].trim().slice(0, 120)}". Jalankan "node .claude/hooks/harness.mjs topic new <judul singkat>", lalu isi Pertanyaan/Temuan di berkasnya. Jangan membuat work item.`);
+      } else if (/\bitem\s+baru\b/i.test(payload.prompt)) {
         fs.mkdirSync(path.dirname(newItemTicketPath(root, sid)), { recursive: true });
         fs.writeFileSync(newItemTicketPath(root, sid), JSON.stringify({ at: new Date().toISOString(), from: act ? act.slug : null }));
         extra.push(`[harness] User meminta ITEM BARU: boleh satu kali "harness.mjs new" (skill impact)${act ? `; item ${act.slug} tetap tercatat dan tidak ditutup` : ''}.`);
@@ -123,6 +135,9 @@ if (!m && !mv && !mp && !mq && !ms && !ma && !mu) {
           : ['approved', 'in-progress'].includes(act.status) ? `catat di "### Decision log"; AC tambahan kecil lewat "harness.mjs amend ${sl} --ac ..."; perubahan lingkup besar = user mengetik reopen`
           : 'catat di "### Decision log"; perbaikan kode setelah review/done = AC tambahan (amend) atau reopen';
         extra.push(`[harness] Sesi ini sedang membahas item ${act.slug} (${act.status}). Permintaan ini LANJUTAN item itu, bukan item baru: ${how}. Jangan menjalankan "harness.mjs new" (ditolak hook). Item baru hanya bila user mengetik "item baru".`);
+      }
+      else if (top) {
+        extra.push(`[harness] Sesi ini sedang membahas topik ${top.slug} (docs/topics/${top.slug}.md). Permintaan ini LANJUTAN topik itu: catat temuan (fakta/dugaan/rekomendasi + bukti) dan keputusan final di berkasnya. Bila user meminta perubahan kode, sarankan satu baris: ketik "jadikan item". Jangan "harness.mjs new" (ditolak hook).`);
       }
     } catch { /* tidak boleh mengganggu prompt */ }
   }
@@ -180,7 +195,7 @@ if (mu) {
   fs.writeFileSync(updateTicketPath(root), JSON.stringify({ mode, by: who0(), at: new Date().toISOString() }));
   audit(root, { event: 'update-ticket', session: payload.session_id, mode, by: who0() });
   const flag = mode === 'all' ? ' --all' : mode === 'rollback' ? ' --rollback' : '';
-  ctxOut(`[harness] ${who0()} meminta ${mode === 'rollback' ? 'ROLLBACK update' : mode === 'all' ? 'update SEMUA project' : 'update root ke main'}. Jalankan HANYA "node .claude/hooks/harness.mjs update${flag}" (satu kali, tiket berlaku 30 menit); jangan commit/push/merge sendiri. Balas ≤5 baris: versi sebelum → sesudah, hasil doctor, apakah di-push, dan masalah bila ada.`);
+  ctxOut(`[harness] ${who0()} meminta ${mode === 'rollback' ? 'ROLLBACK update' : mode === 'all' ? 'update SEMUA project' : 'update root ke main'}. Jalankan HANYA "node .claude/hooks/harness.mjs update${flag}" (satu kali, tiket berlaku 30 menit); jangan commit/push/merge sendiri. Balas ringkas: versi sebelum → sesudah, hasil doctor, apakah di-push, dan masalah bila ada.`);
   process.exit(0);
 }
 

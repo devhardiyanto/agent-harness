@@ -28,5 +28,5 @@ Masukan: `$ARGUMENTS` (slug). Sesi ini adalah sesi **eksekusi**.
 - Perlu keputusan user di tengah jalan (bukan perubahan plan) → `AskUserQuestion`, catat jawabannya di `progress.md`.
 - Perlu mengubah plan → berhenti dan minta user (`reopen` + approve ulang).
 
-## Balasan chat (maks 5 baris)
+## Balasan chat (ringkas, persona R-13)
 Status akhir · AC terbukti x/y · path `progress.md` · berikutnya: skill review
