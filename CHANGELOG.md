@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.22.5
+Temuan uji ulang sandbox (1.22.3).
+- **Usulan agent tidak lagi dianggap keputusan user** (N9): agent mengisi kolom jawaban D1–D4 dengan `default: …`, sehingga keempatnya tidak pernah ditanyakan dan pemilih hanya memuat C6. Jawaban berawalan `default`/`bawaan`/`usulan`/`rekomendasi`/`asumsi` kini tetap terbuka. Skill impact meminta usulan ditulis sebagai opsi pertama dengan kolom jawaban kosong.
+- **Pesan tahan keputusan tidak menempel tabel** (N1b, pelengkap N1 di 1.22.3): agent diminta menampilkan `harness.mjs decide <slug> --md`, sehingga tabel keputusan hanya tampil sekali.
+
+## 1.22.4
+- **`sandbox.mjs --reset` di Windows**: bila folder sandbox masih dipakai (sesi claude, terminal, atau Explorer yang terbuka di dalamnya), keluar pesan jelas berisi langkahnya, bukan stack trace `EPERM`. Penghapusan dicoba ulang beberapa kali, dan berkas penanda `.sandbox/MARKER` dihapus paling akhir, sehingga reset yang gagal di tengah tetap bisa diulang.
+
 ## 1.22.3
 Temuan uji sandbox sesi 1–2 (N1, N2, N4–N8).
 - **Opsi pemilih tidak terpotong** (N8): opsi dipecah hanya di penanda `a)`/`(a)`/`a.` bila ada ≥ 2 penanda. `;` dan `/` di dalam teks opsi tidak lagi memecahnya menjadi potongan kalimat.

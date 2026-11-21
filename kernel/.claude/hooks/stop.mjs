@@ -56,7 +56,9 @@ export function decisionFor(root, cfg, payload) {
   let pick = '';
   if (cfg.tui.ask) { const qs = []; for (const it of asked) { const q = buildQuestions(root, it); if (q.length) { saveNaskah(root, payload.session_id, it.slug, q); qs.push(...q); } } if (qs.length) pick = `\n\n${askInstruction(qs.slice(0, 4), root, payload.session_id)}`; }
   const src = asked.every(isSingle) ? 'bagian 3 plan.md' : 'align.md';
-  return `tutup giliran ini dengan tabel keputusan berikut, APA ADANYA (dibuat kode dari ${src}). Jangan menambah narasi, jangan menyarankan perintah lain selain baris "Berikutnya". Pertanyaan baru untuk user ditulis dulu sebagai baris D di ${src === 'align.md' ? '"## Keputusan terbuka" align.md (atau "### Keputusan terbuka" bagian 3 berkas item)' : '"### Keputusan terbuka" bagian 3 plan.md'}.\n\n${text}${pick}`;
+  // 1.22.5 (N1b): tabel tidak ditempel di pesan hook (tampil dua kali); agent menampilkan keluaran decide --md
+  const cmds = asked.map((it) => `"node .claude/hooks/harness.mjs decide ${it.slug} --md"`).join(' dan ');
+  return `tutup giliran ini dengan keluaran ${cmds} sebagai Markdown, APA ADANYA (dibuat kode dari ${src}). Jangan menambah narasi, jangan menyarankan perintah lain selain baris "Berikutnya". Pertanyaan baru untuk user ditulis dulu sebagai baris D di ${src === 'align.md' ? '"## Keputusan terbuka" align.md (atau "### Keputusan terbuka" bagian 3 berkas item)' : '"### Keputusan terbuka" bagian 3 plan.md'}.${pick}`;
 }
 
 // 1.19.5: tabel rekap dianggap sudah tampil bila tiap sel "aksi" sudah ada di pesan terakhir agent (mis. dari

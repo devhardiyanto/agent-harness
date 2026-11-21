@@ -33,3 +33,16 @@ test('Stop: rekap kosong setelah merged tidak menahan giliran', () => {
 });
 import fsMod from 'node:fs';
 function require_fs() { return fsMod; }
+
+test('1.22.5 (N9): jawaban "default: …" dari agent tetap terbuka dan ditanyakan', async () => {
+  const { decisionRows, readItem } = await import('../kernel/.claude/hooks/lib.mjs');
+  delete process.env.HARNESS_ITEM_BENTUK;
+  const root = project({ v1: true });
+  const slug = hx(root, 'new', 'feature', 'bio').stdout.trim().split('/').pop();
+  const p = path.join(root, 'docs/work', slug, 'plan.md');
+  fsMod.writeFileSync(p, fsMod.readFileSync(p, 'utf8').replace(/### Keputusan terbuka\n\| # \| pertanyaan \| opsi \(rekomendasi dulu\) \| jawaban \|\n\|---\|---\|---\|---\|/,
+    '### Keputusan terbuka\n| # | pertanyaan | opsi (rekomendasi dulu) | jawaban |\n|---|---|---|---|\n| D1 | Cara hitung | a) bio.length · b) code point | default: `bio.length` |\n| D2 | Pesan | a) teks itu | a) teks itu (pemilih) |'));
+  const ids = decisionRows(readItem(root, slug)).map((r) => r.id);
+  assert.ok(ids.includes('D1'), 'default = usulan, belum dijawab');
+  assert.ok(!ids.includes('D2'));
+});

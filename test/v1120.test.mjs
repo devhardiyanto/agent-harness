@@ -63,14 +63,15 @@ test('Stop (F1): giliran yang menyentuh item belum-aligned ditahan sampai tabel 
   touch(root, slug);
   let r = hook(root, 'stop.mjs', { hook_event_name: 'Stop', last_assistant_message: 'Belum selesai (item sesi ini) (1):' });
   assert.equal(r.status, 2);
-  assert.match(r.stderr, /APA ADANYA[\s\S]*\| C2 \| bertentangan[\s\S]*Berikutnya \(kamu\)/);
+  assert.match(r.stderr, new RegExp(`decide ${slug} --md" sebagai Markdown, APA ADANYA`)); // 1.22.5: tabel tidak ditempel di pesan hook
+  assert.match(hx(root, "decide", slug, "--md").stdout, /\|\s*C2\s*\|\s*bertentangan[\s\S]*Berikutnya \(kamu\)/);
   r = hook(root, 'stop.mjs', { hook_event_name: 'Stop', last_assistant_message: 'Belum selesai (item sesi ini) (1):', stop_hook_active: true });
   assert.equal(r.status, 0, 'lanjutan setelah ditahan tidak ditahan lagi');
   r = hook(root, 'stop.mjs', { hook_event_name: 'Stop', last_assistant_message: 'Belum selesai (item sesi ini) (1):' });
   assert.equal(r.status, 0, 'isi sama → tidak ditahan lagi');
   wr(root, `docs/work/${slug}/align.md`, ALIGN(CLAIMS, DEC + '\n| D3 | Domain? | a) nadidsi2026.com | |'));
   r = hook(root, 'stop.mjs', { hook_event_name: 'Stop', last_assistant_message: 'Belum selesai (item sesi ini) (1):' });
-  assert.equal(r.status, 2, 'isi berubah → ditahan lagi'); assert.match(r.stderr, /\| D3 \|/);
+  assert.equal(r.status, 2, 'isi berubah → ditahan lagi');
   const other = newItem(root, 'Tidak disentuh');
   wr(root, `docs/work/${other}/align.md`, ALIGN(CLAIMS));
   r = hook(root, 'stop.mjs', { hook_event_name: 'Stop', last_assistant_message: 'Belum selesai (item sesi ini) (1):', session_id: 'lain' });
