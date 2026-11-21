@@ -56,3 +56,13 @@ test('open --mine: item baru yang hanya disentuh sesi (belum ada event) tetap mu
   const r = hx(root, 'open', '--mine');
   assert.match(r.stdout, /validasi-nama/);
 });
+
+test('formatOpen (1.22.8): item dengan keputusan terbuka berlabel Keputusan, yang tinggal setuju berlabel Persetujuan', async () => {
+  const { formatOpen } = await import('../kernel/.claude/hooks/recap.mjs');
+  const t = formatOpen([
+    { item: 'a', jenis: 'langkah', apa: 'draft', siapa: 'kamu', aksi: 'jawab tabel keputusan, lalu "align ok a"' },
+    { item: 'a', jenis: 'keputusan', apa: 'D1', siapa: 'kamu', aksi: '"D1: <pilihan>"' },
+    { item: 'b', jenis: 'langkah', apa: 'draft', siapa: 'kamu', aksi: 'tinjau plan.md; bila setuju ketik setuju b' },
+  ]);
+  assert.match(t, /\*\*Keputusan\*\* untuk `docs\/work\/a\/plan\.md`; \*\*Persetujuan\*\* untuk `docs\/work\/b\/plan\.md`/);
+});

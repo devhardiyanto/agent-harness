@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.22.8
+Penutup seri uji sandbox (T1–T20, N1–N9, E1–E5 lulus).
+- **Label blok keputusan di tabel "Belum selesai"**: item yang masih punya keputusan atau klaim terbuka kini berlabel **Keputusan**. Label **Persetujuan** hanya untuk item yang tinggal menunggu "setuju"/"align ok". Sebelumnya semuanya berlabel Persetujuan.
+- ROADMAP §10: S4 ✅ (bukti uji T12). Uji GitHub asli dilakukan di project event.
+
 ## 1.22.7
 Temuan uji ulang sandbox (1.22.6).
 - **`open --mine` tidak kosong untuk item yang baru dibuat**: tabel "Belum selesai" disaring dari event log, padahal item yang baru dibuat belum punya event. Akibatnya agent menulis penjelasan teknis ke chat ("tabel dari hook kosong…"). Kini item yang disentuh sesi terakhir juga ikut dihitung.
