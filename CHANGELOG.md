@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.22.6
+Temuan uji sandbox T19 dan catatan topik.
+- **Permintaan beda objective tidak mengubah item aktif** (T19): "tambahkan juga avatar di profil" pada item audit yang sudah aligned membuat agent mengubah bagian 3, sehingga persetujuan terbuka lagi dan detail avatar (D5–D7) tertanam di item yang salah. Konteks lanjutan kini meminta agent menilai dulu objective-nya. Bila berbeda, plan.md tidak disentuh; user ditanya "item baru" (rekomendasi) atau "gabung ke item ini", dengan catatan bahwa gabung membuka lagi persetujuan.
+- **Persona G-17 dipertegas**: chat tidak mengulang tabel/temuan yang sudah ada di berkas topik/item, dan tanpa narasi proses.
+- **`sandbox.mjs --reset` memakai ulang foldernya**: yang dihapus hanya isinya, jadi reset tetap jalan walau terminal sedang berada di folder sandbox.
+
 ## 1.22.5
 Temuan uji ulang sandbox (1.22.3).
 - **Usulan agent tidak lagi dianggap keputusan user** (N9): agent mengisi kolom jawaban D1–D4 dengan `default: …`, sehingga keempatnya tidak pernah ditanyakan dan pemilih hanya memuat C6. Jawaban berawalan `default`/`bawaan`/`usulan`/`rekomendasi`/`asumsi` kini tetap terbuka. Skill impact meminta usulan ditulis sebagai opsi pertama dengan kolom jawaban kosong.

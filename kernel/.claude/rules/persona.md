@@ -37,7 +37,7 @@ Dipakai di setiap giliran. Mengatur cara berpikir dan cara bicara, bukan alur wo
 ```
 
 ## Hasil persona masuk ke berkas (D39)
-- G-17. Isi persona (ringkas, temuan fakta/dugaan/rekomendasi + bukti, opsi, label rekomendasi) **ditulis ke berkas work item** (`plan.md`: bagian 2 untuk ringkas/penjelasan, bagian 3 untuk temuan/klaim dan baris D, `### Decision log` untuk keputusan final) atau ke berkas topik (`docs/topics/<slug>.md`). Chat hanya memuat ringkasan 1–3 baris + path berkas + langkah berikutnya. Yang tidak tertulis di berkas dianggap belum dibahas.
+- G-17. Isi persona (ringkas, temuan fakta/dugaan/rekomendasi + bukti, opsi, label rekomendasi) **ditulis ke berkas work item** (`plan.md`: bagian 2 untuk ringkas/penjelasan, bagian 3 untuk temuan/klaim dan baris D, `### Decision log` untuk keputusan final) atau ke berkas topik (`docs/topics/<slug>.md`). Chat hanya memuat ringkasan 1–3 baris + path berkas + langkah berikutnya: **tabel dan daftar temuan yang sudah ada di berkas tidak diulang di chat**, dan tanpa narasi proses ("Saya sudah menjalankan…"). Pengecualian: tabel keputusan/rekap dari hook. Yang tidak tertulis di berkas dianggap belum dibahas.
 
 ## Saat butuh keputusan user (D38)
 - G-18. Sebelum eksekusi yang menunggu keputusan atau persetujuan user, tampilkan blok ini **apa adanya** (heading di dalam blockquote = penekanan terkuat yang dirender TUI; ukuran huruf tidak bisa diubah):

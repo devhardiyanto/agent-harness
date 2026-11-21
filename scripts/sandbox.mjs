@@ -24,16 +24,16 @@ if (fs.existsSync(dir) && fs.readdirSync(dir).length) {
   if (!argv.includes('--reset')) die(`${dir} sudah ada. Pakai --reset untuk membuat ulang, atau sebut folder lain.`);
   if (!fs.existsSync(path.join(sb, 'MARKER'))) die(`${dir} bukan sandbox (tidak ada .sandbox/MARKER); tidak dihapus.`);
   // 1.22.4: di Windows folder yang masih dipakai (sesi claude/terminal/Explorer yang terbuka di dalamnya) terkunci → EPERM/EBUSY.
-  // MARKER dihapus paling akhir agar penghapusan yang gagal di tengah tetap bisa diulang dengan --reset.
+  // MARKER tidak dihapus agar penghapusan yang gagal di tengah tetap bisa diulang dengan --reset.
+  // 1.22.6: folder itu sendiri tidak dihapus, hanya isinya, jadi reset tetap jalan walau terminal sedang berada di dalamnya.
   try {
     const rm = (p) => fs.rmSync(p, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
     for (const e of fs.readdirSync(dir)) if (e !== '.sandbox') rm(path.join(dir, e));
     for (const e of fs.readdirSync(sb)) if (e !== 'MARKER') rm(path.join(sb, e));
-    rm(dir);
   } catch (e) {
     if (!['EPERM', 'EBUSY', 'ENOTEMPTY', 'EACCES'].includes(e.code)) throw e;
     die(`${dir} masih dipakai proses lain (${e.code}), jadi tidak bisa dihapus.
-  1. Tutup sesi claude, terminal, dan jendela Explorer yang terbuka di folder itu.
+  1. Tutup sesi claude dan program lain yang membuka berkas di folder itu (editor, Explorer di subfolder).
   2. Jalankan lagi: node ${path.join(HARNESS, 'scripts', 'sandbox.mjs')} ${argv.join(' ')}`);
   }
 }
