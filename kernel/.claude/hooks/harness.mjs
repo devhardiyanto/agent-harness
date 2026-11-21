@@ -71,7 +71,7 @@ import {
   verifyService, checkProposal, approveProposal, isRepo, svcDir,
 } from './knowledge.mjs';
 import {
-  projectRoot, loadConfig, checkTransition, checkDone, setFmKey, STATUSES,
+  projectRoot, loadConfig, checkTransition, checkDone, setFmKey, STATUSES, decisionBanner,
   splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli, globToRegex,
   readPart, isSingle, updateTicket, updateTicketPath, readEvents, readAlign, formatDecision, slugify, cleanTitle, alignTables,
 } from './lib.mjs';
@@ -280,8 +280,12 @@ switch (cmd) {
     const q = args.find((a) => !a.startsWith('--'));
     const items = q ? [need(q)] : listItems().filter((i) => i.status !== 'merged');
     if (!items.length) { console.log('(tidak ada work item terbuka) Mulai: ketik permintaanmu dengan kalimat biasa; agent membuat item-nya. "quick: <permintaan>" hanya bila kamu sendiri memilih lajur cepat.'); break; }
+    // 1.22.1 (D38): langkah yang menunggu persetujuan user didahului blok keputusan, juga di keluaran next
+    const ns = items.map((i) => ({ i, n: nextStep(i, cfg) }));
+    const wait = ns.filter(({ n }) => n.who === 'kamu' && /\b(setuju|align ok)\b/.test(n.cmd));
+    if (wait.length) console.log(`${decisionBanner(wait.map(({ i }) => `docs/work/${i.slug}/plan.md`).join('`, `'), 'Persetujuan')}\n`);
     console.log('| slug | lajur | status | siapa | langkah berikutnya |\n|---|---|---|---|---|');
-    for (const i of items) { const n = nextStep(i, cfg); console.log(`| ${i.slug} | ${isQuick(i) ? 'quick' : 'standard'} | ${i.status} | ${n.who} | ${n.cmd} |`); }
+    for (const { i, n } of ns) console.log(`| ${i.slug} | ${isQuick(i) ? 'quick' : 'standard'} | ${i.status} | ${n.who} | ${n.cmd} |`);
     break;
   }
   case 'decide': {

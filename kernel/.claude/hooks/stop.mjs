@@ -65,6 +65,8 @@ export function alreadyShown(table, last) {
   const flat = (x) => String(x || '').replace(/[`*]/g, '').replace(/\s+/g, ' ').trim();
   const acts = String(table || '').split('\n').filter((l) => /^\|\s*\d+\s*\|/.test(l)).map((l) => flat(l.split('|').slice(-2, -1)[0]));
   const L = flat(last);
+  // 1.22.1: tabel yang memuat blok keputusan belum dianggap tampil bila pesan agent tidak memuat bloknya
+  if (/BUTUH KEPUTUSANMU/.test(table) && !/BUTUH KEPUTUSANMU/.test(L)) return false;
   return acts.length > 0 && acts.every((a) => a && L.includes(a.replace(/\s*\([^)]*\)\s*$/, '')));
 }
 
