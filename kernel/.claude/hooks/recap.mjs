@@ -45,7 +45,11 @@ export function formatOpen(rows, max = 12, title = 'Belum selesai') {
   const shown = rows.slice(0, max);
   // 1.22.0 (D38): baris yang menunggu persetujuan user ("setuju", "align ok") didahului blok keputusan
   const need = shown.filter((r) => r.siapa === 'kamu' && /\b(setuju|align ok)\b/.test(String(r.aksi || '')));
-  const banner = need.length ? [`> ## ⚠ BUTUH KEPUTUSANMU\n> **Persetujuan** untuk ${need.map((r) => `\`docs/work/${r.item}/plan.md\``).join(', ')}. Tolong dibaca ulang sebelum kita eksekusi.`, ''] : [];
+  // 1.22.8 (K1): item yang masih punya keputusan/klaim terbuka berlabel "Keputusan", bukan "Persetujuan"
+  const open = new Set(rows.filter((r) => r.siapa === 'kamu' && r.jenis !== 'langkah').map((r) => r.item));
+  const group = (lbl, xs) => (xs.length ? [`**${lbl}** untuk ${xs.map((r) => `\`docs/work/${r.item}/plan.md\``).join(', ')}`] : []);
+  const parts = [...group('Keputusan', need.filter((r) => open.has(r.item) || /\bjawab\b/.test(String(r.aksi || '')))), ...group('Persetujuan', need.filter((r) => !open.has(r.item) && !/\bjawab\b/.test(String(r.aksi || ''))))];
+  const banner = need.length ? [`> ## ⚠ BUTUH KEPUTUSANMU\n> ${parts.join('; ')}. Tolong dibaca ulang sebelum kita eksekusi.`, ''] : [];
   return [...banner, `${title} (${rows.length}):`, '| # | item | jenis | apa | siapa | aksi |', '|---|---|---|---|---|---|',
     ...shown.map((r, i) => `| ${i + 1} | ${cell(r.label || r.item)} | ${cell(r.jenis)} | ${cell(r.apa)} | ${cell(r.siapa)} | ${cell(r.aksi)} |`),
     ...(rows.length > max ? [`(+${rows.length - max} lagi: node .claude/hooks/harness.mjs open)`] : [])].join('\n');
