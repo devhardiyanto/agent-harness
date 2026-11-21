@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.22.4',
+  harness_version: '1.22.5',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -356,7 +356,8 @@ export function updateTicket(root, mode, ttlMin = 30) {
 export const CLAIM_ROW = /^\|\s*C\d+\s*\|/;
 export const DECISION_ROW = /^\|\s*D\d+\s*\|/;
 const cells = (l) => l.split('|').slice(1, -1).map((x) => x.trim());
-const EMPTY_ANSWER = /^(|-|\?+|<.*>|belum|tbd)$/i;
+// 1.22.5 (N9): jawaban berawalan "default"/"usulan"/"rekomendasi" = usulan agent, belum keputusan user → tetap terbuka
+const EMPTY_ANSWER = /^(|-|\?+|<.*>|belum|tbd|(?:\(?\s*(?:default|bawaan|usulan|rekomendasi|asumsi)\b.*))$/i;
 export function readAlign(item) {
   const at = readPart(item, 'align.md');
   if (at === null) return null;
