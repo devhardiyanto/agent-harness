@@ -3,7 +3,8 @@
 > **Status per 2026-11-20 (harness 1.21.1)**
 > - **Selesai:** semua rilis 1.10–1.13 di bawah dan rancangan "Sederhana" 1.14–1.21 (§9).
 > - **Belum mulai:** 2.0.0. Gerbang pilot belum lewat (§10).
-> - **Arah 2.0 perlu diputuskan ulang** (D36, §11): sejak 1.16 berkas lokal justru diperkuat (`plan.md` tunggal, `docs/topics/`, jawaban dicatat hook ke berkas), jadi T1–T10 versi lama (§8) tidak lagi sinkron dengan harness.
+> - **Arah 2.0 (2026-11-21): Plane dicabut** (D37, menggantikan D36 = B). Semua dikendalikan mesin lokal masing-masing; fokus 2.0 = **orkestrator** (§12). Keputusan user ditampilkan sebagai blok mencolok (D38); hasil persona ditulis ke berkas item (D39).
+> - Riwayat: D36 = B (2026-11-20) sempat memilih berkas lokal + Plane cermin. Sejak 1.16 berkas lokal justru diperkuat (`plan.md` tunggal, `docs/topics/`, jawaban dicatat hook ke berkas), jadi T1–T10 versi lama (§8) tidak lagi sinkron dengan harness.
 
 Tujuan: **mudah dipakai, tidak mondar-mandir, dan makin pintar seiring umur project**, tanpa melepas gerbang yang membuat harness aman (approve, merge, dan memori tetap keputusan manusia).
 
@@ -259,7 +260,7 @@ Ukuran PRD §6 yang **belum diukur** di project nyata: ketikan perintah per item
 | `migrate` OK per root (event/astra/yhpa) | ❓ | hanya wajib untuk arah A (§11) |
 | `bidang.enforce` | ⏸ | boleh dinyalakan sekarang (M0-2b terbukti); keputusan user |
 
-## 11. Arah 2.0 ditinjau ulang (D36, keputusan terbuka)
+## 11. Arah 2.0 ditinjau ulang (D36: **B**, 2026-11-20) — **digantikan D37** (§12)
 
 **Pertanyaan:** apakah Plane tetap menjadi **sumber kebenaran** (rencana §8), atau **berkas lokal tetap sumber** dan Plane menjadi tampilan + pintu diskusi?
 
@@ -299,5 +300,44 @@ T1–T10 di §8 tetap berlaku, ditambah:
 
 ### Urutan
 1. Tutup §10 (S4 + GitHub asli).
-2. User menjawab **D36** (A atau B).
+2. ~~User menjawab D36~~ → **B**. Task 2.0 = B1–B7; cakupan orkestrator Plane menyusul dari user (§12).
 3. Rilis 2.0 dipecah per task, satu PR per rilis, seperti 1.19–1.21.
+
+## 12. 2.0 = orkestrator lokal, tanpa Plane (D37–D39, 2026-11-21)
+
+### Keputusan
+
+| # | keputusan | alasan / isi |
+|---|---|---|
+| D37 | **Plane dicabut.** Semua dikendalikan mesin lokal masing-masing | feedback user; menggantikan D36 dan seluruh task Plane (T1–T7, B3–B5, A11–A13) |
+| D38 | **Blok "butuh keputusan"**: setiap keputusan atau persetujuan yang menahan eksekusi didahului `> ## ⚠ BUTUH KEPUTUSANMU` + path berkas + "tolong dibaca ulang sebelum kita eksekusi" | TUI tidak bisa memperbesar huruf; heading dalam blockquote = penekanan terkuat. Rilis 1.22.0 (tabel keputusan + rekap + persona G-18) |
+| D39 | **Hasil persona masuk berkas work item/topik**; chat hanya ringkasan + path | keputusan dan alasan terlacak di berkas, bukan hilang di chat. Rilis 1.22.0 (persona G-17, O-09) |
+
+### Orkestrator: definisi
+
+| bagian | isi |
+|---|---|
+| orkestrator | **sesi chat utama** yang dibuka user. Tidak mengedit kode service sendiri |
+| saat "kerjakan" | memecah AC jadi tugas per service/bidang: siapa, urutan, mana yang paralel; rencana ditulis ke `plan.md` (`### Rencana eksekusi`) dan ditampilkan dengan blok D38 sebelum mulai |
+| sub-agent | spesialis `backend` / `frontend` / `devops` / `dba`, lalu `runner` (test) dan `reviewer`; masing-masing melapor |
+| sesudahnya | orkestrator mengumpulkan laporan, memeriksa bukti per AC, meneruskan ke review |
+| batasan Claude Code | sub-agent tidak bisa memanggil sub-agent lain → orkestrasi selalu satu tingkat dari sesi utama |
+| sudah ada | 1.17: "kerjakan" memanggil spesialis per service; audit mencatat `agent` (1.19.2) |
+
+### Task 2.0 (menggantikan B1–B7)
+
+| # | task | isi |
+|---|---|---|
+| R1 | **cabut Plane** | `plane.mjs`, config `plane.*`, tarik komentar di prompt, status line Plane, `migrate`/doctor bagian Plane, `AGENTS.md` bagian Plane, tes Plane; data `.harness/plane/` dibiarkan (bisa dihapus user) |
+| O1 | rencana eksekusi tertulis | `### Rencana eksekusi` di `plan.md`: `| # | tugas | AC | agent | urutan/paralel | status |`; dibuat orkestrator saat "kerjakan", diperlihatkan dengan blok D38 |
+| O2 | pelacakan per tugas | status tugas diperbarui dari laporan sub-agent (audit `agent_id`); status line: `tugas 2/4` |
+| O3 | sesi utama hanya mengorkestrasi | `bidang.enforce` bawaan menyala setelah O1–O2 stabil: edit kode service dari sesi utama ditolak |
+| O4 | ukuran | ≥ 90% edit kode oleh spesialis yang benar; ketikan user per item ≤ 3 (PRD §6) |
+| R2 | perampingan | slash selain `init`/`update` dibuang; `AGENTS.md` ≤ 60 baris (dulu B1) |
+| R3 | bentuk lama dibuang | `item.bentuk: folder` + format `align.md` lama → migrasi item terbuka ke `plan.md` tunggal (dulu B2) |
+| R4 | panduan upgrade + rollback | per root (dulu B6) |
+| R5 | gerbang rilis | §10 hijau (S1–S4 + GitHub asli) di yhpa, event, astra (dulu B7; `migrate` Plane tidak lagi syarat) |
+
+Urutan: tutup §10 → R1 (cabut Plane) → O1–O4 → R2–R4 → R5 → v2.0.0. Satu PR per rilis.
+
+> Catatan arsip kartu Plane (2026-11-10, §8) tetap boleh dikerjakan manual oleh user lewat MCP; harness tidak lagi menyentuh Plane.

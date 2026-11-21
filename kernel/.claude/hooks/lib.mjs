@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.21.1',
+  harness_version: '1.22.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -391,6 +391,11 @@ export function decisionRows(item) {
   for (const d of a.decisions.filter((x) => EMPTY_ANSWER.test(x.answer))) rows.push({ id: d.id, kind: 'keputusan', ask: d.question, options: d.options || '-', answer: `"${d.id}: <pilihan>"` });
   return rows;
 }
+// 1.22.0 (D38): blok mencolok setiap kali user harus memutuskan sebelum eksekusi. TUI tidak bisa memperbesar huruf;
+// heading di dalam blockquote adalah penekanan terkuat yang dirender Claude Code.
+export function decisionBanner(rel, what = 'Keputusan') {
+  return `> ## ⚠ BUTUH KEPUTUSANMU\n> **${what}** ada di \`${rel}\`. Tolong dibaca ulang sebelum kita eksekusi.`;
+}
 export function formatDecision(root, item) {
   const rows = decisionRows(item);
   const sl = shortSlug(root, item.slug);
@@ -404,7 +409,9 @@ export function formatDecision(root, item) {
     : hard.length ? `Berikutnya (kamu): jawab tabel di atas. "align ok ${sl}" baru diterima setelah ${hard.join(', ')} dikoreksi, atau ketik "align ok ${sl} terima ${hard.join(',')}".`
     : rows.length ? `Berikutnya (kamu): jawab tabel di atas (cukup kode + jawaban, mis. "${rows[0].id} a"), lalu ketik "align ok ${sl}".`
     : `Berikutnya (kamu): bila sepaham, ketik "align ok ${sl}".`;
-  return [`Keputusan untuk ${item.slug} (${rows.length} terbuka):`, ...head, next].join('\n');
+  const rel = `docs/work/${item.slug}/${isSingle(item) ? 'plan.md' : 'align.md'}`;
+  const banner = rows.length ? [decisionBanner(rel, `${rows.length} keputusan`), ''] : [];
+  return [...banner, `Keputusan untuk ${item.slug} (${rows.length} terbuka):`, ...head, next].join('\n');
 }
 export const alignExempt = (item, cfg) => isQuick(item) || !cfg.align.required || (cfg.align.exempt_types || []).includes(item.type);
 export function alignProblems(item, cfg) {

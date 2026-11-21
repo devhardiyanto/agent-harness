@@ -8,3 +8,4 @@
 - O-06. Jangan menempel ulang isi file yang baru ditulis ke chat.
 - O-07. "Langkah berikutnya" untuk user diambil dari `harness.mjs next <slug> --md` atau `harness.mjs decide <slug> --md`, apa adanya. Jangan mengarang perintah, dan jangan menyarankan `align ok` selama tabel keputusan masih memuat klaim bertentangan.
 - O-08. Tabel dari `harness.mjs` yang ditampilkan ke user: jalankan dengan `--md` dan tempel sebagai tabel Markdown biasa, **bukan di dalam code block**, agar dirender TUI. Tanpa `--md` keluarannya bergaris kotak (untuk dibaca langsung lewat `!`).
+- O-09. Keputusan atau persetujuan user yang menahan eksekusi didahului blok `> ## ⚠ BUTUH KEPUTUSANMU` + path berkas (persona G-18). Isi analisa ditulis ke berkas item/topik, chat hanya ringkasan + path (G-17).
