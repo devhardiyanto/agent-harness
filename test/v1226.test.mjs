@@ -48,3 +48,11 @@ test('sandbox --reset: folder dipakai ulang (tidak dihapus), isi lama hilang', (
   assert.ok(fs.existsSync(path.join(dir, '.sandbox/MARKER')));
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test('open --mine: item baru yang hanya disentuh sesi (belum ada event) tetap muncul', () => {
+  const root = project({ v1: true });
+  const slug = hx(root, 'new', 'feature', 'validasi nama').stdout.trim().split('/').pop();
+  hook(root, 'post.mjs', { session_id: 'baru', tool_name: 'Edit', tool_input: { file_path: path.join(root, 'docs/work', slug, 'plan.md') } });
+  const r = hx(root, 'open', '--mine');
+  assert.match(r.stdout, /validasi-nama/);
+});

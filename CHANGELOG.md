@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.22.7
+Temuan uji ulang sandbox (1.22.6).
+- **`open --mine` tidak kosong untuk item yang baru dibuat**: tabel "Belum selesai" disaring dari event log, padahal item yang baru dibuat belum punya event. Akibatnya agent menulis penjelasan teknis ke chat ("tabel dari hook kosong…"). Kini item yang disentuh sesi terakhir juga ikut dihitung.
+
 ## 1.22.6
 Temuan uji sandbox T19 dan catatan topik.
 - **Permintaan beda objective tidak mengubah item aktif** (T19): "tambahkan juga avatar di profil" pada item audit yang sudah aligned membuat agent mengubah bagian 3, sehingga persetujuan terbuka lagi dan detail avatar (D5–D7) tertanam di item yang salah. Konteks lanjutan kini meminta agent menilai dulu objective-nya. Bila berbeda, plan.md tidak disentuh; user ditanya "item baru" (rekomendasi) atau "gabung ke item ini", dengan catatan bahwa gabung membuka lagi persetujuan.

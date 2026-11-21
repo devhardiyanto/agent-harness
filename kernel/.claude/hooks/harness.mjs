@@ -73,7 +73,7 @@ import {
 import {
   projectRoot, loadConfig, checkTransition, checkDone, setFmKey, STATUSES, decisionBanner,
   splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli, globToRegex,
-  readPart, isSingle, updateTicket, updateTicketPath, readEvents, readAlign, formatDecision, slugify, cleanTitle, alignTables,
+  readPart, isSingle, updateTicket, updateTicketPath, readEvents, latestTouchedSlugs, readAlign, formatDecision, slugify, cleanTitle, alignTables,
 } from './lib.mjs';
 
 // 1.13.2: tabel keluaran CLI bergaris kotak (tampil sebagai tabel walau mentah lewat "!"). --md = Markdown untuk ditempel agent
@@ -296,7 +296,7 @@ switch (cmd) {
   }
   case 'open': {
     let slugs = null;
-    if (args.includes('--mine')) { const ev = readEvents(root, 200).filter((e) => e.slug); slugs = new Set(ev.slice(-20).map((e) => e.slug)); }
+    if (args.includes('--mine')) { const ev = readEvents(root, 200).filter((e) => e.slug); slugs = new Set([...ev.slice(-20).map((e) => e.slug), ...latestTouchedSlugs(root)]); }
     const rows = openRows(root, cfg, { slugs });
     if (args.includes('--json')) { console.log(JSON.stringify(rows, null, 2)); break; }
     console.log(formatOpen(rows, args.includes('--all') ? 999 : cfg.recap.max_rows));
