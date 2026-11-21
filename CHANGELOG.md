@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.22.2
+Temuan uji sandbox T12: commit dan PR berhasil, tetapi `harness.mjs ship` menolak merge karena URL PR dari gh tiruan (`https://sandbox.invalid/backend/pull/1`) tidak berbentuk `https://host/owner/repo/pull/N`.
+- **gh tiruan** kini membuat URL `https://sandbox.invalid/sandbox/<repo>/pull/N`. Entri lama di `.sandbox/prs.json` dan URL lama yang dirujuk ikut dikenali, jadi sandbox yang sudah berjalan bisa melanjutkan tanpa reset (salin `scripts/fake-gh.mjs` ke `.sandbox/bin/`).
+
 ## 1.22.1
 Temuan uji sandbox T8: setelah AC ditulis, blok **⚠ BUTUH KEPUTUSANMU** tidak muncul.
 - **`harness.mjs next`** kini mencetak blok keputusan bila ada langkah yang menunggu "setuju"/"align ok" dari user. Agent menampilkan tabel dari `next --md`, bukan dari rekap.

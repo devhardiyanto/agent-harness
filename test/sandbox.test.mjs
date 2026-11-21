@@ -25,7 +25,11 @@ test('sandbox: semua remote lokal, gh tiruan menangani create/view/checks/merge,
   const fe = path.join(dir, 'source-code/frontend');
   g(fe, 'checkout', '-qb', 'fix/x'); fs.appendFileSync(path.join(fe, 'src/format.js'), '// x\n'); g(fe, 'commit', '-qam', 'x'); g(fe, 'push', '-q', 'origin', 'fix/x');
   const url = gh(fe, 'pr', 'create', '--base', 'main', '--head', 'fix/x', '--title', 'x').stdout.trim();
-  assert.match(url, /^https:\/\/sandbox\.invalid\/frontend\/pull\/1$/);
+  // 1.22.2: bentuk owner/repo agar lolos validasi URL harness.mjs ship
+  assert.match(url, /^https:\/\/sandbox\.invalid\/sandbox\/frontend\/pull\/1$/);
+  assert.match(url, /^https:\/\/[\w.-]+\/[\w.-]+\/[\w.-]+\/pull\/\d+$/);
+  // URL lama (tanpa owner) tetap dikenali
+  assert.equal(gh(fe, 'pr', 'view', 'https://sandbox.invalid/frontend/pull/1', '--json', 'state', '-q', '.state').stdout.trim(), 'OPEN');
   assert.equal(gh(fe, 'pr', 'view', url, '--json', 'state', '-q', '.state').stdout.trim(), 'OPEN');
   assert.equal(gh(fe, 'pr', 'merge', url, '--merge', '--match-head-commit', g(fe, 'rev-parse', 'HEAD').stdout.trim()).status, 0);
   assert.equal(gh(fe, 'pr', 'view', url, '--json', 'state', '-q', '.state').stdout.trim(), 'MERGED');
