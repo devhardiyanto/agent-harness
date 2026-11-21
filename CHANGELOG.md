@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.22.4
+- **`sandbox.mjs --reset` di Windows**: bila folder sandbox masih dipakai (sesi claude, terminal, atau Explorer yang terbuka di dalamnya), keluar pesan jelas berisi langkahnya, bukan stack trace `EPERM`. Penghapusan dicoba ulang beberapa kali, dan berkas penanda `.sandbox/MARKER` dihapus paling akhir, sehingga reset yang gagal di tengah tetap bisa diulang.
+
 ## 1.22.3
 Temuan uji sandbox sesi 1–2 (N1, N2, N4–N8).
 - **Opsi pemilih tidak terpotong** (N8): opsi dipecah hanya di penanda `a)`/`(a)`/`a.` bila ada ≥ 2 penanda. `;` dan `/` di dalam teks opsi tidak lagi memecahnya menjadi potongan kalimat.
