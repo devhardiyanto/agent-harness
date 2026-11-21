@@ -16,8 +16,15 @@ const CLAIM_OPTS = ['benar', 'salah'];
 export const claimStatus = (yes, note, via) => (yes ? `dikonfirmasi (user, ${via})` : `bertentangan (user, ${via}${note ? `: ${String(note).replace(/\|/g, '/').trim()}` : ''})`);
 
 // "a) 300 · b) tanpa batas" | "a. X · b. Y (rekomendasi)" → ['300', 'tanpa batas']
+// 1.22.3: bila sel memakai penanda "a)"/"(a)"/"a." untuk ≥ 2 opsi, pecah HANYA di penanda itu; ";" dan "/" di dalam teks opsi
+// tidak lagi memotong opsi. Tanpa penanda: pecah di " · " (bentuk lama).
 export function parseOptions(cell) {
-  return String(cell || '').split(/\s+·\s+|\s*;\s*|\s+\/\s+(?=[a-d][.)])/).map((o) => o.replace(/^\s*[a-d][.)]\s*/i, '').trim()).filter(Boolean).slice(0, 4);
+  const t = String(cell || '');
+  const MARK = /(?:^|[\s·;/])\(?([a-d])[.)]\s+/g;
+  const at = []; let m;
+  while ((m = MARK.exec(t))) { const letter = m[1].toLowerCase(); if (letter === String.fromCharCode(97 + at.length)) at.push({ i: m.index, end: MARK.lastIndex }); }
+  if (at.length >= 2) return at.map((a, k) => t.slice(a.end, k + 1 < at.length ? at[k + 1].i : t.length).replace(/[\s·;/]+$/, '').trim()).filter(Boolean).slice(0, 4);
+  return t.split(/\s+·\s+/).map((o) => o.replace(/^\s*\(?[a-d][.)]\s*/i, '').trim()).filter(Boolean).slice(0, 4);
 }
 
 // Naskah untuk satu item: maksimal 4 pertanyaan (batas AskUserQuestion), masing-masing 2–4 opsi; sisanya tetap lewat tabel.

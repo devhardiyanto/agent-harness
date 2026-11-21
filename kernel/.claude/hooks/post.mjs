@@ -56,6 +56,11 @@ try {
   const out = String((payload.tool_response && (payload.tool_response.stdout || payload.tool_response.output)) || '');
   const bm = /^(Bash|PowerShell)$/.test(payload.tool_name) && /harness\.mjs\s+topic\s+new\b/.test(String(input.command || '')) ? /docs\/topics\/([\w.-]+)\.md/.exec(out) : null;
   if (bm) markTopic(root, payload.session_id, bm[1]);
+  // 1.22.3: tiket "item baru"/"jadikan item" habis setelah item benar-benar dibuat
+  if (/^(Bash|PowerShell)$/.test(payload.tool_name) && /harness\.mjs\s+(new|topic\s+promote)\b/.test(String(input.command || '')) && /docs\/work\/\d{4}-/.test(out)) {
+    const { newItemTicketPath } = await import('./lib.mjs');
+    fs.rmSync(newItemTicketPath(root, payload.session_id), { force: true });
+  }
 } catch { /* abaikan */ }
 
 try {

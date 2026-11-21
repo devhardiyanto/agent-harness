@@ -168,7 +168,7 @@ test('ref:<slug> menyuntik ringkasan; Stop menampilkan rekap sekali per perubaha
   // 1.13.1: recap.render "assistant" (bawaan) → giliran ditahan sekali, agent menutup dengan tabel Markdown
   r = hook(root, 'stop.mjs', { hook_event_name: 'Stop' });
   assert.equal(r.status, 2);
-  assert.match(r.stderr, /Markdown, APA ADANYA[\s\S]*Belum selesai \(item sesi ini\)/);
+  assert.match(r.stderr, /open --mine --md" sebagai Markdown, APA ADANYA/); // 1.22.3: tabel tidak ditempel di pesan hook
   r = hook(root, 'stop.mjs', { hook_event_name: 'Stop' });
   assert.equal(r.status, 0); assert.equal(r.stdout, '', 'isi sama → tidak diulang');
 });

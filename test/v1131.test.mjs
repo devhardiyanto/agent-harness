@@ -68,8 +68,11 @@ test('rekap Stop: agent diminta menutup dengan tabel Markdown (slug pendek); tid
   wr(root, '.harness/state/touched-s.json', JSON.stringify({ slugs: [slug] }));
   let r = hook(root, 'stop.mjs', { hook_event_name: 'Stop', last_assistant_message: 'selesai mengedit.' });
   assert.equal(r.status, 2);
-  assert.match(r.stderr, new RegExp(`\\| 1 \\| ${short} \\| langkah \\|`));
-  assert.doesNotMatch(r.stderr, new RegExp(`\\| \\d{4}-\\d{2}-\\d{2}-${short} \\|`));
+  // 1.22.3: pesan hook hanya menunjuk perintah; slug pendek diperiksa di keluaran open --md
+  assert.match(r.stderr, /open --mine --md/);
+  const op = hx(root, 'open', '--md').stdout;
+  assert.match(op, new RegExp(`\\|\\s*1\\s*\\|\\s*${short}\\s*\\|\\s*langkah\\s*\\|`));
+  assert.doesNotMatch(op, new RegExp(`\\|\\s*\\d{4}-\\d{2}-\\d{2}-${short}\\s*\\|`));
   r = hook(root, 'stop.mjs', { hook_event_name: 'Stop', stop_hook_active: true });
   assert.equal(r.status, 0, 'lanjutan setelah ditahan tidak ditahan lagi');
   const root2 = project({ v1: true });

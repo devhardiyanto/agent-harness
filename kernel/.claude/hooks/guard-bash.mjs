@@ -46,12 +46,14 @@ export function evaluate(root, cfg, payload) {
     const top = activeSessionTopic(root, payload.session_id);
     const tk = newItemTicketPath(root, payload.session_id);
     if (act || top || mkPromote) {
-      if (!fs.existsSync(tk)) {
+      // 1.22.3: tiket berlaku 15 menit dan TIDAK dihabiskan di sini (perintah bisa gagal, mis. cwd salah); post.mjs
+      // menghapusnya setelah item benar-benar dibuat.
+      let fresh = false; try { fresh = Date.now() - fs.statSync(tk).mtimeMs < 15 * 60000; } catch { /* tidak ada tiket */ }
+      if (!fresh) {
         if (act) return fail(`sesi ini sudah punya item ${act.slug} (${act.status}); permintaan lanjutan dicatat di item itu, bukan item baru. Item baru hanya bila user mengetik "item baru".`);
         if (top && mkNew) return fail(`sesi ini sedang membahas topik ${top.slug} (docs/topics/${top.slug}.md); catat diskusi di sana. Menjadi work item hanya bila user mengetik "jadikan item" (lalu harness.mjs topic promote ${top.slug} <type>).`);
         return fail('topic promote hanya atas ketikan user "jadikan item [topik]".');
       }
-      fs.rmSync(tk, { force: true });
     }
   }
   if (/harness\.mjs\s+quick\b/.test(flat)) return fail('item quick hanya dibuat dari ketikan manusia: quick: <permintaan> (atau jalankan sendiri dengan awalan "!").');
