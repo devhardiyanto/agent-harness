@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.22.6',
+  harness_version: '1.22.7',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -437,6 +437,14 @@ export function codeFingerprint(root, cfg, item) {
 // mtime berkas tidak bisa jadi penanda: git clone/pull/switch/merge menulis ulang mtime semua berkas.
 const touchedPath = (root, sid) => path.join(root, '.harness', 'state', `touched-${String(sid || 'x').replace(/\W/g, '')}.json`);
 export const touchedSlugs = (root, sid) => new Set(readJson(touchedPath(root, sid), { slugs: [] }).slugs || []);
+// 1.22.7: CLI (open --mine) tidak tahu session_id. Pakai berkas touched-* yang paling baru diubah (= sesi yang sedang aktif).
+export function latestTouchedSlugs(root) {
+  const dir = path.join(root, '.harness', 'state');
+  try {
+    const f = fs.readdirSync(dir).filter((x) => /^touched-.*\.json$/.test(x)).map((x) => ({ x, t: fs.statSync(path.join(dir, x)).mtimeMs })).sort((a, b) => b.t - a.t)[0];
+    return f ? new Set(readJson(path.join(dir, f.x), { slugs: [] }).slugs || []) : new Set();
+  } catch { return new Set(); }
+}
 // 1.20.0: item aktif sesi ini = item terakhir yang disentuh sesi, belum merged, bukan quick
 export function activeSessionItem(root, sid) {
   const order = readJson(touchedPath(root, sid), { slugs: [] }).slugs || [];
