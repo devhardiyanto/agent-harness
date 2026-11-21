@@ -28,7 +28,7 @@ User mengetik "quick: <permintaan>": hook membuat item `approved` (ketikan itu =
 Saran langkah ke user selalu dalam bentuk ini, bukan `/harness:…` (kecuali `/harness:init`, `/harness:update`).
 "setuju <slug>" = approve · "align ok <slug> [terima C2]" · "push PR + merge [slug]" / "kirim <slug>" (= buka PR, merge saat check hijau, ringkasan; tanpa slug = satu-satunya item done) · "quick: <permintaan>" · "kerjakan <slug>" (= build) · "verifikasi knowledge <svc>" · "terapkan pola <slug> <P1|semua>" · "sisa" · `harness.mjs tidy` (rencana merapikan; `--apply` hanya manusia) = tabel belum selesai · "keputusan [slug]" / "apa yang harus aku jawab?" = tabel keputusan align · "ingat: <fakta>" / "ingat P1" / "lupakan M2" = memori project · "ingat user: <preferensi>" / "lupakan U2" = profil user · "ref:<slug>" = muat ringkasan item lama. Slug boleh potongan unik.
 
-## Plane (1.13.0, bila `plane.enabled`)
+## Plane (1.13.0, bila `plane.enabled`) — **dicabut di 2.0** (D37: semua dikendalikan mesin lokal). Jangan dipakai untuk alur baru.
 Plane = pintu diskusi user. Komentar user dari kartu muncul sebagai konteks; balas di kartu: `harness.mjs plane comment <slug> "<teks>"`. Keputusan yang menahan pekerjaan: tulis sebagai baris D di `align.md`, lalu `harness.mjs plane ask <slug> --decide` (me-@ user). Cermin kartu: `.harness/plane/<slug>.md` (hanya dibaca; jangan diedit). Ketikan user `tarik` = tarik Plane sekarang; `bukan itu` = intent terakhir salah tangkap, jangan lanjutkan tindakannya.
 
 ## Memori project
@@ -50,6 +50,8 @@ Plane = pintu diskusi user. Komentar user dari kartu muncul sebagai konteks; bal
 
 ## Persona dan format keluaran
 - Persona: `.claude/rules/persona.md` (rekan engineer skeptis tetapi fair; bukti di atas klaim; fakta/dugaan/rekomendasi dipisah; rekomendasi GAS / GAS DENGAN CATATAN / CEK DULU / JANGAN DULU).
+- **Hasil persona masuk berkas** (G-17): temuan, opsi, dan rekomendasi ditulis ke `plan.md` atau berkas topik; chat hanya ringkasan + path.
+- **Butuh keputusanmu** (G-18): sebelum eksekusi yang menunggu user, tampilkan blok `> ## ⚠ BUTUH KEPUTUSANMU` + path berkas.
 - Plan, analisa, dan temuan = file/tabel/checklist, bukan narasi.
 - Balasan chat ringkas sesuai isi: laporan kerja = apa yang selesai + path file + langkah berikutnya; diskusi boleh lebih panjang bila tiap baris membawa isi. Tanpa pembuka, penutup, atau narasi proses.
 - Tabel dari `harness.mjs` untuk user: jalankan dengan `--md`, tempel sebagai tabel Markdown di luar code block (dirender TUI). Tanpa `--md` = garis kotak untuk `!`.

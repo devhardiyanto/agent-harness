@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.22.0
+Feedback user (2026-11-21), keputusan D37–D39 di ROADMAP §12.
+- **Blok "butuh keputusan"** (D38): tabel keputusan (`decide`, pesan tolak `align ok`, tahanan Stop) dan rekap "Belum selesai" yang menunggu "setuju"/"align ok" kini diawali:
+  > ## ⚠ BUTUH KEPUTUSANMU
+  > **<apa>** ada di `<path berkas>`. Tolong dibaca ulang sebelum kita eksekusi.
+
+  TUI tidak bisa memperbesar huruf; heading di dalam blockquote adalah penekanan terkuat yang dirender. Persona G-18 dan aturan O-09 meminta hal yang sama untuk keputusan yang ditulis agent.
+- **Hasil persona masuk berkas** (D39, persona G-17): temuan, opsi, dan rekomendasi ditulis ke `plan.md` (bagian 2/3, Decision log) atau berkas topik; chat hanya ringkasan + path.
+- **ROADMAP**: Plane dicabut di 2.0 (D37, menggantikan D36 = B); 2.0 = orkestrator lokal (definisi + task R1, O1–O4, R2–R5). `AGENTS.md` menandai bagian Plane "dicabut di 2.0". Kode Plane belum dicabut; itu rilis R1.
+
 ## 1.21.1
 - **ID persona `R-` → `G-`** (`G-01`–`G-16`). Prefiks `R-` bentrok dengan aturan antislop `R-01`–`R-40` yang dikutip reviewer di kolom `aturan`. Catatan 1.21.0 menyebut `P-01–P-16`, yang juga bentrok dengan playbook; yang terpasang `R-`, dan kini `G-`.
 - **ROADMAP diperbarui**:

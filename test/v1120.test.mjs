@@ -53,7 +53,7 @@ test('pesan tolak "align ok" memakai tabel keputusan yang sama', () => {
   const slug = newItem(root, 'Seminar Tiga');
   wr(root, `docs/work/${slug}/align.md`, ALIGN(CLAIMS, DEC));
   const r = hook(root, 'prompt.mjs', { prompt: `align ok ${short(slug)}` });
-  assert.match(ctx(r).reason, /1 klaim masih "bertentangan" dengan kode\.\nKeputusan untuk .*\(3 terbuka\):\n\| # \| jenis/);
+  assert.match(ctx(r).reason, /1 klaim masih "bertentangan" dengan kode\.\n> ## ⚠ BUTUH KEPUTUSANMU\n> \*\*3 keputusan\*\* ada di `docs\/work\/[\w.-]+\/align\.md`\. Tolong dibaca ulang sebelum kita eksekusi\.\n\nKeputusan untuk .*\(3 terbuka\):\n\| # \| jenis/);
 });
 
 test('Stop (F1): giliran yang menyentuh item belum-aligned ditahan sampai tabel ditampilkan; sekali per isi; stop_hook_active; flag mati', () => {
