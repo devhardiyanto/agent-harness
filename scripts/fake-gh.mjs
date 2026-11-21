@@ -14,12 +14,15 @@ const opt = (n) => { const i = a.findIndex((x) => x === n || x.startsWith(`${n}=
 const has = (n) => a.includes(n);
 const out = (s) => { process.stdout.write(`${s}\n`); process.exit(0); };
 const fail = (s) => { process.stderr.write(`fake gh: ${s}\n`); process.exit(1); };
-const load = () => { try { return JSON.parse(fs.readFileSync(store, 'utf8')); } catch { return []; } };
+// 1.22.2: URL berbentuk https://host/owner/repo/pull/N (owner = "sandbox"), sesuai validasi harness.mjs ship.
+// Entri lama tanpa owner (https://sandbox.invalid/<repo>/pull/N) diubah saat dibaca.
+const prUrl = (repo, n) => `https://sandbox.invalid/sandbox/${repo}/pull/${n}`;
+const load = () => { try { return JSON.parse(fs.readFileSync(store, 'utf8')).map((p) => { const m = /^https:\/\/sandbox\.invalid\/([\w.-]+)\/pull\/(\d+)$/.exec(p.url || ''); return m ? { ...p, url: prUrl(m[1], m[2]) } : p; }); } catch { return []; } };
 const save = (l) => fs.writeFileSync(store, JSON.stringify(l, null, 2));
 const git = (cwd, ...x) => spawnSync('git', x, { cwd, encoding: 'utf8' });
 const top = (cwd) => (git(cwd, 'rev-parse', '--show-toplevel').stdout || '').trim() || cwd;
 const nameOf = (cwd) => path.basename(top(cwd));
-const find = (ref) => { const l = load(); const p = l.find((x) => x.url === ref || String(x.number) === String(ref)); return { l, p }; };
+const find = (ref) => { const l = load(); const r = String(ref || '').replace(/^https:\/\/sandbox\.invalid\/(?!sandbox\/)([\w.-]+)\/pull\//, 'https://sandbox.invalid/sandbox/$1/pull/'); const p = l.find((x) => x.url === r || String(x.number) === r); return { l, p }; };
 const jsonPick = (p, fields) => {
   const all = { state: p.state, isDraft: false, baseRefName: p.base, headRefName: p.head, headRefOid: (git(p.dir, 'rev-parse', p.head).stdout || '').trim() || p.sha, url: p.url, number: p.number, title: p.title,
     statusCheckRollup: [{ name: 'sandbox-check', status: 'COMPLETED', conclusion: 'SUCCESS' }] };
@@ -41,7 +44,7 @@ if (c2 === 'create') {
   if (!head || head === base) fail('butuh --head berbeda dari --base');
   if (git(dir, 'ls-remote', '--exit-code', 'origin', `refs/heads/${head}`).status !== 0) fail(`branch ${head} belum di-push ke origin (remote lokal)`);
   const l = load(); const number = l.length + 1;
-  const p = { number, url: `https://sandbox.invalid/${nameOf(dir)}/pull/${number}`, dir, head, base, title: opt('--title') || head, state: 'OPEN', created_at: new Date().toISOString() };
+  const p = { number, url: prUrl(nameOf(dir), number), dir, head, base, title: opt('--title') || head, state: 'OPEN', created_at: new Date().toISOString() };
   l.push(p); save(l); out(p.url);
 }
 if (c2 === 'list') { const l = load(); out(l.map((p) => `${p.number}\t${p.title}\t${p.head}\t${p.state}`).join('\n') || '(tidak ada PR)'); }
