@@ -25,3 +25,21 @@ test('persona G-17/G-18 dan O-09 ada di aturan kernel', () => {
   assert.match(persona, /G-18\. .*BUTUH KEPUTUSANMU|## ⚠ BUTUH KEPUTUSANMU/);
   assert.match(fs.readFileSync(path.join(k, '.claude/rules/output.md'), 'utf8'), /O-09\./);
 });
+
+test('1.22.1: next --md memuat blok bila menunggu "setuju"; rekap tidak dianggap tampil tanpa blok', async () => {
+  const { project, hx } = await import('./helpers.mjs');
+  const { alreadyShown } = await import('../kernel/.claude/hooks/stop.mjs');
+  const root = project({ v1: true });
+  delete process.env.HARNESS_ITEM_BENTUK;
+  const slug = hx(root, 'new', 'feature', 'bio').stdout.trim().split('/').pop();
+  const p = path.join(root, 'docs/work', slug, 'plan.md');
+  let t = fs.readFileSync(p, 'utf8').replace(/^align: open$/m, 'align: aligned');
+  t = t.replace(/### Klaim vs bukti kode\n\| # \| klaim \| bukti path:baris \| status \|\n\|---\|---\|---\|---\|/, '### Klaim vs bukti kode\n| # | klaim | bukti path:baris | status |\n|---|---|---|---|\n| C1 | x | a.js:1 | terverifikasi |');
+  t = t.replace(/## 4\. Eksekusi\n/, '## 4. Eksekusi\n- AC1: bio dibatasi\n');
+  fs.writeFileSync(p, t);
+  const out = hx(root, 'next', slug, '--md').stdout;
+  assert.match(out, /^> ## ⚠ BUTUH KEPUTUSANMU/, out);
+  const table = formatOpen([{ item: slug, label: 'bio', jenis: 'langkah', apa: 'draft', siapa: 'kamu', aksi: `tinjau plan.md; bila setuju ketik setuju ${slug}` }]);
+  assert.equal(alreadyShown(table, `| ${slug} | draft | kamu | tinjau plan.md; bila setuju ketik setuju ${slug} |`), false);
+  assert.equal(alreadyShown(table, `> ## ⚠ BUTUH KEPUTUSANMU\n| ${slug} | tinjau plan.md; bila setuju ketik setuju ${slug} |`), true);
+});

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.22.1
+Temuan uji sandbox T8: setelah AC ditulis, blok **⚠ BUTUH KEPUTUSANMU** tidak muncul.
+- **`harness.mjs next`** kini mencetak blok keputusan bila ada langkah yang menunggu "setuju"/"align ok" dari user. Agent menampilkan tabel dari `next --md`, bukan dari rekap.
+- **Rekap Stop tidak lagi dianggap sudah tampil** bila tabelnya memuat blok keputusan tetapi pesan agent tidak. Sebelumnya rekap dilewati karena sel "aksi" sudah ada di pesan agent, sehingga bloknya hilang.
+
 ## 1.22.0
 Feedback user (2026-11-21), keputusan D37–D39 di ROADMAP §12.
 - **Blok "butuh keputusan"** (D38): tabel keputusan (`decide`, pesan tolak `align ok`, tahanan Stop) dan rekap "Belum selesai" yang menunggu "setuju"/"align ok" kini diawali:
