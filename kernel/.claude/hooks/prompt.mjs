@@ -134,7 +134,12 @@ if (!m && !mv && !mp && !mq && !ms && !ma && !mu) {
         const how = act.status === 'draft' ? 'perbarui bagian 1–3 plan.md (objective, penjelasan, klaim, baris D) bila lingkupnya berubah; diskusi dan keputusan dicatat di item ini'
           : ['approved', 'in-progress'].includes(act.status) ? `catat di "### Decision log"; AC tambahan kecil lewat "harness.mjs amend ${sl} --ac ..."; perubahan lingkup besar = user mengetik reopen`
           : 'catat di "### Decision log"; perbaikan kode setelah review/done = AC tambahan (amend) atau reopen';
-        extra.push(`[harness] Sesi ini sedang membahas item ${act.slug} (${act.status}). Permintaan ini LANJUTAN item itu, bukan item baru: ${how}. Jangan menjalankan "harness.mjs new" (ditolak hook). Item baru hanya bila user mengetik "item baru".`);
+        // 1.22.6 (T19): nilai dulu objective-nya. Permintaan beda objective tidak boleh mengubah plan.md (apalagi membuka align yang sudah disetujui).
+        const reopen = (act.fm && act.fm.align === 'aligned') || act.status !== 'draft' ? ' dan membuka lagi persetujuan yang sudah ada' : '';
+        extra.push(`[harness] Sesi ini sedang membahas item ${act.slug} (${act.status}). Nilai dulu: apakah permintaan ini masih objective item itu (bagian 1 plan.md)?
+- Masih objective yang sama → LANJUTAN item itu: ${how}.
+- Objective lain (fitur/perbaikan berbeda) → JANGAN mengubah plan.md. Tanyakan satu pertanyaan dengan AskUserQuestion: "item baru" (rekomendasi; user mengetik "item baru: <judul>") atau "gabung ke item ini" (mengubah objective/lingkup${reopen}). Detail fitur baru (bentuk data, aturan validasi, service) ditanyakan di item barunya, bukan di sini.
+Jangan menjalankan "harness.mjs new" (ditolak hook). Item baru hanya bila user mengetik "item baru".`);
       }
       else if (top) {
         extra.push(`[harness] Sesi ini sedang membahas topik ${top.slug} (docs/topics/${top.slug}.md). Permintaan ini LANJUTAN topik itu: catat temuan (fakta/dugaan/rekomendasi + bukti) dan keputusan final di berkasnya. Bila user meminta perubahan kode, sarankan satu baris: ketik "jadikan item". Jangan "harness.mjs new" (ditolak hook).`);
