@@ -3,6 +3,7 @@
 // maksimal dua baris. Hanya membaca berkas item yang disentuh sesi ini, jadi biayanya tidak bergantung jumlah work item.
 // Tidak pernah gagal keras: galat apa pun → satu baris polos, agar TUI tidak terganggu.
 import fs from 'node:fs';
+import { activeSessionTopic } from './topic.mjs';
 import path from 'node:path';
 import { rootAge } from './growth.mjs';
 import { itemBidang, bidangLabel, sessionBidang } from './bidang.mjs';
@@ -48,6 +49,7 @@ export function statusData(root, cfg, payload = {}) {
   const pct = payload.context_window && payload.context_window.used_percentage;
   if (typeof pct === 'number') d.ctx = Math.floor(pct);
   if (cfg.bidang && cfg.bidang.enabled) { const sb = sessionBidang(root, payload.session_id); d.bidang = it ? bidangLabel(itemBidang(cfg, it, sb)) || sb : sb; }
+  if (!it) { try { const tp = activeSessionTopic(root, payload.session_id); if (tp) d.topic = tp.slug.replace(/^\d{4}-\d{2}-\d{2}-/, ''); } catch { /* abaikan */ } }
   if (it) {
     const s = summarizeItem(it);
     const ev = readEvidence(root, it.slug);
@@ -64,7 +66,8 @@ export function render(d, { theme = 'tenang', max = 120 } = {}) {
   const cut = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
   const l1 = [`${c('root', `▌${d.root}`)}`];
   const l2 = [];
-  if (!d.item) l1.push(c('dim', 'tidak ada item aktif · ketik permintaanmu'));
+  if (!d.item && d.topic) l1.push(c('item', `topik: ${cut(d.topic, 36)}`), c('dim', '◆ diskusi · "jadikan item" bila perlu perubahan'));
+  else if (!d.item) l1.push(c('dim', 'tidak ada item aktif · ketik permintaanmu'));
   else {
     const i = d.item;
     l1.push(c('item', cut(i.slug, 36)) + (i.others ? c('dim', ` +${i.others}`) : ''), st(i.status) + (i.quick ? c('dim', ' quick') : ''));

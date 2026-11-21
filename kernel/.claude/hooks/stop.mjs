@@ -159,9 +159,11 @@ if (isMain(import.meta.url)) {
     const t = rc && rc.text;
     if (t) {
       const last = String(payload.last_assistant_message || '');
-      const hold = cfg.recap.hold === 'always' || (cfg.recap.hold !== 'never' && rc.statusChanged);
+      const empty = /\(kosong\)/.test(t.split('\n')[0] || '');
+      const hold = !empty && (cfg.recap.hold === 'always' || (cfg.recap.hold !== 'never' && rc.statusChanged));
       if (cfg.recap.render === 'assistant' && hold && !payload.stop_hook_active && !/Belum selesai[^\n]*\(\d+\)/.test(last) && !alreadyShown(t, last)) {
-        process.stderr.write(`[harness] Tutup giliran ini dengan tabel berikut sebagai Markdown, APA ADANYA (dibuat kode). Tanpa narasi tambahan, tanpa mengulang isi giliran.\n\n${t}\n`);
+        // 1.22.3: tabel tidak ditempel di pesan hook (Claude Code menampilkannya sebagai teks polos → tabel tampil dua kali)
+        process.stderr.write('[harness] Tutup giliran ini dengan keluaran "node .claude/hooks/harness.mjs open --mine --md" sebagai Markdown, APA ADANYA. Tanpa narasi tambahan.\n');
         process.exit(2);
       }
       if (cfg.recap.render !== 'assistant') process.stdout.write(JSON.stringify({ systemMessage: `[harness] ${t}` }));

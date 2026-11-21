@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { knowledgeStatusAll, knowledgeCfg } from './knowledge.mjs';
 import { readStdinJson, projectRoot, loadConfig, listItems, context, audit, planeKick } from './lib.mjs';
-import { readHandoff } from './handoff.mjs';
+import { readHandoff, writeHandoff } from './handoff.mjs';
 import { snapshot, hasIndex, reindex } from './memory.mjs';
 import { playbookIndex } from './playbooks.mjs';
 import { objectiveOf } from './summary.mjs';
@@ -48,7 +48,8 @@ try { if (cfg.memory.enabled && !hasIndex(root)) { const n = reindex(root, objec
 try { const mem = snapshot(root, cfg); if (mem) lines.push(mem.slice(0, cfg.memory.max_chars + cfg.memory.user_max_chars + 800)); } catch { /* abaikan */ }
 try { const pb = playbookIndex(root, cfg); if (pb) lines.push(pb.slice(0, 2500)); } catch { /* abaikan */ }
 if (cfg.intent.enabled) lines.push('Kalimat pendek user = perintah (diproses hook): "keputusan", "ingat user: ...", "setuju <slug>", "align ok <slug> [terima C2]", "push PR + merge [slug]", "quick: ...", "sisa", "ingat: ...", "ref:<slug>". Di akhir giliran yang mengubah item, tutup dengan tabel "Belum selesai" (node .claude/hooks/harness.mjs open --mine --md bila perlu), bukan narasi.');
-try { const h = readHandoff(root, cfg); if (h) lines.push(h); } catch { /* abaikan */ }
+// 1.22.3: tulis ulang dari berkas dulu: handoff lama bisa usang (mis. item sudah merged tetapi sesi sebelumnya belum ditutup)
+try { if (fs.existsSync(path.join(root, '.harness', 'handoff.md'))) writeHandoff(root, cfg, { hook_event_name: 'SessionStart', session_id: payload.session_id }); const h = readHandoff(root, cfg); if (h) lines.push(h); } catch { /* abaikan */ }
 // 1.13.0 (D10): align.md format lama dimigrasi otomatis (hanya menambah bagian "## Keputusan terbuka")
 try { const f = fixAlign(root); if (f.length) lines.push(`Migrasi: ${f.length} align.md diberi bagian "Keputusan terbuka" (${f.slice(0, 5).join(', ')}).`); } catch { /* abaikan */ }
 if (cfg.plane.enabled) lines.push('Plane = pintu diskusi: komentar user di kartu muncul sebagai konteks; balas dengan "harness.mjs plane comment <slug> <teks>". Keputusan yang menahan pekerjaan: "harness.mjs plane ask <slug> --decide" (me-@ user). User mengetik "tarik" untuk menarik Plane sekarang.');

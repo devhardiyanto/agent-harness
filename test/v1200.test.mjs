@@ -29,7 +29,10 @@ test('"item baru" dari user = tiket sekali pakai untuk new', () => {
   const pr = hook(root, 'prompt.mjs', { prompt: 'item baru: tambah avatar di profil' });
   assert.match(pr.stdout, /ITEM BARU/);
   assert.equal(bash(root, 'node .claude/hooks/harness.mjs new feature "tambah avatar"').status, 0);
-  assert.equal(bash(root, 'node .claude/hooks/harness.mjs new feature "lagi"').status, 2, 'tiket terpakai');
+  // 1.22.3: tiket tidak habis di guard (perintah bisa gagal); habis setelah item benar-benar dibuat (post.mjs)
+  assert.equal(bash(root, 'node .claude/hooks/harness.mjs new feature "tambah avatar"').status, 0, 'percobaan ulang setelah gagal tetap boleh');
+  hook(root, 'post.mjs', { session_id: 's', tool_name: 'Bash', tool_input: { command: 'node .claude/hooks/harness.mjs new feature "tambah avatar"' }, tool_response: { stdout: 'docs/work/2026-11-21-tambah-avatar\n' } });
+  assert.equal(bash(root, 'node .claude/hooks/harness.mjs new feature "lagi"').status, 2, 'tiket habis setelah item dibuat');
 });
 
 test('prompt biasa di sesi ber-item aktif: konteks LANJUTAN item itu', () => {

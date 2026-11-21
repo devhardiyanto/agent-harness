@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.22.3
+Temuan uji sandbox sesi 1–2 (N1, N2, N4–N8).
+- **Opsi pemilih tidak terpotong** (N8): opsi dipecah hanya di penanda `a)`/`(a)`/`a.` bila ada ≥ 2 penanda. `;` dan `/` di dalam teks opsi tidak lagi memecahnya menjadi potongan kalimat.
+- **Izin "jadikan item"/"item baru" tidak hangus oleh perintah yang gagal** (N7): guard tidak lagi menghabiskan tiket. Tiket berlaku 15 menit dan baru dihapus setelah `new`/`topic promote` benar-benar membuat item.
+- **Status line menampilkan topik** (N5): `topik: <slug> ◆ diskusi`, bila sesi membahas topik tanpa item.
+- **Handoff dibangun ulang saat sesi dibuka** (N6). Sebelumnya agent di sesi baru bisa membaca handoff lama ("masih done") untuk item yang sudah merged, karena sesi sebelumnya belum ditutup.
+- **Rekap kosong tidak menahan giliran** (N4).
+- **Pesan tahan Stop tidak menempel tabel** (N1). Agent diminta menampilkan `harness.mjs open --mine --md`, jadi tabel hanya tampil sekali.
+- **Skill review: Decision log diisi sebelum done** (N2). Pelajaran setelah `done` diambil dari Decision log; sebelumnya log kosong sehingga pemilih pelajaran tidak muncul.
+
 ## 1.22.2
 Temuan uji sandbox T12: commit dan PR berhasil, tetapi `harness.mjs ship` menolak merge karena URL PR dari gh tiruan (`https://sandbox.invalid/backend/pull/1`) tidak berbentuk `https://host/owner/repo/pull/N`.
 - **gh tiruan** kini membuat URL `https://sandbox.invalid/sandbox/<repo>/pull/N`. Entri lama di `.sandbox/prs.json` dan URL lama yang dirujuk ikut dikenali, jadi sandbox yang sudah berjalan bisa melanjutkan tanpa reset (salin `scripts/fake-gh.mjs` ke `.sandbox/bin/`).
