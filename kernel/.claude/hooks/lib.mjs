@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.22.8',
+  harness_version: '1.22.9',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -412,7 +412,8 @@ export function formatDecision(root, item) {
     : `Berikutnya (kamu): bila sepaham, ketik "align ok ${sl}".`;
   const rel = `docs/work/${item.slug}/${isSingle(item) ? 'plan.md' : 'align.md'}`;
   const banner = rows.length ? [decisionBanner(rel, `${rows.length} keputusan`), ''] : [];
-  return [...banner, `Keputusan untuk ${item.slug} (${rows.length} terbuka):`, ...head, next].join('\n');
+  // 1.22.9 (H3): baris kosong sebelum "Berikutnya" agar tidak dirender sebagai baris tabel
+  return [...banner, `Keputusan untuk ${item.slug} (${rows.length} terbuka):`, ...head, ...(head.length ? [''] : []), next].join('\n');
 }
 export const alignExempt = (item, cfg) => isQuick(item) || !cfg.align.required || (cfg.align.exempt_types || []).includes(item.type);
 export function alignProblems(item, cfg) {

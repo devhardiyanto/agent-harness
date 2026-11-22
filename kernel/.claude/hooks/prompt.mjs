@@ -106,6 +106,7 @@ const ma = /^\s*\/(?:harness:)?align\s+([\w.\-]+)\s+ok(?:\s+terima\s+(semua|all|
 // /harness:update [all|rollback] atau kalimat "tolong root nya di update ke main": ketikan manusia = izin menjalankan `harness.mjs update` (tiket, 30 menit)
 const mu = /^\s*\/(?:harness:)?update(?:\s+(all|rollback))?\s*$/i.exec(prompt)
   || (prompt.trim().length <= 120 && /root\s*nya\s+di\s*update\s+ke\s+main/i.test(prompt) ? [prompt, undefined] : null);
+const ANALYSIS = /\b(analisa|analisis|audit|review|tinjau|jelaskan|pahami|telusuri|flowchart|diagram|alur|bandingkan|investigasi|kenapa|mengapa)\b/i;
 if (!m && !mv && !mp && !mq && !ms && !ma && !mu) {
   // Peringatan ambang konteks juga di sini (bukan hanya setelah tool): murah, sekali per prompt.
   const extra = [...refCtx];
@@ -143,6 +144,14 @@ Jangan menjalankan "harness.mjs new" (ditolak hook). Item baru hanya bila user m
       }
       else if (top) {
         extra.push(`[harness] Sesi ini sedang membahas topik ${top.slug} (docs/topics/${top.slug}.md). Permintaan ini LANJUTAN topik itu: catat temuan (fakta/dugaan/rekomendasi + bukti) dan keputusan final di berkasnya. Bila user meminta perubahan kode, sarankan satu baris: ketik "jadikan item". Jangan "harness.mjs new" (ditolak hook).`);
+      }
+      // 1.22.9 (H1): analisa/audit/penjelasan tanpa awalan "topik:" di sesi kosong → sarankan topik, sekali per sesi
+      else if (ANALYSIS.test(payload.prompt)) {
+        const f = path.join(root, '.harness', 'state', `topicnudge-${String(sid || 'x').replace(/\W/g, '')}`);
+        if (!fs.existsSync(f)) {
+          fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, new Date().toISOString());
+          extra.push('[harness] Sesi ini belum punya item atau topik, dan permintaan ini tampak analisa/audit/penjelasan. Bila memang belum meminta perubahan kode: buka topik dulu ("node .claude/hooks/harness.mjs topic new <judul singkat>") dan tulis temuan (fakta/dugaan/rekomendasi + bukti), keputusan, dan tautan hasil (mis. artifact) di berkas topik itu (G-17). Bila permintaannya perubahan kode, abaikan saran ini (alur item biasa).');
+        }
       }
     } catch { /* tidak boleh mengganggu prompt */ }
   }

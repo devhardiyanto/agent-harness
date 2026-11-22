@@ -296,7 +296,8 @@ switch (cmd) {
   }
   case 'open': {
     let slugs = null;
-    if (args.includes('--mine')) { const ev = readEvents(root, 200).filter((e) => e.slug); slugs = new Set([...ev.slice(-20).map((e) => e.slug), ...latestTouchedSlugs(root)]); }
+    // 1.22.9 (H4): item sesi terakhir saja; event log (semua sesi) hanya cadangan bila sesi itu belum menyentuh item
+    if (args.includes('--mine')) { const sess = latestTouchedSlugs(root); slugs = sess.size ? sess : new Set(readEvents(root, 200).filter((e) => e.slug).slice(-20).map((e) => e.slug)); }
     const rows = openRows(root, cfg, { slugs });
     if (args.includes('--json')) { console.log(JSON.stringify(rows, null, 2)); break; }
     console.log(formatOpen(rows, args.includes('--all') ? 999 : cfg.recap.max_rows));

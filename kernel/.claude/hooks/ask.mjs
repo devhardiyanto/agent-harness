@@ -11,8 +11,11 @@ import { readStdinJson, projectRoot, loadConfig, readItem, readAlign, decisionRo
 const naskahPath = (root, sid) => path.join(root, '.harness', 'state', 'ask', `${String(sid || 'x').replace(/\W/g, '')}.json`);
 const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
-const CLAIM_OPTS = ['benar', 'salah'];
+const CLAIM_OPTS = ['benar', 'salah', 'belum tahu'];
+const CLAIM_DESC = ['klaim dikonfirmasi', 'agent mengoreksi klaim; jelaskan di chat bila perlu', 'tetap belum terbukti; dicatat sebagai risiko, tidak dianggap fakta'];
 // Nilai yang ditulis ke kolom status klaim (bukan "dugaan" lagi). "salah" = bertentangan: agent wajib mengoreksi teks klaim.
+// 1.22.9 (H2): "belum tahu" = user tidak bisa memastikan; klaim tidak dikonfirmasi dan tidak dibantah, tidak ditanyakan ulang
+export const unknownStatus = (via) => `belum diketahui (user, ${via}; risiko terbuka)`;
 export const claimStatus = (yes, note, via) => (yes ? `dikonfirmasi (user, ${via})` : `bertentangan (user, ${via}${note ? `: ${String(note).replace(/\|/g, '/').trim()}` : ''})`);
 
 // "a) 300 · b) tanpa batas" | "a. X · b. Y (rekomendasi)" → ['300', 'tanpa batas']
@@ -34,7 +37,7 @@ export function buildQuestions(root, item) {
     // 1.19.4: klaim dugaan ikut ditanyakan (benar/salah); jawabannya ditulis ke kolom status klaim
     const opts = d.kind === 'dugaan' ? CLAIM_OPTS : parseOptions(d.options);
     if (opts.length < 2) continue;
-    qs.push({ id: d.id, header: clip(`${d.id} ${shortSlug(root, item.slug)}`, 12), question: `${d.id}: ${d.ask}`, options: opts.map((o, i) => ({ label: clip(o, 60), description: d.kind === 'dugaan' ? (i === 0 ? 'klaim dikonfirmasi' : 'agent mengoreksi klaim; jelaskan di chat bila perlu') : i === 0 ? 'rekomendasi' : '' })), multiSelect: false });
+    qs.push({ id: d.id, header: clip(`${d.id} ${shortSlug(root, item.slug)}`, 12), question: `${d.id}: ${d.ask}`, options: opts.map((o, i) => ({ label: clip(o, 60), description: d.kind === 'dugaan' ? CLAIM_DESC[i] : i === 0 ? 'rekomendasi' : '' })), multiSelect: false });
     if (qs.length === 4) break;
   }
   return qs;
@@ -110,7 +113,7 @@ export function recordAnswers(root, payload) {
       const a = ans.get(norm(q.question));
       if (a === undefined || !a.trim()) continue;
       const isClaim = /^C\d+$/i.test(q.id);
-      const val = isClaim ? claimStatus(norm(a).startsWith('benar'), '', 'pemilih') : a;
+      const val = !isClaim ? a : norm(a).startsWith('belum') ? unknownStatus('pemilih') : claimStatus(norm(a).startsWith('benar'), '', 'pemilih');
       if (writeAnswer(it, q.id, val, isClaim ? '' : '(pemilih)')) done.push(`${slug} ${q.id}=${a}`);
     }
   }
@@ -160,7 +163,7 @@ if (isMain(import.meta.url)) main();
 
 // 1.19.4: jawaban yang DIKETIK user ("C4 benar dan C5 benar", "C4 a, C5 a", "D1: a", "C2 salah: pakai kolom X", "semua benar")
 // dicatat hook UserPromptSubmit langsung ke berkas item, agar tidak bergantung pada agent. Hanya bila SELURUH ketikan berupa jawaban.
-const TOKEN = /^([CD]\d+)\s*[:=.)]?\s*(benar|salah|ya|tidak|ok|setuju|[a-d])\b\s*(?:[:\-–]\s*(.+))?$/i;
+const TOKEN = /^([CD]\d+)\s*[:=.)]?\s*(benar|salah|belum(?:\s+tahu)?|ya|tidak|ok|setuju|[a-d])\b\s*(?:[:\-–]\s*(.+))?$/i;
 export function parseTypedAnswers(text) {
   const t = String(text || '').trim();
   if (!t || t.length > 600) return null;
@@ -188,12 +191,13 @@ export function applyTypedAnswers(root, sid, answers) {
   const done = [];
   for (const a of list) {
     const r = rows.find((x) => x.id === a.id); if (!r) continue;
+    if (r.kind !== 'dugaan' && /^belum/.test(a.val)) continue; // "belum tahu" hanya untuk klaim; keputusan tetap terbuka
     const yes = /^(benar|ya|ok|setuju|a)$/.test(a.val);
     let val;
     if (r.kind === 'keputusan') { const opts = parseOptions(r.options); const i = 'abcd'.indexOf(a.val); val = i >= 0 && opts[i] ? opts[i] : a.val; if (a.note) val += ` (${a.note})`; }
-    else if (r.kind === 'dugaan') val = claimStatus(yes, a.note, 'ketik');
+    else if (r.kind === 'dugaan') val = /^belum/.test(a.val) ? unknownStatus('ketik') : claimStatus(yes, a.note, 'ketik');
     else val = yes ? 'bertentangan, risiko diterima (user, ketik)' : `bertentangan (user, ketik${a.note ? `: ${a.note}` : ''})`;
-    if (writeAnswer(it, a.id, val, r.kind === 'keputusan' ? '(ketik)' : '')) done.push(`${a.id}=${r.kind === 'keputusan' ? val : yes ? 'benar' : 'salah'}`);
+    if (writeAnswer(it, a.id, val, r.kind === 'keputusan' ? '(ketik)' : '')) done.push(`${a.id}=${r.kind === 'keputusan' ? val : /^belum/.test(a.val) ? 'belum tahu' : yes ? 'benar' : 'salah'}`);
   }
   if (done.length) audit(root, { event: 'typed-answer', session: sid, slug: it.slug, answers: done.join('; ') });
   return { ok: done.length > 0, slug: it.slug, done, left: decisionRows(readItem(root, it.slug) || it).length, why: done.length ? '' : 'tidak ada baris yang bisa ditulis' };

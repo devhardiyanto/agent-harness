@@ -49,7 +49,7 @@ test('pemilih: klaim dugaan ikut ditanyakan; naskah ditulis ke berkas, pesan hoo
   const { readItem } = await import(pathToFileURL(path.join(root, '.claude/hooks/lib.mjs')).href);
   const qs = buildQuestions(root, readItem(root, slug));
   assert.deepEqual(qs.map((q) => q.id), ['C4', 'C5', 'D1']);
-  assert.deepEqual(qs[0].options.map((o) => o.label), ['benar', 'salah']);
+  assert.deepEqual(qs[0].options.map((o) => o.label), ['benar', 'salah', 'belum tahu']);
   const msg = askInstruction(qs, root, 'sesi-1');
   assert.doesNotMatch(msg, /"questions"/);
   assert.match(msg, /\.harness\/state\/ask\/args-sesi1\.json/);
