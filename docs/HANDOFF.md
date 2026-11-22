@@ -4,12 +4,23 @@ Dokumen ini adalah konteks lengkap untuk melanjutkan pekerjaan di sesi chat lain
 
 ## 0. Cara memakai di sesi baru
 
-Tempel pesan pembuka ini ke sesi baru (repo `devhardiyanto/agent-harness`):
+Buka sesi **Claude Code on the web** baru dengan repo `devhardiyanto/agent-harness` (branch `main`, setelah PR handoff di-merge), lalu tempel pesan pembuka ini:
 
 ```
-Baca docs/HANDOFF.md, ROADMAP.md (§10 dan §12), dan bagian teratas CHANGELOG.md.
-Lanjutkan dari bagian "7. Uji event yang sedang berjalan". Aku kirim screenshot per langkah;
-kamu hanya menilai terhadap kolom "lulus bila", tidak menjawab pemilih/pertanyaan agent harness atas namaku.
+Konteks: aku melanjutkan pengembangan harness dari sesi Claude Code on the web sebelumnya.
+Baca dulu docs/HANDOFF.md (seluruhnya), ROADMAP.md §10 dan §12, dan bagian 1.22.6–1.24.0 di CHANGELOG.md.
+Kalau docs/HANDOFF.md belum ada di main, ambil dari branch claude/loving-dirac-zepqcu.
+
+Aturan (detail di HANDOFF §2):
+- Jawab dalam bahasa Indonesia, pakai tabel keputusan dan label GAS / GAS DENGAN CATATAN / CEK DULU / JANGAN DULU.
+- Satu PR per rilis; aku yang merge, kamu tidak pernah merge dan tidak force push.
+- GitHub hanya lewat `gh api` REST.
+- Saat aku kirim screenshot uji dari project event, kamu hanya MENILAI terhadap kolom "lulus bila";
+  jangan menjawab pemilih atau pertanyaan agent harness atas namaku.
+- Setiap temuan uji dikumpulkan sebagai patch 1.24.x (HANDOFF §5), dikerjakan setelah uji event selesai.
+
+Posisi sekarang: HANDOFF §7 langkah 7b (aku akan mengetik "setuju" di event lalu kirim screenshot).
+Balas dulu dengan ringkasan 5 baris: versi, posisi uji, fitur masuk 1.24.1, bug terbuka, langkah berikutnya.
 ```
 
 ## 1. Status saat ini
