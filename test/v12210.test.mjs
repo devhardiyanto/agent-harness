@@ -89,3 +89,16 @@ test('H7: gate menulis DITERIMA untuk check yang diterima; FAIL lagi bila peneri
   fs.writeFileSync(path.join(root, 'source-code/api/baru.js'), 'ubah\n');
   assert.equal(row(runGate(root, cfg, readItem(root, slug)))[1], 'FAIL');
 });
+
+test('H9 (1.22.11): rekap yang hanya berisi usulan memori tidak menahan', async () => {
+  const { recapFor } = await import('../kernel/.claude/hooks/stop.mjs');
+  const { loadConfig } = await import('../kernel/.claude/hooks/lib.mjs');
+  const root = project({ v1: true });
+  const { p } = inProgress(root);
+  fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/^status: in-progress$/m, 'status: merged'));
+  fs.mkdirSync(path.join(root, 'docs/memory'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'docs/memory/pending.md'), '# Usulan\n\n- P1 · 2026-11-22 · agent · fakta awet untuk diuji\n');
+  const rc = recapFor(root, loadConfig(root), 's');
+  assert.match(rc.text, /usulan memori/);
+  assert.equal(rc.onlyMemory, true);
+});

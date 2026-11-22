@@ -416,9 +416,10 @@ test('measure: token per model, panggilan subagent, durasi dari transcript', () 
 });
 
 // ---------- instalasi: berkas baru terpasang ----------
-test('kernel memuat hook dan agent baru; settings: model sonnet dan hook Stop/PreCompact/SessionEnd', () => {
+test('kernel memuat hook dan agent baru; settings: model Opus 5.5 medium (1.22.11) dan hook Stop/PreCompact/SessionEnd', () => {
   const st = JSON.parse(fs.readFileSync(path.join(kernel, '.claude/settings.json'), 'utf8'));
-  assert.equal(st.model, 'sonnet');
+  assert.equal(st.model, 'claude-opus-5-5');
+  assert.equal(st.effortLevel, 'medium');
   for (const ev of ['Stop', 'PreCompact', 'SessionEnd']) assert.ok(st.hooks[ev], ev);
   for (const f of ['stop', 'handoff', 'store', 'evidence', 'metrics']) assert.ok(fs.existsSync(path.join(kernel, '.claude/hooks', `${f}.mjs`)), f);
   for (const a of ['scout', 'runner', 'reviewer']) assert.ok(fs.existsSync(path.join(kernel, '.claude/agents', `${a}.md`)), a);

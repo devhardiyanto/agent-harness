@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.22.11
+Penutup uji nyata di event: gerbang pilot §10 **hijau** (S1–S4 dan GitHub asli, PR #95 di repo event merged; `pilot --hours 6` = "Siap 2.0").
+- **Model bawaan sesi: Opus 5.5, effort medium** (`.claude/settings.json`: `"model": "claude-opus-5-5"`, `"effortLevel": "medium"`; permintaan user). `/model` atau `/effort` di dalam sesi tetap bisa menggantinya. Subagent tidak berubah (scout/runner Haiku, reviewer Opus, spesialis Sonnet).
+- **Rekap yang hanya berisi usulan memori tidak menahan giliran** (H9): setelah item merged, Stop menahan sekali hanya untuk menampilkan satu baris usulan memori lama.
+- ROADMAP §10 ditandai hijau, beserta buktinya.
+
 ## 1.22.10
 Temuan uji nyata di project event (H5–H8), lanjutan 1.22.9.
 - **`kerjakan` tidak berhenti sebelum spesialis dipanggil** (H5): agent mengubah status ke `in-progress`, membuat daftar tugas, lalu berhenti; rekap Stop malah menyuruhnya menutup giliran. Kini gerbang Stop menahan sekali bila item `in-progress` belum punya satu pun bukti ("build belum dimulai: panggil spesialis"), dan rekap tidak menahan saat status baru berubah ke `in-progress`.

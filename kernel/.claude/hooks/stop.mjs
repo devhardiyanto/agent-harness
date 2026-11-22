@@ -90,7 +90,8 @@ export function recapFor(root, cfg, sid) {
   // 1.22.10 (H5b): perubahan yang hanya "→ in-progress" = kerja baru mulai; bukan saatnya menutup giliran dengan rekap
   const before = new Set(String(prev.sk || '').split(',').filter(Boolean));
   const fresh = sk.split(',').filter((x) => x && !before.has(x));
-  return { text, statusChanged: prev.sk !== sk, startedOnly: fresh.length > 0 && fresh.every((x) => x.endsWith(':in-progress')) };
+  // 1.22.11 (H9): tabel yang hanya berisi usulan memori tidak menahan giliran (tidak ada langkah item yang perlu ditampilkan)
+  return { text, statusChanged: prev.sk !== sk, startedOnly: fresh.length > 0 && fresh.every((x) => x.endsWith(':in-progress')), onlyMemory: rows.length > 0 && rows.every((r) => r.jenis === 'usulan memori') };
 }
 
 export function problemsFor(root, cfg, sid) {
@@ -176,7 +177,7 @@ if (isMain(import.meta.url)) {
     if (t) {
       const last = String(payload.last_assistant_message || '');
       const empty = /\(kosong\)/.test(t.split('\n')[0] || '');
-      const hold = !empty && !rc.startedOnly && (cfg.recap.hold === 'always' || (cfg.recap.hold !== 'never' && rc.statusChanged));
+      const hold = !empty && !rc.startedOnly && !rc.onlyMemory && (cfg.recap.hold === 'always' || (cfg.recap.hold !== 'never' && rc.statusChanged));
       if (cfg.recap.render === 'assistant' && hold && !payload.stop_hook_active && !/Belum selesai[^\n]*\(\d+\)/.test(last) && !alreadyShown(t, last)) {
         // 1.22.3: tabel tidak ditempel di pesan hook (Claude Code menampilkannya sebagai teks polos → tabel tampil dua kali)
         process.stderr.write('[harness] Tutup giliran ini dengan keluaran "node .claude/hooks/harness.mjs open --mine --md" sebagai Markdown, APA ADANYA. Tanpa narasi tambahan.\n');

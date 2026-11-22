@@ -246,7 +246,7 @@ Task 2.0:
 
 Ukuran PRD §6 yang **belum diukur** di project nyata: ketikan perintah per item ≤ 3, keputusan lewat pemilih ≥ 80%, eksekusi oleh spesialis benar ≥ 90%. Sumbernya log pilot dan audit (`agent` di audit sejak 1.19.2).
 
-## 10. Gerbang pilot (syarat T10)
+## 10. Gerbang pilot (syarat T10) — **HIJAU** (2026-11-22)
 
 | syarat | status | bukti / yang kurang |
 |---|---|---|
@@ -254,7 +254,7 @@ Ukuran PRD §6 yang **belum diukur** di project nyata: ketikan perintah per item
 | S2 salah tangkap ≤ 0 | ✅ | sandbox: 0 |
 | S3 tabel keputusan ditahan Stop ≥ 1 | ✅ | sandbox: 1 penahanan |
 | S4 "push PR + merge" sampai merged ≥ 1 | ✅ | sandbox 1.22.5 (uji T12): PR `…/sandbox/backend/pull/1` merged pada percobaan pertama; seri uji sandbox T1–T20, N1–N9, E1–E5 selesai di 1.22.7 |
-| GitHub asli | ❌ | satu item kecil di **event** sampai PR merged (keputusan user 2026-11-21: dicoba bersama patch kecil di project itu) |
+| GitHub asli | ✅ | event (2026-11-22): item `titik-rawan-create-order-event` → PR #95 `devhardiyanto/workload-event` MERGED (base `staging` atas pilihan user); `pilot --hours 6`: S1 5 frasa vs 0 slash, S2 0, S3 1, S4 1 item → "Siap 2.0" |
 | M0-1 jawaban pemilih tercatat | ✅ | `(pemilih)` di plan.md sandbox |
 | M0-2b audit mencatat agent | ✅ | `"agent":"backend"` di audit sandbox |
 | `migrate` OK per root (event/astra/yhpa) | ❓ | hanya wajib untuk arah A (§11) |
