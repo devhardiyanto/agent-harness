@@ -15,8 +15,12 @@ Masukan: `$ARGUMENTS` (slug). Sesi ini adalah sesi **eksekusi**.
 2. `node .claude/hooks/harness.mjs start <slug>` (→ `in-progress`).
 3. Baca `plan.md`, `impact.md`, dan `progress.md` (lanjutkan dari "Status terkini" bila ada). `TaskCreate` satu tugas per AC (subjek = `AC<n>: ...`, tandai yang sudah punya bukti sebagai selesai); `TaskUpdate` ke `in_progress` saat dikerjakan dan `completed` hanya setelah buktinya tertulis di `progress.md`. Daftar tugas hanya tampilan; sumber kebenaran tetap `progress.md`.
 4. Siapkan branch kerja di tiap service tercakup (bukan `root_branch`): `git -C source-code/<svc> switch -c <feat|fix|chore>/<slug-pendek>` (atau `switch` bila sudah ada).
-5. Kerjakan sesuai urutan di `plan.md`:
-   - kode → agent **spesialis bidang** service itu (`backend`, `frontend`, `devops`; lihat `node .claude/hooks/harness.mjs bidang` atau baris "Eksekusi oleh spesialis" dari hook), satu service pada satu waktu; service tanpa bidang → `implementer`. Sesi utama tidak mengedit kode service sendiri;
+4a. **Rencana eksekusi (orkestrator, 1.24.0)**: sebelum kode apa pun diedit, tulis tabel di `### Rencana eksekusi` bagian 4 `plan.md` (hook menolak edit kode service sebelum tabel ini berisi minimal satu tugas):
+   `| T1 | <tugas singkat> | AC1, AC2 | backend | 1 | rencana |` — satu baris per tugas; `agent` = spesialis service (`backend`/`frontend`/`devops`/`dba`/`implementer`), lalu baris `runner` dan `reviewer`; `urutan` sama = boleh paralel (beda service, tidak saling bergantung), berbeda = berurutan; skema (`dba`) selalu lebih dulu.
+   Tampilkan ke user dengan `node .claude/hooks/harness.mjs tasks <slug> --md` (tabel Markdown, satu kali), lalu **langsung lanjut** memanggil spesialis; ini laporan, bukan permintaan persetujuan (plan sudah disetujui).
+   Perbarui kolom `status` saat tugas dimulai (`jalan`), selesai (`selesai`, setelah laporan spesialis diperiksa), atau gagal (`gagal` + catatan di `### Status terkini`).
+5. Kerjakan sesuai urutan di `### Rencana eksekusi`:
+   - kode → agent **spesialis bidang** service itu (`backend`, `frontend`, `devops`; lihat `node .claude/hooks/harness.mjs bidang` atau baris "Eksekusi oleh spesialis" dari hook); tugas dengan urutan sama boleh dipanggil paralel (beberapa tool Agent dalam satu pesan); service tanpa bidang → `implementer`. Sesi utama tidak mengedit kode service sendiri: ia memeriksa diff dan laporan tiap spesialis sebelum menandai `selesai`;
    - migrasi/skema → agent `dba` lebih dulu.
 6. Setiap AC selesai → tulis bukti nyata di `progress.md` bagian `## Verifikasi`: `- AC1: <output/respons/langkah+hasil>`. Perbarui "Status terkini".
 7. Bila hook memperingatkan konteks ±400k token: simpan status ke `progress.md`, berhenti, minta user lanjut di sesi baru dengan "kerjakan <slug>".

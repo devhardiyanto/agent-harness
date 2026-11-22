@@ -27,15 +27,14 @@
 //   gc [--days N] [--yes]   rencana pembersihan berkas sementara (bukti item merged, tiket/penanda kedaluwarsa, audit > N hari, default 30); --yes hanya manusia
 //   measure <transcript.jsonl> [--json] [--label x]   token per model, panggilan tool/subagent, durasi → .harness/metrics/ (baseline sebelum/sesudah routing)
 //   update [--all|--rollback]  perbarui harness di root ke main (HANYA dengan tiket: /harness:update atau "tolong root nya di update ke main")
-//   plane push|pull|ask|comment|migrate  1.13: isi kartu, tarik komentar ke cermin .harness/plane/, komentar agent (+@mention), migrasi (--apply/--verify)
-//   plane sync|check        Plane (plane.enabled): sync = kirim status work item ke kartu Plane (satu arah; --dry-run, --include-merged, <slug>); check = uji konfigurasi, token (env), koneksi, nama state
 //   decide [slug]           tabel keputusan align (klaim bertentangan/dugaan + D terbuka), dibuat kode; baris terakhir = langkah berikutnya
+//   tasks <slug> [--md]     1.24.0: rencana eksekusi orkestrator (### Rencana eksekusi): tugas, AC, agent, urutan/paralel, status
 //   open [--mine] [--json]  tabel "belum selesai": langkah per item, pertanyaan terbuka, klaim dugaan/bertentangan, AC tanpa bukti, blocker, usulan memori
 //   memory reindex|list|pending|add <teks>|approve <P1|all>|reject <P1|all>|forget <M2|teks>   memori project (docs/memory/MEMORY.md); approve/forget/reject hanya manusia bila write_approval
 //   playbook list|lint      prosedur yang dipelajari (docs/memory/playbooks); lint = frontmatter, ukuran, secret
 //   recall <kata kunci>     cari di ringkasan/brief/align/sesi/memori (lokal, nol token); muat hasilnya dengan "ref:<slug>" di prompt
 //   pilot [--hours N|--days N] [--json]  rangkuman log intent lokal (bawaan pilot.hours = 6): frasa vs slash, salah tangkap, penahanan Stop, ship → siap 2.0?
-//   migrate [--apply]       kesiapan 2.0 per root (align format lama, flag dikunci, Plane, migrasi); --apply = migrasi align.md
+//   migrate [--apply]       kesiapan 2.0 per root (align format lama, flag dikunci); --apply = migrasi align.md
 //   doctor                  periksa instalasi
 // Pengetahuan (tanpa token, deterministik):
 //   inventory [--json]                  service di source-code/, stack, baseline, status checkout
@@ -64,7 +63,6 @@ import { openRows, formatOpen } from './recap.mjs';
 import { listPlaybooks } from './playbooks.mjs';
 import { planGc, applyGc, rootWorktrees, heldReason } from './gc.mjs';
 import { renderFrame, runWatch } from './watch.mjs';
-import { planeSync, planeCheck, planeProblems, planePush, planePull, planeAsk, planeMigrate } from './plane.mjs';
 import { shipPlan, runShip, ghAccess } from './ship.mjs';
 import {
   inventory, baselineOf, worktreeAdd, worktreeRm, lintService, formatLint, sampleService, knowledgeStatus, proposeChecks,
@@ -72,7 +70,7 @@ import {
 } from './knowledge.mjs';
 import {
   projectRoot, loadConfig, checkTransition, checkDone, setFmKey, STATUSES, decisionBanner,
-  splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli, globToRegex,
+  splitFrontmatter, parseAcs, readJson, planTasks, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli, globToRegex,
   readPart, isSingle, updateTicket, updateTicketPath, readEvents, latestTouchedSlugs, readAlign, formatDecision, slugify, cleanTitle, alignTables,
 } from './lib.mjs';
 
@@ -276,6 +274,17 @@ switch (cmd) {
     console.log(`${i.slug}: quick → standard (draft). Berikutnya: skill plan ${i.slug}, lalu user mengetik setuju ${i.slug}.`);
     break;
   }
+  case 'tasks': {
+    // 1.24.0 (O1): rencana eksekusi orkestrator (### Rencana eksekusi di plan.md)
+    const it = need(args.find((a) => !a.startsWith('--')));
+    const ts = planTasks(it);
+    if (!ts.length) { console.log(`${it.slug}: belum ada "### Rencana eksekusi". Orkestrator menulisnya di bagian 4 plan.md sebelum memanggil spesialis: | T1 | tugas | AC | agent | urutan | status |`); break; }
+    const done = ts.filter((t) => t.status === 'selesai').length;
+    console.log(`Rencana eksekusi ${it.slug} (${done}/${ts.length} selesai; urutan sama = paralel):\n`);
+    console.log('| # | tugas | AC | agent | urutan | status |\n|---|---|---|---|---|---|');
+    for (const t of ts) console.log(`| ${t.id} | ${t.tugas} | ${t.ac} | ${t.agent} | ${t.urutan} | ${t.status} |`);
+    break;
+  }
   case 'next': {
     const q = args.find((a) => !a.startsWith('--'));
     const items = q ? [need(q)] : listItems().filter((i) => i.status !== 'merged');
@@ -451,72 +460,8 @@ switch (cmd) {
     process.exit(r.status ?? 1);
   }
   case 'plane': {
-    const sub = args[0];
-    const flags = args.slice(1).filter((a) => a.startsWith('--'));
-    const slug = args.slice(1).find((a) => !a.startsWith('--')) || null;
-    const quiet = flags.includes('--quiet');
-    const table = (rows, head) => `| ${head.join(' | ')} |\n|${head.map(() => '---').join('|')}|\n${rows.map((r) => `| ${r.slice(0, head.length).join(' | ')} |`).join('\n')}`;
-    if (sub === 'sync') {
-      let q = null; if (slug) { q = resolveSlug(root, slug); if (!q) die(`work item "${slug}" tidak ditemukan / ambigu.`); }
-      const r = await planeSync(root, cfg, { slug: q, includeMerged: flags.includes('--include-merged'), dryRun: flags.includes('--dry-run') });
-      if (!quiet) {
-        if (r.problems.length) console.error(`Plane belum siap:\n- ${r.problems.join('\n- ')}`);
-        else if (r.busy) console.log('sinkron lain sedang berjalan; tidak ada yang dikirim.');
-        else console.log(r.rows.length ? table(r.rows, ['item', 'aksi', 'hasil']) : 'Plane sudah sama dengan status lokal.');
-      }
-      if (r.ok && !flags.includes('--dry-run') && cfg.plane.push_content) {
-        const p2 = await planePush(root, cfg, { slug: q });
-        if (!quiet && p2.rows.some((x) => x[2] !== 'sama')) console.log(table(p2.rows.filter((x) => x[2] !== 'sama'), ['item', 'aksi', 'hasil']));
-      }
-      if (!r.ok) process.exit(2);
-      break;
-    }
-    const one = () => { if (!slug) return null; const q = resolveSlug(root, slug); if (!q) die(`work item "${slug}" tidak ditemukan / ambigu.`); return q; };
-    const show = (r) => { if (r.problems && r.problems.length) { console.error(`Plane belum siap:\n- ${r.problems.join('\n- ')}`); process.exit(2); } if (!quiet) console.log(r.rows.length ? table(r.rows, ['item', 'aksi', 'hasil']) : '(tidak ada)'); if (!r.ok) process.exit(2); };
-    if (sub === 'push') { show(await planePush(root, cfg, { slug: one(), dryRun: flags.includes('--dry-run'), force: flags.includes('--force') })); break; }
-    if (sub === 'pull') {
-      const q = one();
-      // throttle: dipanggil hook di latar; tidak lebih sering dari pull_min_interval_s
-      const stamp = path.join(root, '.harness', 'plane-pull.stamp');
-      if (flags.includes('--auto')) { try { if (Date.now() - fs.statSync(stamp).mtimeMs < cfg.plane.pull_min_interval_s * 1000) break; } catch { /* belum ada */ } }
-      fs.mkdirSync(path.dirname(stamp), { recursive: true }); fs.writeFileSync(stamp, '');
-      const r = await planePull(root, cfg, { slug: q });
-      show(r);
-      if (!quiet && r.fresh.length) console.log(`\nKomentar baru dari kamu di Plane:\n${r.fresh.map((f) => `- ${f.slug} (${f.at}): ${f.text.replace(/\n+/g, ' / ')}`).join('\n')}`);
-      if (!quiet && r.ok) console.log(`Cermin: .harness/plane/<slug>.md`);
-      break;
-    }
-    if (sub === 'ask' || sub === 'comment') {
-      const q = one(); if (!q) die(`usage: plane ${sub} <slug> ${sub === 'ask' ? '[--decide] [teks]' : '<teks>'}`);
-      const text = args.slice(1).filter((a) => !a.startsWith('--') && a !== slug).join(' ');
-      const r = await planeAsk(root, cfg, readItem(root, q), { text, decide: flags.includes('--decide'), mentionUser: sub === 'ask' });
-      if (!r.ok) die(`komentar Plane gagal: ${r.error}`);
-      console.log(`komentar terkirim ke kartu ${q}${sub === 'ask' && cfg.plane.mention_user_id ? ' (dengan @mention)' : ''}`);
-      break;
-    }
-    if (sub === 'migrate') {
-      const dry = !flags.includes('--apply') && !flags.includes('--verify');
-      const r = await planeMigrate(root, cfg, { dryRun: dry, verify: flags.includes('--verify') });
-      if (dry) {
-        console.log(`Rencana migrasi ke Plane (dry-run, tidak ada yang dikirim; folder lokal TIDAK dihapus di 1.13):\n${table(r.rows, ['item', 'status', 'kartu', 'checklist', 'align', 'summary', 'judul di Plane'])}`);
-        console.log(`\nKnowledge → Plane Pages (dikerjakan di 2.0): ${r.knowledge.length} berkas${r.knowledge.length ? `\n${r.knowledge.slice(0, 20).map((f) => `- ${f}`).join('\n')}${r.knowledge.length > 20 ? `\n- ... +${r.knowledge.length - 20}` : ''}` : ''}`);
-        if (r.problems.length) console.log(`\nSebelum --apply, bereskan:\n- ${r.problems.join('\n- ')}`);
-        else console.log('\nLanjut: plane migrate --apply, lalu plane migrate --verify.');
-        break;
-      }
-      show(r);
-      break;
-    }
-    if (sub === 'check') {
-      const r = await planeCheck(cfg);
-      if (r.problems.length) { console.error(`Plane belum siap:\n- ${r.problems.join('\n- ')}`); process.exit(2); }
-      console.log(table(r.rows, ['status harness', 'state Plane', 'hasil']));
-      if (r.notes && r.notes.length) console.log(`\nInfo:\n- ${r.notes.join('\n- ')}`);
-      if (!r.ok) process.exit(2);
-      break;
-    }
-    die('usage: plane sync|push|pull [slug] [--dry-run] | plane ask <slug> [--decide] [teks] | plane comment <slug> <teks> | plane migrate [--apply|--verify] | plane check');
-    break;
+    // 1.23.0 (R1, D37): Plane dicabut; semua dikendalikan mesin lokal.
+    die('Plane dicabut di 1.23.0 (D37). Data lama di .harness/plane/ boleh dihapus manual.');
   }
   case 'session-name': { // 1.14.1: nama sesi untuk berkas rangkuman (/summarize). Diisi status line (1.15); kosong = tidak diketahui, jangan ditebak.
     try { const n = fs.readFileSync(path.join(root, '.harness', 'state', 'session-name'), 'utf8').trim(); if (/^[a-z0-9][a-z0-9-]{1,60}$/i.test(n)) console.log(n); } catch { /* belum ada */ }
@@ -580,7 +525,7 @@ switch (cmd) {
       const bgIso = [settings, readJson(path.join(root, '.claude', 'settings.local.json'))].map((s) => s && s.worktree && s.worktree.bgIsolation);
       ok('sesi background tidak dipindah ke worktree (worktree.bgIsolation = "none")', bgIso.includes('none'), 'tambahkan {"worktree":{"bgIsolation":"none"}} ke .claude/settings.json, atau jalankan install --update');
     }
-    if (cfg.plane.enabled) { const pp = planeProblems(cfg); ok('Plane: konfigurasi lengkap dan token ada di lingkungan', !pp.length, pp.join('; ').slice(0, 300)); }
+    { const u0 = readJson(path.join(root, 'harness.config.json'), {}) || {}; if (u0.plane) rows.push('| kunci "plane" di harness.config.json | INFO | diabaikan sejak 1.23.0 (Plane dicabut); boleh dihapus |'); }
     try { const v2 = checkV2(root, cfg); const bad2 = v2.rows.filter((x) => !x[3]).map((x) => x[0]); rows.push(`| siap 2.0 (info, tidak menggagalkan) | ${v2.ready ? 'OK' : 'BELUM'} | ${v2.ready ? '' : `${bad2.length} hal belum → node .claude/hooks/harness.mjs migrate`} |`); } catch { /* abaikan */ }
     // Branch baseline (tempat deploy) tiap service harus dilindungi; kalau tidak, commit/push langsung ke sana tidak diblokir.
     const prot = [cfg.root_branch, ...(cfg.protected_branches || [])].map((g) => globToRegex(g));
@@ -739,5 +684,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('perintah: new | decide | open | memory | playbook | recall | gate | run-checks | log | watch | gc | measure | update | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
+    die('perintah: new | decide | open | tasks | memory | playbook | recall | gate | run-checks | log | watch | gc | measure | update | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
 }

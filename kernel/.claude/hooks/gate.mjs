@@ -7,7 +7,7 @@ import {
   readStdinJson, projectRoot, loadConfig, relPath, matchAny, serviceOf, activeItems, coversService,
   splitFrontmatter, readItem, checkTransition, findSecret, SECRET_FILE, deny, STATUSES,
   isMain, isQuick, asList, setFmKey,
-  parseAcs, alignProblems, alignExempt, formatDecision,
+  parseAcs, alignProblems, alignExempt, formatDecision, planTasks,
 } from './lib.mjs';
 import { proposalStatuses } from './knowledge.mjs';
 import { bidangOfService } from './bidang.mjs';
@@ -177,6 +177,11 @@ export function evaluate(root, cfg, payload) {
       return fail(quick.length && !standard.length
         ? `${rel} adalah perubahan skema; lajur quick tidak boleh menyentuh skema. "node .claude/hooks/harness.mjs promote ${quick[0].slug}", lalu plan bertipe "schema" dan approve.`
         : `${rel} adalah perubahan skema. Work item harus bertipe "schema" (atau schema_change: true) dan melewati agent dba.`);
+    }
+    // 1.24.0 (O1): orkestrator menulis rencana eksekusi dulu (siapa mengerjakan apa, urutan/paralel) sebelum kode diedit
+    if (cfg.orchestrator.require_plan && standard.length) {
+      const need = standard.filter((i) => isSingle(i) && ['approved', 'in-progress'].includes(i.status) && !planTasks(i).length);
+      if (need.length === standard.length) return fail(`${need[0].slug} belum punya "### Rencana eksekusi" di bagian 4 plan.md. Orkestrator (sesi utama) menulisnya dulu: satu baris per tugas "| T1 | tugas | AC1, AC2 | agent | urutan | rencana |" (urutan sama = paralel; agent = spesialis service: backend/frontend/devops/dba/implementer), tampilkan dengan "node .claude/hooks/harness.mjs tasks ${need[0].slug} --md", lalu panggil spesialisnya.`);
     }
     // 1.17.0 (opsional, bidang.enforce): item standard dikerjakan spesialis. Hanya berlaku bila payload hook menyebut agent
     // (uji M0 nomor 2). Nyalakan hanya bila uji itu menunjukkan subagent membawa agent_type; bila tidak, semua edit ditolak.

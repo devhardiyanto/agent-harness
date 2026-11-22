@@ -81,7 +81,7 @@ Konfigurasi: `harness.config.json` (service, branch dilindungi, `gate.test_comma
 
 | bagian | perilaku |
 |---|---|
-| model | sesi utama Sonnet (`settings.json` → `model`). `scout` (Haiku, read-only: cari fakta di kode), `runner` (Haiku: menjalankan `run-checks`), `reviewer` (Opus, read-only: menyetujui/menolak). `scout`, `runner`, `reviewer` memakai `omitClaudeMd` agar konteks kecil. `explorer` tetap Sonnet untuk analisa relasi |
+| model | sesi utama Opus 5.5, effort medium (`settings.json` → `model: claude-opus-5-5`, `effortLevel: medium`; 1.22.11). `/model` atau `/effort` di sesi tetap bisa menggantinya. `scout` (Haiku, read-only: cari fakta di kode), `runner` (Haiku: menjalankan `run-checks`), `reviewer` (Opus, read-only: menyetujui/menolak). `scout`, `runner`, `reviewer` memakai `omitClaudeMd` agar konteks kecil. `explorer` tetap Sonnet untuk analisa relasi |
 | bukti test | `harness.mjs run-checks <slug>` menjalankan `checks.<svc>` dan **kode harness** menulis `.harness/evidence/<slug>/tests.json` (verdict, sidik jari kode). Berkas ini dilindungi dari Edit/Write dan tulis lewat shell |
 | gerbang Stop | hook `Stop` menolak berhenti (exit 2) bila item yang baru dikerjakan sudah semua-AC-berbukti tetapi bukti test belum ada / gagal / usang, atau (standard, `in-review`) review belum dijalankan. Anti-loop: `stop_hook_active` dari Claude Code + batas `stop_gate.max_blocks` (1 sejak 1.20.0) per sesi; giliran yang menunggu agent latar tidak ditahan; rekap hanya menahan giliran bila status item sesi berubah (`recap.hold`: `status`|`always`|`never`); `stop_gate.enabled: false` mematikan |
 | handoff | `PreCompact` dan `SessionEnd` menulis `.harness/handoff.md` (tabel item + "Status terkini"); `SessionStart` menyuntiknya (dipotong `handoff.max_chars`, total ≤ 10.000 karakter). Lihat: `harness.mjs log [n]` |
@@ -100,34 +100,12 @@ Belum terverifikasi di Claude Code asli (tidak bisa diuji di sandbox): hook `Sto
 | ringkasan lokal | saat `done` dan `merged`: `docs/work/<slug>/summary.md` dirangkum dari file (objective di `brief.md`, hasil per AC, `## Decision log` di `progress.md`, debat dan parking lot di `align.md`, review, gate, bukti test, PR). Deterministik, tanpa model |
 | `harness.mjs gc [--days N]` | rencana pembersihan: bukti test item merged/tidak ada, event log rotasi, penanda/tiket kedaluwarsa, audit lebih dari N hari (30). `--yes` menghapus dan hanya untuk manusia (diblokir untuk agent). Work item, docs, knowledge, config, metrics, dan handoff tidak disentuh |
 
-## Plane: sinkron status satu arah (1.9.0, opsional)
-Mati bawaan. Bila dinyalakan, tiap work item punya satu kartu di project Plane dan statusnya mengikuti status lokal. **Satu arah**: harness menulis ke Plane, Plane tidak mengubah apa pun di lokal. Sumber kebenaran tetap `docs/work/<slug>/plan.md`; kartu hanya menyimpan tautan balik (`plane_id` di frontmatter) dan menampilkan status.
-
-Pemetaan bawaan: `draft`=Backlog, `approved`=Todo, `in-progress`=In Progress, `in-review`=Review, `done`/`merged`=Done. Nama state diubah di `plane.states` (mis. astra: `"in-review": "In Review"`).
-
-Menyalakan (per root):
-1. Buat API key Plane (akun yang kartunya mau ditulis); simpan **hanya** sebagai variabel lingkungan, mis. `PLANE_API_KEY`. Variabel harus sudah ada sebelum Claude Code dijalankan. Token tidak pernah ditulis ke config, event log, atau audit.
-2. Di `harness.config.json`: `"plane": {"enabled": true, "workspace": "<slug workspace>", "project_id": "<id project>"}` (opsional: `base_url` untuk self-hosted, hanya `https://`; `token_env`; `states`).
-3. `node .claude/hooks/harness.mjs plane check` (uji konfigurasi, token, koneksi, dan bahwa semua nama state ada), lalu `plane sync --dry-run` (lihat apa yang akan dikirim), lalu `plane sync`.
-
-Cara kerja: tiap perubahan status (hook approve, `set-status`, `quick`, `promote`, awal sesi) memicu `plane sync` di proses latar, tanpa menunda apa pun. Kegagalan jaringan/API tidak menggagalkan transisi status; yang tertinggal dikirim pada sync berikutnya (rekonsiliasi: status lokal ≠ status terakhir terkirim, dicatat di `.harness/plane.json`). Tiap pemindahan kolom ditandai komentar `[harness] draft → approved` dan kartu dibuat dengan `external_source: harness`. Item `merged` tanpa kartu tidak dibuat (pakai `plane sync --include-merged` bila mau). `doctor` GAGAL bila `enabled` tetapi konfigurasi atau token tidak lengkap.
-
-### 1.13.0: Plane sebagai pintu diskusi (jembatan ke 2.0)
-Kartu kini berisi **Tujuan, Konteks, Keputusan, dan Checklist AC** (to-do list Plane; AC berbukti dicentang), dan diskusi berjalan di **komentar**. Tambahkan ke blok `plane`: `"mention_user_id": "<UUID member Plane-mu>"` supaya keputusan yang menahan pekerjaan me-@ kamu.
-
-| kamu / agent | perintah |
-|---|---|
-| tarik komentar + centang ke cermin `.harness/plane/<slug>.md` | otomatis (awal sesi, tiap prompt maks 1×/menit) atau ketik `tarik` |
-| agent membalas di kartu | `harness.mjs plane comment <slug> "<teks>"` |
-| agent minta keputusan (tabel dari kode + @mention) | `harness.mjs plane ask <slug> --decide` (juga otomatis saat Stop menahan giliran) |
-| kirim isi kartu sekarang | `harness.mjs plane push [slug]` (juga setelah tiap `plane sync`) |
-| migrasi semua item ke Plane | `plane migrate` (rencana) → `plane migrate --apply` → `plane migrate --verify` |
-
-Token dibaca dari variabel yang namanya ada di `plane.token_env` (bawaan `PLANE_API_KEY`; isi **nama** variabel, bukan tokennya); CR/spasi/kutip di ujung token dibuang otomatis (1.13.1). Deskripsi yang kamu ubah langsung di Plane tidak ditimpa: kiriman berikutnya DITAHAN dan agent diminta menyelaraskan lokal dulu (`plane push <slug> --force`). Mencentang checklist di Plane boleh. Komentar manusia yang baru muncul sekali sebagai konteks agent di prompt berikutnya. Webhook ke laptop tidak mungkin, jadi tidak real-time. Di 1.13 folder `docs/work` **tidak dihapus**. Penghapusan per root (setelah `--verify` COCOK) dan knowledge → Plane Pages dikerjakan di 2.0 (`ROADMAP.md` §8).
+## Plane (dicabut di 1.23.0)
+Sinkron kartu Plane (1.9.0) dan Plane sebagai pintu diskusi (1.13.0) **dicabut di 1.23.0** (D37): semua dikendalikan mesin lokal masing-masing. Perintah `harness.mjs plane …` dan intent `tarik` tidak ada lagi. Kunci `plane` lama di `harness.config.json` diabaikan (`doctor`/`migrate` memberi tahu); data `.harness/plane/` dan kartu di Plane tidak disentuh dan boleh dihapus manual.
 
 ### Kesiapan 2.0
 - `harness.mjs pilot`: frasa vs slash, salah tangkap, penahanan Stop, "push PR + merge" yang sampai merged (jendela `pilot.hours`, bawaan 6 jam; `--hours N` / `--days N`). Ketik `bukan itu` saat hook salah menangkap kalimatmu.
-- `harness.mjs migrate`: align format lama (diperbaiki otomatis di awal sesi), flag yang dikunci di 2.0, Plane siap, item yang belum dimigrasi. `doctor` menampilkannya sebagai baris info "siap 2.0".
+- `harness.mjs migrate`: align format lama (diperbaiki otomatis di awal sesi), flag yang dikunci di 2.0, dan sisa konfigurasi Plane lama (info). `doctor` menampilkannya sebagai baris info "siap 2.0".
 
 ## Bahasa pendek, tabel belum selesai, memori (1.10.0)
 Tidak perlu hafal `/harness:*` (bentuk lama tetap jalan). Ketik kalimat pendek; hook yang memprosesnya, jadi tetap keputusan manusia:
@@ -178,7 +156,7 @@ Merge tetap aman: ketikan ship menjadi **izin merge tertunda** (`.claude/state/m
 
 | bagian | perilaku |
 |---|---|
-| status line | `settings.json` → `statusLine` menjalankan `.claude/hooks/statusline.mjs`. Baris 1: root, item yang disentuh sesi ini, status, `AC n/m`, hasil checks. Baris 2: keputusan terbuka, komentar Plane yang belum dibaca, jumlah pelajaran di memori, konteks %. Hanya membaca berkas item sesi ini |
+| status line | `settings.json` → `statusLine` menjalankan `.claude/hooks/statusline.mjs`. Baris 1: root, item yang disentuh sesi ini, status, `AC n/m`, hasil checks. Baris 2: keputusan terbuka, jumlah pelajaran di memori, konteks %. Hanya membaca berkas item sesi ini |
 | tema | `tui.theme`: `tenang` (bawaan), `kontras`, `mono`. `NO_COLOR` memaksa `mono`. `tui.statusline: false` mematikan; `tui.max_width` memotong baris |
 | model dan effort | baris 2 diawali model dan effort sesi (`Sonnet 5.5 · high`), dari JSON sesi Claude Code; effort hanya tampil bila model mendukungnya (1.15.1) |
 | nama sesi | status line menyimpan `session_name` ke `.harness/state/session-name`; `/summarize` memakainya sebagai nama berkas |
@@ -214,7 +192,7 @@ Belum terverifikasi di Claude Code asli: status line proyek saat sesi dibuka lew
 |---|---|
 | spesialis | agent `backend`, `frontend`, `devops` (baru) dan `dba` (diberi label bidang), di `.claude/agents/`. Sonnet, `omitClaudeMd`, tanpa worktree. Service tanpa bidang dikerjakan `implementer` (`bidang.fallback_agent`) |
 | bidang | urutan menang: frontmatter item `bidang:` → ucapan user sesi ini ("backend: …", "ini frontend", "minta DBA …") → `bidang.map` di config → tebakan dari nama service (`*-backend`, `api`, `*-go` → backend; `*-frontend`, `web`, `admin` → frontend; `infra`, `k8s` → devops). Lihat dan koreksi: `harness.mjs bidang` |
-| sejak diskusi | bidang tampil di status line (awal baris 2) dan di kartu Plane, sebelum eksekusi |
+| sejak diskusi | bidang tampil di status line (awal baris 2), sebelum eksekusi |
 | eksekusi | "kerjakan <slug>" memberi baris "Eksekusi oleh spesialis": satu agent per service, `dba` lebih dulu untuk item `schema`. Sesi utama merangkum dan menulis bukti |
 | penegakan (opsional) | `bidang.enforce: true` menolak edit kode service berbidang yang tidak datang dari subagent (payload hook tanpa `agent_type`). Bawaan mati; nyalakan hanya bila uji M0 nomor 2 menunjukkan subagent membawa `agent_type`, karena bila tidak, semua edit ditolak |
 
@@ -240,7 +218,7 @@ Belum terverifikasi di Claude Code asli: bentuk `tool_response` AskUserQuestion 
 | usang → arsip | `draft`/`approved` (termasuk quick) atau `done` tanpa PR yang tidak disentuh `tidy.stale_days` (14) hari, dan `merged` lebih dari `tidy.merged_days` (30) hari. Umur dari `updated`, lalu `created`, lalu tanggal di slug |
 | gabung | item terbuka yang disentuh satu sesi (`.harness/state/touched-*.json`) digabung; item utama = status paling jauh (`in-progress` > `in-review` > `done` > `approved` > `draft`). AC item lain disambung dengan nomor lanjutan di `plan.md`, buktinya ke `progress.md`, `services` disatukan |
 | arsip | dipindah utuh ke `docs/work/_archive/<slug>/` (tidak dihapus), `archived` dan `archived_reason` di frontmatter, satu baris di `docs/memory/ARCHIVE.md`. Tidak muncul lagi di `sisa`, rekap, status line, dan sinkron Plane; tetap ditemukan `recall` dan `ref:<slug>` |
-| Plane | kartu tidak disentuh (diarsipkan lewat MCP setelah 2.0) |
+| Plane | dicabut di 1.23.0; kartu lama tidak disentuh |
 
 Status line kini menampilkan `+N` bila sesi menyentuh lebih dari satu item terbuka.
 

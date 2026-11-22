@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   readStdinJson, projectRoot, loadConfig, listItems, summarizeItem, readEvidence, codeFingerprint, isQuick, readJson, audit, isMain, touchedSlugs,
-  readAlign, alignExempt, formatDecision, planeKick, decisionRows, isSingle,
+  readAlign, alignExempt, formatDecision, decisionRows, isSingle,
 } from './lib.mjs';
 import { logIntent } from './pilot.mjs';
 import { buildQuestions, saveNaskah, askInstruction, saveLessonNaskah } from './ask.mjs';
@@ -22,7 +22,7 @@ export const WAITING = /(background agent|agen(?:t)? latar|di latar belakang|(?:
 export function decisionFor(root, cfg, payload) {
   if (!cfg.align.decision_table || payload.stop_hook_active) return null;
   const mine = touchedSlugs(root, payload.session_id);
-  const parts = []; const slugs = []; const asked = []; const noClaims = [];
+  const parts = []; const asked = []; const noClaims = [];
   for (const it of listItems(root)) {
     if (!mine.has(it.slug) || it.status !== 'draft' || alignExempt(it, cfg)) continue;
     const a = readAlign(it);
@@ -30,7 +30,7 @@ export function decisionFor(root, cfg, payload) {
     if (a && a.verdict !== 'aligned' && !a.claims && isSingle(it) && a.decisions.length) { noClaims.push(it.slug); continue; }
     if (!a || a.verdict === 'aligned' || !a.claims) continue;
     if (!decisionRows(it).length) continue; // 1.19.2: tanpa keputusan/klaim terbuka tidak ada yang perlu ditanyakan; giliran tidak ditahan
-    parts.push(formatDecision(root, it)); if (it.fm.plane_id) slugs.push(it.slug); asked.push(it);
+    parts.push(formatDecision(root, it)); asked.push(it);
   }
   if (!parts.length && noClaims.length) {
     const nm = path.join(root, '.harness', 'state', `noclaims-${String(payload.session_id || 'x').replace(/\W/g, '')}.json`);
@@ -50,8 +50,6 @@ export function decisionFor(root, cfg, payload) {
   fs.mkdirSync(path.dirname(mark), { recursive: true });
   fs.writeFileSync(mark, JSON.stringify({ h, at: new Date().toISOString() }));
   logIntent(root, cfg, { type: 'stop-hold', sid: payload.session_id || 'unknown' });
-  // 1.13.0 (D19): keputusan yang menahan pekerjaan juga dikirim ke kartu Plane dengan @mention (latar, sekali per isi tabel)
-  if (cfg.plane.enabled) for (const sl of slugs) planeKick(root, ['ask', sl, '--decide']);
   // 1.16.0: keputusan D dengan opsi jelas ditanyakan lewat pemilih; jawabannya dicatat hook ask.mjs
   let pick = '';
   if (cfg.tui.ask) { const qs = []; for (const it of asked) { const q = buildQuestions(root, it); if (q.length) { saveNaskah(root, payload.session_id, it.slug, q); qs.push(...q); } } if (qs.length) pick = `\n\n${askInstruction(qs.slice(0, 4), root, payload.session_id)}`; }
@@ -90,7 +88,8 @@ export function recapFor(root, cfg, sid) {
   // 1.22.10 (H5b): perubahan yang hanya "→ in-progress" = kerja baru mulai; bukan saatnya menutup giliran dengan rekap
   const before = new Set(String(prev.sk || '').split(',').filter(Boolean));
   const fresh = sk.split(',').filter((x) => x && !before.has(x));
-  return { text, statusChanged: prev.sk !== sk, startedOnly: fresh.length > 0 && fresh.every((x) => x.endsWith(':in-progress')) };
+  // 1.22.11 (H9): tabel yang hanya berisi usulan memori tidak menahan giliran (tidak ada langkah item yang perlu ditampilkan)
+  return { text, statusChanged: prev.sk !== sk, startedOnly: fresh.length > 0 && fresh.every((x) => x.endsWith(':in-progress')), onlyMemory: rows.length > 0 && rows.every((r) => r.jenis === 'usulan memori') };
 }
 
 export function problemsFor(root, cfg, sid) {
@@ -107,7 +106,7 @@ export function problemsFor(root, cfg, sid) {
       const seen = new Set(readJson(bm, { slugs: [] }).slugs || []);
       if (!seen.has(item.slug)) {
         fs.mkdirSync(path.dirname(bm), { recursive: true }); fs.writeFileSync(bm, JSON.stringify({ slugs: [...seen, item.slug] }));
-        out.push(`${item.slug}: build belum dimulai (in-progress, 0/${sum.ac.length} AC berbukti). Lanjutkan skill build SEKARANG: panggil agent spesialis untuk service ${item.services.join(', ') || '(lihat plan)'}, jangan menutup giliran. Bila memang menunggu keputusan user, tampilkan blok "> ## ⚠ BUTUH KEPUTUSANMU" + path plan.md lalu berhenti.`);
+        out.push(`${item.slug}: build belum dimulai (in-progress, 0/${sum.ac.length} AC berbukti). Lanjutkan skill build SEKARANG: tulis \"### Rencana eksekusi\" bila belum ada, lalu panggil agent spesialis untuk service ${item.services.join(', ') || '(lihat plan)'}; jangan menutup giliran. Bila memang menunggu keputusan user, tampilkan blok "> ## ⚠ BUTUH KEPUTUSANMU" + path plan.md lalu berhenti.`);
       }
       continue;
     }
@@ -176,7 +175,7 @@ if (isMain(import.meta.url)) {
     if (t) {
       const last = String(payload.last_assistant_message || '');
       const empty = /\(kosong\)/.test(t.split('\n')[0] || '');
-      const hold = !empty && !rc.startedOnly && (cfg.recap.hold === 'always' || (cfg.recap.hold !== 'never' && rc.statusChanged));
+      const hold = !empty && !rc.startedOnly && !rc.onlyMemory && (cfg.recap.hold === 'always' || (cfg.recap.hold !== 'never' && rc.statusChanged));
       if (cfg.recap.render === 'assistant' && hold && !payload.stop_hook_active && !/Belum selesai[^\n]*\(\d+\)/.test(last) && !alreadyShown(t, last)) {
         // 1.22.3: tabel tidak ditempel di pesan hook (Claude Code menampilkannya sebagai teks polos → tabel tampil dua kali)
         process.stderr.write('[harness] Tutup giliran ini dengan keluaran "node .claude/hooks/harness.mjs open --mine --md" sebagai Markdown, APA ADANYA. Tanpa narasi tambahan.\n');

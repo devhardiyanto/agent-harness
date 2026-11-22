@@ -1,5 +1,5 @@
 {
-  "harness_version": "1.22.10",
+  "harness_version": "1.24.0",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -73,26 +73,6 @@
   },
   "update": {
     "autoPush": false
-  },
-  "plane": {
-    "enabled": false,
-    "base_url": "https://api.plane.so",
-    "workspace": null,
-    "project_id": null,
-    "token_env": "PLANE_API_KEY",
-    "marker": "[harness]",
-    "push_content": true,
-    "pull_comments": true,
-    "mention_user_id": null,
-    "pull_min_interval_s": 60,
-    "states": {
-      "draft": "Backlog",
-      "approved": "Todo",
-      "in-progress": "In Progress",
-      "in-review": "Review",
-      "done": "Done",
-      "merged": "Done"
-    }
   },
   "intent": {
     "enabled": true,

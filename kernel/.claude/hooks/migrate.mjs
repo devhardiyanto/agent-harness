@@ -2,8 +2,7 @@
 // lama (hanya klaim) dengan menambahkan bagian "## Keputusan terbuka" (D10: otomatis, hanya menambah, tidak mengubah isi).
 import fs from 'node:fs';
 import path from 'node:path';
-import { listItems, DEFAULT_CONFIG } from './lib.mjs';
-import { planeProblems } from './plane.mjs';
+import { listItems, DEFAULT_CONFIG, readJson } from './lib.mjs';
 
 const DEC_SECTION = '## Keputusan terbuka\n| # | pertanyaan | opsi | jawaban |\n|---|---|---|---|\n';
 const oldAlign = (it) => {
@@ -31,13 +30,9 @@ export function checkV2(root, cfg) {
   rows.push(['align.md format lama', old.length ? `${old.length} item` : 'tidak ada', old.length ? 'migrate --apply (otomatis di awal sesi)' : '-', !old.length]);
   const off = LOCKED.filter(([a, b]) => cfg[a][b] !== DEFAULT_CONFIG[a][b]).map(([a, b]) => `${a}.${b}`);
   rows.push(['flag yang dikunci di 2.0', off.length ? off.join(', ') : 'semua bawaan', off.length ? 'kembalikan ke bawaan di harness.config.json' : '-', !off.length]);
-  const pp = cfg.plane.enabled ? planeProblems(cfg) : ['plane.enabled = false'];
-  rows.push(['Plane siap (satu pintu)', pp.length ? pp[0] : 'OK', pp.length ? 'lihat README bagian Plane' : '-', !pp.length]);
-  if (!cfg.plane.mention_user_id) rows.push(['Plane mention_user_id', 'kosong', 'isi UUID member Plane-mu agar keputusan me-@ kamu', false]);
-  const items = listItems(root);
-  const nocard = items.filter((i) => !i.fm.plane_id).length;
-  const unmig = items.filter((i) => !i.fm.plane_migrated).length;
-  rows.push(['work item sudah dimigrasi ke Plane', `${items.length - unmig}/${items.length}${nocard ? ` (${nocard} tanpa kartu)` : ''}`, unmig ? 'plane migrate --dry-run, lalu plane migrate' : '-', !unmig]);
+  // 1.23.0 (R1, D37): Plane dicabut. Sisa konfigurasi lama dilaporkan sebagai info (tidak menghalangi).
+  const u = readJson(path.join(root, 'harness.config.json'), {}) || {};
+  if (u.plane) rows.push(['kunci "plane" di harness.config.json', 'ada (diabaikan sejak 1.23.0)', 'boleh dihapus manual; data .harness/plane/ juga boleh dihapus', true]);
   return { rows, ready: rows.every((r) => r[3]) };
 }
 

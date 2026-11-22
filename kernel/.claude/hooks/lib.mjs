@@ -3,13 +3,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import os from 'node:os';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.22.10',
+  harness_version: '1.24.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -44,17 +44,10 @@ export const DEFAULT_CONFIG = {
   // 1.20.0: satu sesi chat (termasuk subagent-nya) = satu work item. Permintaan lanjutan masuk ke item aktif sesi itu;
   // item baru hanya bila user mengetik "item baru" (tiket sekali pakai) atau item aktif sudah merged.
   session_item: { single: true },
+  // 1.24.0 (O1): orkestrator menulis "### Rencana eksekusi" di plan.md sebelum kode service diedit (item standard bentuk tunggal).
+  orchestrator: { require_plan: true },
   handoff: { max_chars: 6000 },
   update: { autoPush: false },  // `harness update`: push ke origin/root_branch hanya bila true
-  // Plane (opsional, mati bawaan): sinkron status satu arah work item → kartu Plane. Token HANYA dari variabel lingkungan `token_env`, tidak pernah di config.
-  // states: status harness → NAMA state di project Plane (astra: "in-review": "In Review").
-  plane: {
-    enabled: false, base_url: 'https://api.plane.so', workspace: null, project_id: null, token_env: 'PLANE_API_KEY', marker: '[harness]',
-    states: { draft: 'Backlog', approved: 'Todo', 'in-progress': 'In Progress', 'in-review': 'Review', done: 'Done', merged: 'Done' },
-    // 1.13.0 (jembatan ke 2.0 "satu pintu"): isi kartu (tujuan, konteks, keputusan, checklist AC) ditulis ke Plane; komentar ditarik ke
-    // cermin lokal .harness/plane/<slug>.md (hanya dibaca hook). mention_user_id = UUID member Plane yang di-@ saat keputusan menahan pekerjaan.
-    push_content: true, pull_comments: true, mention_user_id: null, pull_min_interval_s: 60,
-  },
   // 1.13.0: log intent lokal (.harness/state/intent-log.jsonl) untuk mengukur kesiapan 2.0 (`harness.mjs pilot`).
   // hours: jendela pilot (bawaan 6 jam, keputusan user 2026-11-10); `pilot --hours N` / `--days N` untuk melihat jendela lain.
   // 1.15.0: status line harness (settings.json → statusLine). theme: tenang | kontras | mono. statusline:false = tidak mencetak apa pun.
@@ -114,8 +107,9 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'plane', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tui', 'tidy', 'item', 'bidang', 'growth', 'antislop', 'session_item']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
-  cfg.plane.states = { ...DEFAULT_CONFIG.plane.states, ...((user.plane && user.plane.states) || {}) };
+  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tui', 'tidy', 'item', 'bidang', 'growth', 'antislop', 'session_item', 'orchestrator']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  // 1.23.0 (R1, D37): Plane dicabut. Kunci `plane` lama di harness.config.json diabaikan (doctor memberi tahu).
+  delete cfg.plane;
   return cfg;
 }
 
@@ -229,7 +223,7 @@ export function parseAcs(text) {
 // ---------- 1.16.0: satu berkas per item (bentuk: tunggal) ----------
 // Item baru = satu plan.md berisi "## 1. Objective", "## 2. Penjelasan", "## 3. Dampak & konfirmasi", "## 4. Eksekusi"
 // (dengan "### Bukti", "### Tinjauan", "### Decision log", "### Status terkini"). readPart() memberi teks "berkas lama"
-// (brief/impact/align/progress/review.md) dari bagian itu, sehingga gerbang, rekap, ringkasan, dan Plane membaca kedua bentuk
+// (brief/impact/align/progress/review.md) dari bagian itu, sehingga gerbang, rekap, dan ringkasan membaca kedua bentuk
 // lewat satu jalan. Berkas terpisah yang benar-benar ada selalu menang (item lama, dan item tunggal yang ditambah berkas).
 export const isSingle = (item) => String((item && item.fm && item.fm.bentuk) || '') === 'tunggal';
 export function sectionOf(text, re, level = 2) {
@@ -241,6 +235,17 @@ export function sectionOf(text, re, level = 2) {
   return out.join('\n').trim();
 }
 const S1 = /^1\.?\s*Objective/i; const S2 = /^2\.?\s*Penjelasan/i; const S3 = /^3\.?\s*Dampak/i; const S4 = /^4\.?\s*Eksekusi/i;
+// 1.24.0 (O1): tabel "### Rencana eksekusi" di bagian 4: | T1 | tugas | AC | agent | urutan | status |
+// urutan sama = paralel; status: rencana | jalan | selesai | gagal. Bukan bagian beku (ditulis saat "kerjakan").
+export const TASK_ROW = /^\|\s*T\d+\s*\|/;
+export function planTasks(item) {
+  const sec = sectionOf((item && item.body) || '', /^Rencana eksekusi/i, 3);
+  if (!sec) return [];
+  return sec.split(/\r?\n/).filter((l) => TASK_ROW.test(l)).map((l) => {
+    const c = l.split('|').slice(1, -1).map((x) => x.trim());
+    return { id: c[0], tugas: c[1] || '', ac: c[2] || '', agent: c[3] || '', urutan: c[4] || '', status: (c[5] || 'rencana').toLowerCase() };
+  });
+}
 export function readPart(item, name) {
   const f = item.dir ? path.join(item.dir, name) : null;
   if (f && fs.existsSync(f)) return fs.readFileSync(f, 'utf8');
@@ -640,17 +645,6 @@ export function emit(root, rec) {
 export function readEvents(root, n = 15) {
   try { return fs.readFileSync(eventsPath(root), 'utf8').split('\n').filter(Boolean).slice(-n).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch { return []; }
 }
-// Kirim status tertunda ke Plane di proses latar (tidak menunda hook). Diam bila plane mati; kegagalan tercatat di event log oleh `plane sync`.
-export function planeKick(root, args = ['sync', '--quiet']) {
-  if (process.env.HARNESS_BENCH) return;
-  try {
-    if (!loadConfig(root).plane.enabled) return;
-    const c = spawn(process.execPath, [path.join(path.dirname(fileURLToPath(import.meta.url)), 'harness.mjs'), 'plane', ...args],
-      { cwd: root, env: { ...process.env, CLAUDE_PROJECT_DIR: root }, detached: true, stdio: 'ignore', windowsHide: true });
-    c.on('error', () => {}); c.unref();
-  } catch { /* sinkron Plane tidak boleh menjatuhkan hook */ }
-}
-const PLANE_EVENTS = new Set(['status', 'approve', 'quick', 'promote']);
 
 export function audit(root, entry) {
   if (process.env.HARNESS_BENCH) return;
@@ -663,7 +657,6 @@ export function audit(root, entry) {
     fs.appendFileSync(path.join(dir, ts.slice(0, 10) + '.jsonl'), JSON.stringify(rec) + '\n');
     if (!NOISY_EVENTS.has(entry.event)) emit(root, { ts, event: entry.event, slug: entry.slug, by: entry.by, to: entry.to, from: entry.from, tool: entry.tool, reason: entry.reason });
   } catch { /* audit tidak boleh menjatuhkan hook */ }
-  if (PLANE_EVENTS.has(entry.event)) planeKick(root);
 }
 
 // ---------- output helper ----------

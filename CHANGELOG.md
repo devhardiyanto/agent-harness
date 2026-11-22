@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.24.0
+ROADMAP §12 **O1**: orkestrator menulis rencana eksekusi sebelum kode diedit.
+- **`### Rencana eksekusi`** di bagian 4 `plan.md` (template baru): `| T1 | tugas | AC | agent | urutan | status |`. Urutan sama = paralel; status `rencana | jalan | selesai | gagal`. Ditulis sesi utama saat "kerjakan"; bukan bagian beku, jadi bisa diisi setelah approved.
+- **Hook menolak edit kode service** (Edit/Write dan tulis lewat shell) untuk item standard bentuk tunggal yang `approved`/`in-progress` selama tabel itu belum berisi satu tugas pun. Pesannya menyebut format baris dan perintah untuk menampilkannya. Lajur quick dan item bentuk lama tidak terkena. Saklar: `orchestrator.require_plan` (bawaan `true`).
+- **`harness.mjs tasks <slug> [--md]`**: menampilkan rencana dan jumlah tugas selesai.
+- Skill build (langkah 4a) dan `AGENTS.md`: sesi utama = orkestrator (tulis rencana → tampilkan `tasks --md` sebagai laporan, bukan permintaan persetujuan → panggil spesialis per tugas, paralel bila urutannya sama → periksa diff dan laporan sebelum menandai `selesai`). Pesan Stop "build belum dimulai" ikut menyebut rencana.
+
+## 1.23.0
+Langkah pertama 2.0 (ROADMAP §12, **R1**; keputusan D37): **Plane dicabut**. Semua dikendalikan mesin lokal masing-masing.
+- Dibuang: `plane.mjs`, perintah `harness.mjs plane …` (kini hanya pesan "dicabut"), intent `tarik`, sinkron status di latar (`planeKick`), komentar Plane di konteks prompt, pengiriman keputusan ke kartu, hitungan `Plane N` di status line, blok `plane` di `harness.config.json`, bagian Plane di `AGENTS.md`/README, dan test Plane (v190 serta sebagian v1130/v1131).
+- Kunci `plane` lama di `harness.config.json` diabaikan. `doctor` dan `migrate` menampilkannya sebagai **info** (tidak menggagalkan); boleh dihapus manual. Data `.harness/plane/` dan kartu di Plane tidak disentuh.
+- ROADMAP: status per 2026-11-22, R1 ✅.
+
+## 1.22.11
+Penutup uji nyata di event: gerbang pilot §10 **hijau** (S1–S4 dan GitHub asli, PR #95 di repo event merged; `pilot --hours 6` = "Siap 2.0").
+- **Model bawaan sesi: Opus 5.5, effort medium** (`.claude/settings.json`: `"model": "claude-opus-5-5"`, `"effortLevel": "medium"`; permintaan user). `/model` atau `/effort` di dalam sesi tetap bisa menggantinya. Subagent tidak berubah (scout/runner Haiku, reviewer Opus, spesialis Sonnet).
+- **Rekap yang hanya berisi usulan memori tidak menahan giliran** (H9): setelah item merged, Stop menahan sekali hanya untuk menampilkan satu baris usulan memori lama.
+- ROADMAP §10 ditandai hijau, beserta buktinya.
+
 ## 1.22.10
 Temuan uji nyata di project event (H5–H8), lanjutan 1.22.9.
 - **`kerjakan` tidak berhenti sebelum spesialis dipanggil** (H5): agent mengubah status ke `in-progress`, membuat daftar tugas, lalu berhenti; rekap Stop malah menyuruhnya menutup giliran. Kini gerbang Stop menahan sekali bila item `in-progress` belum punya satu pun bukti ("build belum dimulai: panggil spesialis"), dan rekap tidak menahan saat status baru berubah ke `in-progress`.

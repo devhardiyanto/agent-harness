@@ -1,5 +1,8 @@
 # Roadmap: 1.10.0 → 1.21 → 2.0.0
 
+> **Status per 2026-11-22 (harness 1.24.0)**
+> - **Gerbang pilot §10 hijau** (sandbox + GitHub asli di event). **R1 selesai** (1.23.0): Plane dicabut. **O1 selesai** (1.24.0): rencana eksekusi tertulis. Berikutnya O2 (pelacakan per tugas, status line `tugas n/m`).
+>
 > **Status per 2026-11-20 (harness 1.21.1)**
 > - **Selesai:** semua rilis 1.10–1.13 di bawah dan rancangan "Sederhana" 1.14–1.21 (§9).
 > - **Belum mulai:** 2.0.0. Gerbang pilot belum lewat (§10).
@@ -246,7 +249,7 @@ Task 2.0:
 
 Ukuran PRD §6 yang **belum diukur** di project nyata: ketikan perintah per item ≤ 3, keputusan lewat pemilih ≥ 80%, eksekusi oleh spesialis benar ≥ 90%. Sumbernya log pilot dan audit (`agent` di audit sejak 1.19.2).
 
-## 10. Gerbang pilot (syarat T10)
+## 10. Gerbang pilot (syarat T10) — **HIJAU** (2026-11-22)
 
 | syarat | status | bukti / yang kurang |
 |---|---|---|
@@ -254,7 +257,7 @@ Ukuran PRD §6 yang **belum diukur** di project nyata: ketikan perintah per item
 | S2 salah tangkap ≤ 0 | ✅ | sandbox: 0 |
 | S3 tabel keputusan ditahan Stop ≥ 1 | ✅ | sandbox: 1 penahanan |
 | S4 "push PR + merge" sampai merged ≥ 1 | ✅ | sandbox 1.22.5 (uji T12): PR `…/sandbox/backend/pull/1` merged pada percobaan pertama; seri uji sandbox T1–T20, N1–N9, E1–E5 selesai di 1.22.7 |
-| GitHub asli | ❌ | satu item kecil di **event** sampai PR merged (keputusan user 2026-11-21: dicoba bersama patch kecil di project itu) |
+| GitHub asli | ✅ | event (2026-11-22): item `titik-rawan-create-order-event` → PR #95 `devhardiyanto/workload-event` MERGED (base `staging` atas pilihan user); `pilot --hours 6`: S1 5 frasa vs 0 slash, S2 0, S3 1, S4 1 item → "Siap 2.0" |
 | M0-1 jawaban pemilih tercatat | ✅ | `(pemilih)` di plan.md sandbox |
 | M0-2b audit mencatat agent | ✅ | `"agent":"backend"` di audit sandbox |
 | `migrate` OK per root (event/astra/yhpa) | ❓ | hanya wajib untuk arah A (§11) |
@@ -328,8 +331,8 @@ T1–T10 di §8 tetap berlaku, ditambah:
 
 | # | task | isi |
 |---|---|---|
-| R1 | **cabut Plane** | `plane.mjs`, config `plane.*`, tarik komentar di prompt, status line Plane, `migrate`/doctor bagian Plane, `AGENTS.md` bagian Plane, tes Plane; data `.harness/plane/` dibiarkan (bisa dihapus user) |
-| O1 | rencana eksekusi tertulis | `### Rencana eksekusi` di `plan.md`: `| # | tugas | AC | agent | urutan/paralel | status |`; dibuat orkestrator saat "kerjakan", diperlihatkan dengan blok D38 |
+| R1 | **cabut Plane** ✅ 1.23.0 | `plane.mjs`, config `plane.*`, tarik komentar di prompt, status line Plane, `migrate`/doctor bagian Plane, `AGENTS.md` bagian Plane, tes Plane; data `.harness/plane/` dibiarkan (bisa dihapus user) |
+| O1 | rencana eksekusi tertulis ✅ 1.24.0 | `### Rencana eksekusi` di `plan.md`: `| # | tugas | AC | agent | urutan/paralel | status |`; dibuat orkestrator saat "kerjakan", diperlihatkan dengan blok D38 |
 | O2 | pelacakan per tugas | status tugas diperbarui dari laporan sub-agent (audit `agent_id`); status line: `tugas 2/4` |
 | O3 | sesi utama hanya mengorkestrasi | `bidang.enforce` bawaan menyala setelah O1–O2 stabil: edit kode service dari sesi utama ditolak |
 | O4 | ukuran | ≥ 90% edit kode oleh spesialis yang benar; ketikan user per item ≤ 3 (PRD §6) |

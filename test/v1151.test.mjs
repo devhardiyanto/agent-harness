@@ -10,8 +10,8 @@ const sline = (root, payload) => spawnSync('node', [path.join(root, '.claude/hoo
 
 test('render: model dan effort di awal baris kedua; tanpa effort hanya model', () => {
   const base = { root: 'event', item: null, inbox: 2, lessons: 0, ctx: 41 };
-  assert.equal(render({ ...base, model: 'Sonnet 5.5', effort: 'high' }, { theme: 'mono' }), '▌event  tidak ada item aktif · ketik permintaanmu\n▌Sonnet 5.5 · high · Plane 2 · konteks 41%');
-  assert.equal(render({ ...base, model: 'Haiku 5.5', effort: null }, { theme: 'mono' }).split('\n')[1], '▌Haiku 5.5 · Plane 2 · konteks 41%');
+  assert.equal(render({ ...base, model: 'Sonnet 5.5', effort: 'high' }, { theme: 'mono' }), '▌event  tidak ada item aktif · ketik permintaanmu\n▌Sonnet 5.5 · high · konteks 41%');
+  assert.equal(render({ ...base, model: 'Haiku 5.5', effort: null }, { theme: 'mono' }).split('\n')[1], '▌Haiku 5.5 · konteks 41%');
 });
 
 test('statusline.mjs membaca model.display_name dan effort.level dari JSON sesi', () => {
