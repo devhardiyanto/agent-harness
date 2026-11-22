@@ -38,6 +38,11 @@ pr: null
 ## 4. Eksekusi
 <!-- AC bernomor, ditulis setelah aligned: - AC1: ... (yang bisa dibuktikan) -->
 
+### Rencana eksekusi
+| # | tugas | AC | agent | urutan | status |
+|---|---|---|---|---|---|
+<!-- diisi orkestrator saat "kerjakan", sebelum kode diedit: satu baris per tugas (T1, T2, ...). agent = spesialis service (backend/frontend/devops/dba/implementer) lalu runner, reviewer. urutan sama = paralel. status: rencana | jalan | selesai | gagal -->
+
 ### Bukti
 <!-- satu baris per AC: - AC1: output nyata / langkah + hasil -->
 

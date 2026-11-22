@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.23.0',
+  harness_version: '1.24.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -44,6 +44,8 @@ export const DEFAULT_CONFIG = {
   // 1.20.0: satu sesi chat (termasuk subagent-nya) = satu work item. Permintaan lanjutan masuk ke item aktif sesi itu;
   // item baru hanya bila user mengetik "item baru" (tiket sekali pakai) atau item aktif sudah merged.
   session_item: { single: true },
+  // 1.24.0 (O1): orkestrator menulis "### Rencana eksekusi" di plan.md sebelum kode service diedit (item standard bentuk tunggal).
+  orchestrator: { require_plan: true },
   handoff: { max_chars: 6000 },
   update: { autoPush: false },  // `harness update`: push ke origin/root_branch hanya bila true
   // 1.13.0: log intent lokal (.harness/state/intent-log.jsonl) untuk mengukur kesiapan 2.0 (`harness.mjs pilot`).
@@ -105,7 +107,7 @@ export function projectRoot(payload = {}) {
 export function loadConfig(root) {
   const user = readJson(path.join(root, 'harness.config.json'), {}) || {};
   const cfg = { ...DEFAULT_CONFIG, ...user };
-  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tui', 'tidy', 'item', 'bidang', 'growth', 'antislop', 'session_item']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
+  for (const k of ['gate', 'context', 'knowledge', 'quick', 'amend', 'ship', 'store', 'align', 'stop_gate', 'handoff', 'update', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tui', 'tidy', 'item', 'bidang', 'growth', 'antislop', 'session_item', 'orchestrator']) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   // 1.23.0 (R1, D37): Plane dicabut. Kunci `plane` lama di harness.config.json diabaikan (doctor memberi tahu).
   delete cfg.plane;
   return cfg;
@@ -233,6 +235,17 @@ export function sectionOf(text, re, level = 2) {
   return out.join('\n').trim();
 }
 const S1 = /^1\.?\s*Objective/i; const S2 = /^2\.?\s*Penjelasan/i; const S3 = /^3\.?\s*Dampak/i; const S4 = /^4\.?\s*Eksekusi/i;
+// 1.24.0 (O1): tabel "### Rencana eksekusi" di bagian 4: | T1 | tugas | AC | agent | urutan | status |
+// urutan sama = paralel; status: rencana | jalan | selesai | gagal. Bukan bagian beku (ditulis saat "kerjakan").
+export const TASK_ROW = /^\|\s*T\d+\s*\|/;
+export function planTasks(item) {
+  const sec = sectionOf((item && item.body) || '', /^Rencana eksekusi/i, 3);
+  if (!sec) return [];
+  return sec.split(/\r?\n/).filter((l) => TASK_ROW.test(l)).map((l) => {
+    const c = l.split('|').slice(1, -1).map((x) => x.trim());
+    return { id: c[0], tugas: c[1] || '', ac: c[2] || '', agent: c[3] || '', urutan: c[4] || '', status: (c[5] || 'rencana').toLowerCase() };
+  });
+}
 export function readPart(item, name) {
   const f = item.dir ? path.join(item.dir, name) : null;
   if (f && fs.existsSync(f)) return fs.readFileSync(f, 'utf8');

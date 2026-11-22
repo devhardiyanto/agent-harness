@@ -4,7 +4,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
   readStdinJson, projectRoot, loadConfig, globToRegex, activeItems, coversService, posix, deny, SECRET_FILE,
-  isMain, updateTicket, activeSessionItem, newItemTicketPath,
+  isMain, updateTicket, activeSessionItem, newItemTicketPath, isQuick, isSingle, planTasks,
 } from './lib.mjs';
 import fs from 'node:fs';
 import { activeSessionTopic } from './topic.mjs';
@@ -128,6 +128,11 @@ export function evaluate(root, cfg, payload) {
         const items = activeItems(root);
         const missing = [...svcs].filter((s) => !items.some((i) => coversService(i, s)));
         if (missing.length) return fail(`menulis ke service ${missing.join(', ')} lewat shell tanpa work item approved yang mencakupnya.`);
+        // 1.24.0 (O1): sama dengan gate.mjs: rencana eksekusi dulu
+        if (cfg.orchestrator.require_plan) {
+          const std = items.filter((i) => !isQuick(i) && [...svcs].some((s) => coversService(i, s)));
+          if (std.length && std.every((i) => isSingle(i) && ['approved', 'in-progress'].includes(i.status) && !planTasks(i).length)) return fail(`${std[0].slug} belum punya "### Rencana eksekusi" di plan.md; orkestrator menulisnya dulu (lihat skill build), baru spesialis menulis kode.`);
+        }
       }
     }
   }

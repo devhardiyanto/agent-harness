@@ -106,7 +106,7 @@ export function problemsFor(root, cfg, sid) {
       const seen = new Set(readJson(bm, { slugs: [] }).slugs || []);
       if (!seen.has(item.slug)) {
         fs.mkdirSync(path.dirname(bm), { recursive: true }); fs.writeFileSync(bm, JSON.stringify({ slugs: [...seen, item.slug] }));
-        out.push(`${item.slug}: build belum dimulai (in-progress, 0/${sum.ac.length} AC berbukti). Lanjutkan skill build SEKARANG: panggil agent spesialis untuk service ${item.services.join(', ') || '(lihat plan)'}, jangan menutup giliran. Bila memang menunggu keputusan user, tampilkan blok "> ## ⚠ BUTUH KEPUTUSANMU" + path plan.md lalu berhenti.`);
+        out.push(`${item.slug}: build belum dimulai (in-progress, 0/${sum.ac.length} AC berbukti). Lanjutkan skill build SEKARANG: tulis \"### Rencana eksekusi\" bila belum ada, lalu panggil agent spesialis untuk service ${item.services.join(', ') || '(lihat plan)'}; jangan menutup giliran. Bila memang menunggu keputusan user, tampilkan blok "> ## ⚠ BUTUH KEPUTUSANMU" + path plan.md lalu berhenti.`);
       }
       continue;
     }

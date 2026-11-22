@@ -28,6 +28,7 @@
 //   measure <transcript.jsonl> [--json] [--label x]   token per model, panggilan tool/subagent, durasi → .harness/metrics/ (baseline sebelum/sesudah routing)
 //   update [--all|--rollback]  perbarui harness di root ke main (HANYA dengan tiket: /harness:update atau "tolong root nya di update ke main")
 //   decide [slug]           tabel keputusan align (klaim bertentangan/dugaan + D terbuka), dibuat kode; baris terakhir = langkah berikutnya
+//   tasks <slug> [--md]     1.24.0: rencana eksekusi orkestrator (### Rencana eksekusi): tugas, AC, agent, urutan/paralel, status
 //   open [--mine] [--json]  tabel "belum selesai": langkah per item, pertanyaan terbuka, klaim dugaan/bertentangan, AC tanpa bukti, blocker, usulan memori
 //   memory reindex|list|pending|add <teks>|approve <P1|all>|reject <P1|all>|forget <M2|teks>   memori project (docs/memory/MEMORY.md); approve/forget/reject hanya manusia bila write_approval
 //   playbook list|lint      prosedur yang dipelajari (docs/memory/playbooks); lint = frontmatter, ukuran, secret
@@ -69,7 +70,7 @@ import {
 } from './knowledge.mjs';
 import {
   projectRoot, loadConfig, checkTransition, checkDone, setFmKey, STATUSES, decisionBanner,
-  splitFrontmatter, parseAcs, readJson, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli, globToRegex,
+  splitFrontmatter, parseAcs, readJson, planTasks, audit, summarizeItem, createQuick, amendItem, nextStep, isQuick, runCli, globToRegex,
   readPart, isSingle, updateTicket, updateTicketPath, readEvents, latestTouchedSlugs, readAlign, formatDecision, slugify, cleanTitle, alignTables,
 } from './lib.mjs';
 
@@ -271,6 +272,17 @@ switch (cmd) {
     fs.writeFileSync(i.planPath, t);
     audit(root, { event: 'promote', slug: i.slug, from: i.status });
     console.log(`${i.slug}: quick → standard (draft). Berikutnya: skill plan ${i.slug}, lalu user mengetik setuju ${i.slug}.`);
+    break;
+  }
+  case 'tasks': {
+    // 1.24.0 (O1): rencana eksekusi orkestrator (### Rencana eksekusi di plan.md)
+    const it = need(args.find((a) => !a.startsWith('--')));
+    const ts = planTasks(it);
+    if (!ts.length) { console.log(`${it.slug}: belum ada "### Rencana eksekusi". Orkestrator menulisnya di bagian 4 plan.md sebelum memanggil spesialis: | T1 | tugas | AC | agent | urutan | status |`); break; }
+    const done = ts.filter((t) => t.status === 'selesai').length;
+    console.log(`Rencana eksekusi ${it.slug} (${done}/${ts.length} selesai; urutan sama = paralel):\n`);
+    console.log('| # | tugas | AC | agent | urutan | status |\n|---|---|---|---|---|---|');
+    for (const t of ts) console.log(`| ${t.id} | ${t.tugas} | ${t.ac} | ${t.agent} | ${t.urutan} | ${t.status} |`);
     break;
   }
   case 'next': {
@@ -672,5 +684,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('perintah: new | decide | open | memory | playbook | recall | gate | run-checks | log | watch | gc | measure | update | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
+    die('perintah: new | decide | open | tasks | memory | playbook | recall | gate | run-checks | log | watch | gc | measure | update | quick | amend | promote | next | list | show | snapshot | board | set-status | start | check | reopen | approve | doctor | inventory | baseline | worktree | lint-knowledge | knowledge-sample | knowledge-status | propose-checks | bench | patterns-check | verify-knowledge | patterns-approve');
 }

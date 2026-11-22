@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.24.0
+ROADMAP §12 **O1**: orkestrator menulis rencana eksekusi sebelum kode diedit.
+- **`### Rencana eksekusi`** di bagian 4 `plan.md` (template baru): `| T1 | tugas | AC | agent | urutan | status |`. Urutan sama = paralel; status `rencana | jalan | selesai | gagal`. Ditulis sesi utama saat "kerjakan"; bukan bagian beku, jadi bisa diisi setelah approved.
+- **Hook menolak edit kode service** (Edit/Write dan tulis lewat shell) untuk item standard bentuk tunggal yang `approved`/`in-progress` selama tabel itu belum berisi satu tugas pun. Pesannya menyebut format baris dan perintah untuk menampilkannya. Lajur quick dan item bentuk lama tidak terkena. Saklar: `orchestrator.require_plan` (bawaan `true`).
+- **`harness.mjs tasks <slug> [--md]`**: menampilkan rencana dan jumlah tugas selesai.
+- Skill build (langkah 4a) dan `AGENTS.md`: sesi utama = orkestrator (tulis rencana → tampilkan `tasks --md` sebagai laporan, bukan permintaan persetujuan → panggil spesialis per tugas, paralel bila urutannya sama → periksa diff dan laporan sebelum menandai `selesai`). Pesan Stop "build belum dimulai" ikut menyebut rencana.
+
 ## 1.23.0
 Langkah pertama 2.0 (ROADMAP §12, **R1**; keputusan D37): **Plane dicabut**. Semua dikendalikan mesin lokal masing-masing.
 - Dibuang: `plane.mjs`, perintah `harness.mjs plane …` (kini hanya pesan "dicabut"), intent `tarik`, sinkron status di latar (`planeKick`), komentar Plane di konteks prompt, pengiriman keputusan ke kartu, hitungan `Plane N` di status line, blok `plane` di `harness.config.json`, bagian Plane di `AGENTS.md`/README, dan test Plane (v190 serta sebagian v1130/v1131).
