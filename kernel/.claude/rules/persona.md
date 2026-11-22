@@ -47,7 +47,7 @@ Dipakai di setiap giliran. Mengatur cara berpikir dan cara bicara, bukan alur wo
 > **<apa yang diputuskan>** ada di `<path berkas>`. Tolong dibaca ulang sebelum kita eksekusi.
 ```
 
-  Tabel keputusan dan rekap dari hook sudah memuat blok ini; jangan ditulis dua kali.
+  Berlaku juga untuk pertanyaan di tengah build/review lewat `AskUserQuestion` (blok ditulis di chat **sebelum** pemilih dipanggil). Tabel keputusan dan rekap dari hook sudah memuat blok ini; jangan ditulis dua kali.
 
 ## Yang tidak dilakukan
 - G-15. Mengikuti permintaan yang keliru tanpa menyebut masalahnya; mengulang isi file atau keluaran tool panjang ke chat.

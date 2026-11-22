@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 export const STATUSES = ['draft', 'approved', 'in-progress', 'in-review', 'done', 'merged'];
 
 export const DEFAULT_CONFIG = {
-  harness_version: '1.22.9',
+  harness_version: '1.22.10',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single' (satu repo)
@@ -334,11 +334,20 @@ export function readGate(item) {
   const { fm, body } = splitFrontmatter(fs.readFileSync(p, 'utf8'));
   return { fm, body, failing: body.split(/\r?\n/).filter((l) => /\|\s*FAIL\s*\|/.test(l)).map((l) => l.replace(/^\|\s*/, '').replace(/\s*\|\s*$/, '').replace(/\s*\|\s*/g, ' · ')) };
 }
+// 1.22.10 (H7): kegagalan checks yang SUDAH ADA di baseline (production/main) dan tidak disentuh item boleh diterima user
+// ("terima baseline <slug>", ditulis hook). Terikat sidik jari kode: kode berubah → penerimaan usang, check kembali FAIL.
+export function gateAccept(root, cfg, item) {
+  const list = String(item.fm.gate_accept || '').split(',').map((x) => x.trim()).filter((x) => x && x !== 'null');
+  if (!list.length) return { set: new Set(), stale: false, by: '' };
+  const stale = String(item.fm.gate_accept_fp || '') !== codeFingerprint(root, cfg, item);
+  return { set: new Set(list), stale, by: String(item.fm.gate_accept_by || '') };
+}
+export const BASELINE_HINT = (slug) => `Bila kegagalan ini sudah ada di baseline (production/main) dan tidak disentuh item ini: tunjukkan buktinya (perintah yang sama di baseline, gagal sama persis) di "### Decision log", lalu USER mengetik "terima baseline ${slug}". Agent tidak boleh menulis penerimaan ini.`;
 // Dipakai transisi done (dan ship): gate.md harus ada, pass, dan masih berlaku.
 export function gateProblems(root, cfg, item) {
   const g = readGate(item);
   if (!g) return [`gate.md belum ada: jalankan "node .claude/hooks/harness.mjs gate ${item.slug}" ("set-status ${item.slug} done" menjalankannya otomatis).`];
-  if (String(g.fm.verdict) !== 'pass') return [`gate.md verdict ${g.fm.verdict || '?'}:\n  ${g.failing.join('\n  ') || '(lihat gate.md)'}`];
+  if (String(g.fm.verdict) !== 'pass') return [`gate.md verdict ${g.fm.verdict || '?'}:\n  ${g.failing.join('\n  ') || '(lihat gate.md)'}${g.failing.some((f) => /^[\w.\-]+: (?!secret|checks)/.test(f)) ? `\n${BASELINE_HINT(item.slug)}` : ''}`];
   if (String(g.fm.fingerprint) !== gateFingerprint(root, cfg, item)) return [`gate.md usang (kode atau bukti berubah sejak gate dijalankan): jalankan "node .claude/hooks/harness.mjs gate ${item.slug}" lagi.`];
   return [];
 }
@@ -493,7 +502,8 @@ export function checkDone(root, item, cfg) {
   const testCmd = item.fm.test_command || cfg.gate.test_command;
   if (testCmd) {
     const r = spawnSync(testCmd, { shell: true, cwd: root, encoding: 'utf8', timeout: (cfg.gate.test_timeout_sec || 300) * 1000 });
-    if (r.status !== 0) problems.push(`test_command gagal (exit ${r.status}): ${testCmd}\n${(r.stdout + r.stderr).slice(-600)}`);
+    const acc = gateAccept(root, cfg, item);
+    if (r.status !== 0 && !(acc.set.has('test_command') && !acc.stale)) problems.push(`test_command gagal (exit ${r.status}): ${testCmd}\n${(r.stdout + r.stderr).slice(-600)}${acc.set.has('test_command') ? '\n(penerimaan baseline usang: kode berubah sejak diterima)' : `\n${BASELINE_HINT(item.slug)}`}`);
   } else if (cfg.gate.test_required) problems.push('test_command wajib tetapi belum diset.');
   problems.push(...gateProblems(root, cfg, item));
   return problems;

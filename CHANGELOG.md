@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.22.10
+Temuan uji nyata di project event (H5–H8), lanjutan 1.22.9.
+- **`kerjakan` tidak berhenti sebelum spesialis dipanggil** (H5): agent mengubah status ke `in-progress`, membuat daftar tugas, lalu berhenti; rekap Stop malah menyuruhnya menutup giliran. Kini gerbang Stop menahan sekali bila item `in-progress` belum punya satu pun bukti ("build belum dimulai: panggil spesialis"), dan rekap tidak menahan saat status baru berubah ke `in-progress`.
+- **Usulan checks untuk vitest tanpa `run`** (H6): `propose-checks` mengusulkan `npm run test -- --run` (atau `--run` untuk pnpm/yarn/bun). Tanpa itu vitest masuk mode watch dan gate menggantung.
+- **Kegagalan baseline bisa diterima user** (H7): gate `done` menolak item karena 7 test dan 1 error lint yang sudah gagal di production, padahal item tidak menyentuhnya. User kini bisa mengetik `terima baseline <slug>`: hook mencatat check yang gagal di frontmatter plan.md (terikat sidik jari kode; usang bila kode berubah), gate menandainya **DITERIMA** (bukan lulus) di `gate.md`, dan `test_command` ikut diterima. Agent tidak bisa menulis penerimaan itu (ditolak hook). Pesan gate yang gagal menyebut jalan ini.
+- **Blok "BUTUH KEPUTUSANMU" sebelum pemilih di tengah build/review** (H8): persona G-18, O-09, dan skill build kini mewajibkan blok itu sebelum `AskUserQuestion` yang bukan dari tabel keputusan.
+
 ## 1.22.9
 Temuan uji nyata di project event (bukan sandbox).
 - **Saran membuka topik untuk prompt analisa**: sesi tanpa item atau topik yang menerima prompt berbentuk analisa/audit/penjelasan kini mendapat konteks yang menyarankan membuka topik, sekali per sesi (penanda `.harness/state/topicnudge-<sid>`). Sebelumnya hasil analisa hanya tertulis di chat dan hilang setelah sesi ditutup.

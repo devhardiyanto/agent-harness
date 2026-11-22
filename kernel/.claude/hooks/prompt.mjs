@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import { isSingle, activeSessionItem, newItemTicketPath, shortSlug,
   readStdinJson, projectRoot, loadConfig, resolveSlug, readItem, checkTransition, setFmKey, context, audit, contextWarning, createQuick,
-  readAlign, alignExempt, updateTicketPath, CLAIM_ROW, nextStep, listItems, formatDecision, planeKick,
+  readAlign, alignExempt, updateTicketPath, CLAIM_ROW, nextStep, listItems, formatDecision, planeKick, readGate, codeFingerprint,
 } from './lib.mjs';
 import { logIntent, markMisfire } from './pilot.mjs';
 import { takeInbox } from './plane.mjs';
@@ -102,12 +102,14 @@ const mv = /^\s*\/(?:harness:)?(?:knowledge\s+)?verify\s+([\w.\-]+)\s*$/i.exec(p
 const mp = /^\s*\/(?:harness:)?(?:knowledge\s+)?patterns\s+([\w.\-]+)\s+(all|P\d+(?:\s*,\s*P\d+)*)\s*$/i.exec(prompt);
 const mq = /^\s*\/(?:harness:)?quick(?:\s+([\s\S]*))?$/i.exec(prompt);
 const ms = /^\s*\/(?:harness:)?ship\s+([\w.\-]+)\s*$/i.exec(prompt);
+// 1.22.10 (H7): "terima baseline <slug>" = manusia menerima kegagalan checks yang sudah ada di baseline
+const mb = /^\s*terima\s+baseline\s+([\w.\-]+)\s*$/i.exec(prompt);
 const ma = /^\s*\/(?:harness:)?align\s+([\w.\-]+)\s+ok(?:\s+terima\s+(semua|all|C\d+(?:\s*,\s*C\d+)*))?\s*$/i.exec(prompt);
 // /harness:update [all|rollback] atau kalimat "tolong root nya di update ke main": ketikan manusia = izin menjalankan `harness.mjs update` (tiket, 30 menit)
 const mu = /^\s*\/(?:harness:)?update(?:\s+(all|rollback))?\s*$/i.exec(prompt)
   || (prompt.trim().length <= 120 && /root\s*nya\s+di\s*update\s+ke\s+main/i.test(prompt) ? [prompt, undefined] : null);
 const ANALYSIS = /\b(analisa|analisis|audit|review|tinjau|jelaskan|pahami|telusuri|flowchart|diagram|alur|bandingkan|investigasi|kenapa|mengapa)\b/i;
-if (!m && !mv && !mp && !mq && !ms && !ma && !mu) {
+if (!m && !mv && !mp && !mq && !ms && !ma && !mu && !mb) {
   // Peringatan ambang konteks juga di sini (bukan hanya setelah tool): murah, sekali per prompt.
   const extra = [...refCtx];
   // 1.20.0: satu sesi = satu work item. Prompt biasa di sesi yang sudah punya item aktif = lanjutan item itu.
@@ -162,9 +164,30 @@ Jangan menjalankan "harness.mjs new" (ditolak hook). Item baru hanya bila user m
 
 const ctxOut = (t) => context('UserPromptSubmit', [...extra0, t].join('\n\n'));
 const block = (reason) => {
-  process.stdout.write(JSON.stringify({ decision: 'block', reason: `[harness] ${mv ? 'verify' : mp ? 'patterns' : mq ? 'quick' : ms ? 'merge' : ma ? 'align' : 'approve'} ditolak: ${reason}` }));
+  process.stdout.write(JSON.stringify({ decision: 'block', reason: `[harness] ${mv ? 'verify' : mp ? 'patterns' : mq ? 'quick' : ms ? 'merge' : ma ? 'align' : mb ? 'terima baseline' : 'approve'} ditolak: ${reason}` }));
   process.exit(0);
 };
+
+if (mb) {
+  const sb0 = resolveSlug(root, mb[1]);
+  const ib = sb0 ? readItem(root, sb0) : null;
+  if (!ib) block(`work item "${mb[1]}" tidak ditemukan / ambigu.`);
+  if (!['in-progress', 'in-review'].includes(ib.status)) block(`item ${sb0} berstatus ${ib.status}; penerimaan baseline hanya untuk in-progress/in-review.`);
+  const g = readGate(ib);
+  // hanya check service ("<svc>: <nama>") yang FAIL; bukti AC, review, dan secret tidak bisa diterima dengan cara ini
+  const keys = (g ? g.failing : []).map((f) => /^([\w.\-]+): ([\w.\-]+) · FAIL/.exec(f)).filter((x) => x && !/^(secret|checks)$/.test(x[2])).map((x) => `${x[1]}:${x[2]}`);
+  if (ib.fm.test_command && ib.fm.test_command !== 'null') keys.push('test_command');
+  if (!keys.length) block(`tidak ada check gagal yang bisa diterima untuk ${sb0} (jalankan dulu "set-status ${sb0} done" atau "harness.mjs gate ${sb0}").`);
+  let t = fs.readFileSync(ib.planPath, 'utf8');
+  t = setFmKey(t, 'gate_accept', [...new Set(keys)].join(','));
+  t = setFmKey(t, 'gate_accept_fp', codeFingerprint(root, cfg, ib));
+  t = setFmKey(t, 'gate_accept_by', who0());
+  t = setFmKey(t, 'gate_accept_at', new Date().toISOString());
+  fs.writeFileSync(ib.planPath, t);
+  audit(root, { event: 'gate-accept-baseline', session: payload.session_id, slug: sb0, by: who0(), checks: keys.join(',') });
+  ctxOut(`[harness] User (${who0()}) MENERIMA kegagalan baseline untuk ${sb0}: ${[...new Set(keys)].join(', ')} (ditulis hook di frontmatter plan.md; terikat kode saat ini, usang bila kode berubah). Catat satu baris di "### Decision log", lalu jalankan "node .claude/hooks/harness.mjs set-status ${sb0} done" lagi. Di ringkasan PR sebut check yang DITERIMA (bukan lulus).`);
+  process.exit(0);
+}
 
 // /harness:align <slug> ok: manusia menutup debat objective. Ditulis hook (agent tidak boleh menulis verdict aligned).
 if (ma) {

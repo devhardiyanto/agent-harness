@@ -168,10 +168,13 @@ test('Stop: anti-loop (stop_hook_active, batas per sesi), item belum siap, dan d
   assert.equal(stop(root, { session_id: 'lain' }).status, 0);
   touch(root, path.basename(fs.readdirSync(path.join(root, 'docs', 'work')).map((d) => path.join(root, 'docs', 'work', d)).find((d) => fs.existsSync(path.join(d, 'plan.md')))), 'lain');
   assert.equal(stop(root, { session_id: 'lain' }).status, 2);
-  // belum semua AC berbukti: boleh berhenti
+  // 1.22.10 (H5a): 0 AC berbukti = build belum dimulai → ditahan sekali per item, lalu boleh berhenti
   const r2 = mk({ align: false });
   const s2 = inProgress(r2);
   wr(r2, `docs/work/${s2}/progress.md`, '- AC1:\n');
+  const h = stop(r2);
+  assert.equal(h.status, 2);
+  assert.match(h.stderr, /build belum dimulai/);
   assert.equal(stop(r2).status, 0);
   // dimatikan
   const r3 = mk({ align: false, cfg: { stop_gate: { enabled: false } } });
