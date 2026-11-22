@@ -4,10 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { itemBidang } from './bidang.mjs';
-import { readPart, summarizeItem, isQuick, serviceDirOf, gateFingerprint, findSecret, splitFrontmatter } from './lib.mjs';
+import { readPart, summarizeItem, isQuick, serviceDirOf, gateFingerprint, findSecret, splitFrontmatter, gateAccept } from './lib.mjs';
 import { baselineOf } from './knowledge.mjs';
 
-const PASS = 'PASS'; const FAIL = 'FAIL'; const SKIP = 'TIDAK DIPERIKSA'; const NA = 'TIDAK BERLAKU';
+const PASS = 'PASS'; const FAIL = 'FAIL'; const ACCEPTED = 'DITERIMA'; const SKIP = 'TIDAK DIPERIKSA'; const NA = 'TIDAK BERLAKU';
 const tail = (t, n = 300) => String(t || '').trim().replace(/\s+/g, ' ').slice(-n);
 const ORDER = ['lint', 'test', 'build'];
 
@@ -48,6 +48,7 @@ export function runGate(root, cfg, item, { log = () => {} } = {}) {
 
   const checks = cfg.checks || {};
   const ran = [];
+  const acc = gateAccept(root, cfg, item);
   for (const svc of item.services) {
     const sc = (checks[svc] && typeof checks[svc] === 'object') ? checks[svc] : {};
     const names = [...ORDER, ...Object.keys(sc).filter((k) => !ORDER.includes(k))];
@@ -59,7 +60,10 @@ export function runGate(root, cfg, item, { log = () => {} } = {}) {
       any = true;
       log(`[gate] ${svc}: ${n} → ${cmd}`);
       const r = runCommand(cmd, dir, cfg.gate.test_timeout_sec || 300);
-      rows.push([`${svc}: ${n}`, r.ok ? PASS : FAIL, r.note]);
+      // 1.22.10 (H7): gagal yang diterima user sebagai kegagalan baseline tidak menolak done, tetap tercatat
+      const key = `${svc}:${n}`;
+      if (!r.ok && acc.set.has(key)) rows.push([`${svc}: ${n}`, acc.stale ? FAIL : ACCEPTED, acc.stale ? `penerimaan baseline usang (kode berubah sejak diterima): ${r.note}` : `gagal, diterima ${acc.by || 'user'} sebagai kegagalan baseline: ${r.note}`]);
+      else rows.push([`${svc}: ${n}`, r.ok ? PASS : FAIL, r.note]);
       ran.push({ service: svc, name: n, command: cmd, ok: r.ok, note: r.note });
     }
     if (!any) rows.push([`${svc}: checks`, cfg.gate.require_checks ? FAIL : SKIP, cfg.gate.require_checks ? 'gate.require_checks aktif tetapi checks.' + svc + ' kosong' : `checks.${svc} belum diisi di harness.config.json (usulan: harness.mjs propose-checks ${svc})`]);
@@ -68,7 +72,7 @@ export function runGate(root, cfg, item, { log = () => {} } = {}) {
   }
   const verdict = rows.some((r) => r[1] === FAIL) ? 'fail' : 'pass';
   const skipped = rows.filter((r) => r[1] === SKIP).length;
-  const text = `---\nverdict: ${verdict}\ngenerated: ${new Date().toISOString()}\nfingerprint: ${gateFingerprint(root, cfg, item)}\nlane: ${isQuick(item) ? 'quick' : 'standard'}\nunchecked: ${skipped}\n---\n# Gate pengiriman — ${item.slug}\n\n| item | hasil | catatan |\n|---|---|---|\n${rows.map((r) => `| ${r[0]} | ${r[1]} | ${String(r[2]).replace(/\|/g, '\\|').replace(/\n/g, ' ')} |`).join('\n')}\n\n${skipped ? `**${skipped} item TIDAK DIPERIKSA**: tidak ada checks yang terkonfigurasi; keputusan ship ada di tanganmu.\n` : ''}`;
+  const text = `---\nverdict: ${verdict}\ngenerated: ${new Date().toISOString()}\nfingerprint: ${gateFingerprint(root, cfg, item)}\nlane: ${isQuick(item) ? 'quick' : 'standard'}\nunchecked: ${skipped}\n---\n# Gate pengiriman — ${item.slug}\n\n| item | hasil | catatan |\n|---|---|---|\n${rows.map((r) => `| ${r[0]} | ${r[1]} | ${String(r[2]).replace(/\|/g, '\\|').replace(/\n/g, ' ')} |`).join('\n')}\n\n${skipped ? `**${skipped} item TIDAK DIPERIKSA**: tidak ada checks yang terkonfigurasi; keputusan ship ada di tanganmu.\n` : ''}${rows.some((r) => r[1] === ACCEPTED) ? `**${rows.filter((r) => r[1] === ACCEPTED).length} check DITERIMA sebagai kegagalan baseline** (keputusan user, bukan lulus). Sebutkan di PR.\n` : ''}`;
   fs.writeFileSync(path.join(item.dir, 'gate.md'), text);
   return { verdict, rows, skipped, checks: ran };
 }

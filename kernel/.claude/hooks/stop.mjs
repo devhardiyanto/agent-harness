@@ -87,7 +87,10 @@ export function recapFor(root, cfg, sid) {
   const sk = listItems(root).filter((i) => mine.has(i.slug)).map((i) => `${i.slug}:${i.status}`).sort().join(',');
   fs.mkdirSync(path.dirname(mark), { recursive: true });
   fs.writeFileSync(mark, JSON.stringify({ h, sk, at: new Date().toISOString() }));
-  return { text, statusChanged: prev.sk !== sk };
+  // 1.22.10 (H5b): perubahan yang hanya "→ in-progress" = kerja baru mulai; bukan saatnya menutup giliran dengan rekap
+  const before = new Set(String(prev.sk || '').split(',').filter(Boolean));
+  const fresh = sk.split(',').filter((x) => x && !before.has(x));
+  return { text, statusChanged: prev.sk !== sk, startedOnly: fresh.length > 0 && fresh.every((x) => x.endsWith(':in-progress')) };
 }
 
 export function problemsFor(root, cfg, sid) {
@@ -97,6 +100,17 @@ export function problemsFor(root, cfg, sid) {
     if (!['in-progress', 'in-review'].includes(item.status)) continue;
     if (!mine.has(item.slug)) continue; // bukan item yang dikerjakan sesi ini
     const sum = summarizeItem(item);
+    // 1.22.10 (H5a): "kerjakan" baru mengubah status ke in-progress, tetapi belum ada satu pun bukti → build belum dimulai.
+    // Ditahan sekali per item per sesi; setelah itu boleh berhenti (mis. menunggu keputusan user).
+    if (item.status === 'in-progress' && sum.ac.length && sum.ac.every((a) => a.evidence !== 'ok') && !readEvidence(root, item.slug)) {
+      const bm = path.join(root, '.harness', 'state', `buildstart-${String(sid || 'x').replace(/\W/g, '')}.json`);
+      const seen = new Set(readJson(bm, { slugs: [] }).slugs || []);
+      if (!seen.has(item.slug)) {
+        fs.mkdirSync(path.dirname(bm), { recursive: true }); fs.writeFileSync(bm, JSON.stringify({ slugs: [...seen, item.slug] }));
+        out.push(`${item.slug}: build belum dimulai (in-progress, 0/${sum.ac.length} AC berbukti). Lanjutkan skill build SEKARANG: panggil agent spesialis untuk service ${item.services.join(', ') || '(lihat plan)'}, jangan menutup giliran. Bila memang menunggu keputusan user, tampilkan blok "> ## ⚠ BUTUH KEPUTUSANMU" + path plan.md lalu berhenti.`);
+      }
+      continue;
+    }
     if (!sum.ac.length || sum.ac.some((a) => a.evidence !== 'ok')) continue; // belum siap: boleh berhenti
     const ev = readEvidence(root, item.slug);
     if (!ev) out.push(`${item.slug}: bukti test belum ada. Panggil agent runner (atau: node .claude/hooks/harness.mjs run-checks ${item.slug}).`);
@@ -162,7 +176,7 @@ if (isMain(import.meta.url)) {
     if (t) {
       const last = String(payload.last_assistant_message || '');
       const empty = /\(kosong\)/.test(t.split('\n')[0] || '');
-      const hold = !empty && (cfg.recap.hold === 'always' || (cfg.recap.hold !== 'never' && rc.statusChanged));
+      const hold = !empty && !rc.startedOnly && (cfg.recap.hold === 'always' || (cfg.recap.hold !== 'never' && rc.statusChanged));
       if (cfg.recap.render === 'assistant' && hold && !payload.stop_hook_active && !/Belum selesai[^\n]*\(\d+\)/.test(last) && !alreadyShown(t, last)) {
         // 1.22.3: tabel tidak ditempel di pesan hook (Claude Code menampilkannya sebagai teks polos → tabel tampil dua kali)
         process.stderr.write('[harness] Tutup giliran ini dengan keluaran "node .claude/hooks/harness.mjs open --mine --md" sebagai Markdown, APA ADANYA. Tanpa narasi tambahan.\n');

@@ -25,7 +25,8 @@ Masukan: `$ARGUMENTS` (slug). Sesi ini adalah sesi **eksekusi**.
 ## Aturan
 - Hanya yang ada di plan. Temuan lain → `progress.md` bagian "Di luar lingkup".
 - Hook memblokir sesuatu → jangan memutar; catat di `progress.md` dan laporkan.
-- Perlu keputusan user di tengah jalan (bukan perubahan plan) → `AskUserQuestion`, catat jawabannya di `progress.md`.
+- Perlu keputusan user di tengah jalan (bukan perubahan plan) → tulis dulu blok `> ## ⚠ BUTUH KEPUTUSANMU` + path plan.md di chat (persona G-18), baru `AskUserQuestion`; catat jawabannya di `### Decision log`.
+- Gate `done` menolak karena check yang **sudah gagal di baseline** (production/main) dan tidak disentuh item: jalankan perintah yang sama di baseline, tulis buktinya di `### Decision log`, lalu minta user mengetik `terima baseline <slug>` (hanya user; agent tidak menulis penerimaan itu). Jangan memperbaiki hal di luar lingkup tanpa amend/reopen.
 - Perlu mengubah plan → berhenti dan minta user (`reopen` + approve ulang).
 
 ## Balasan chat (ringkas, persona G-13)

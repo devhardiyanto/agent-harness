@@ -47,7 +47,12 @@ export function proposeChecksFrom(read, exists) {
     const lint = ['lint', 'lint:check', 'typecheck', 'type-check'].find((k) => sc[k]);
     const test = ['test', 'test:unit'].find((k) => sc[k]);
     if (lint) { r.lint = `${pm} ${lint}`; r.basis.push(`package.json scripts.${lint}`); }
-    if (test) { r.test = `${pm} ${test}`; r.basis.push(`package.json scripts.${test}`); }
+    if (test) {
+      r.test = `${pm} ${test}`; r.basis.push(`package.json scripts.${test}`);
+      // 1.22.10 (H6): vitest tanpa "run" masuk mode watch (tidak pernah selesai di gate) → paksa sekali jalan
+      const cmd = String(sc[test]);
+      if (/\bvitest\b/.test(cmd) && !/\bvitest\s+run\b|--run\b/.test(cmd)) { r.test = pm === 'npm run' ? `npm run ${test} -- --run` : `${pm} ${test} --run`; r.basis.push('vitest tanpa "run" = mode watch → ditambah --run'); }
+    }
   }
   const cj = read('composer.json');
   if (cj !== null && !r.test) {

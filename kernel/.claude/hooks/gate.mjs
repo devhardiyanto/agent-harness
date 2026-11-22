@@ -78,6 +78,8 @@ export function evaluate(root, cfg, payload) {
     const toStatus = nextFm.status || 'draft';
     // 1.16.0: bentuk tunggal membawa align di frontmatter plan.md; aturannya sama dengan align.md (4a)
     const curFm = splitFrontmatter(current).fm;
+    // 1.22.10 (H7): penerimaan kegagalan baseline hanya ditulis hook dari ketikan user "terima baseline <slug>"
+    for (const k of ['gate_accept', 'gate_accept_fp', 'gate_accept_by', 'gate_accept_at']) if (String(nextFm[k] ?? '') !== String(curFm[k] ?? '')) return fail(`${k} hanya ditulis hook (user mengetik "terima baseline ${slug}").`);
     if (String(nextFm.bentuk || curFm.bentuk || '') === 'tunggal') {
       const cv = String(curFm.align || 'open').toLowerCase(); const nv = String(nextFm.align || 'open').toLowerCase();
       if (nv === 'aligned' && cv !== 'aligned') return fail(`"align: aligned" hanya oleh manusia: ketik align ok ${slug}. Tulis "align: open".`);
