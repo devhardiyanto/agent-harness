@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.23.0
+Langkah pertama 2.0 (ROADMAP §12, **R1**; keputusan D37): **Plane dicabut**. Semua dikendalikan mesin lokal masing-masing.
+- Dibuang: `plane.mjs`, perintah `harness.mjs plane …` (kini hanya pesan "dicabut"), intent `tarik`, sinkron status di latar (`planeKick`), komentar Plane di konteks prompt, pengiriman keputusan ke kartu, hitungan `Plane N` di status line, blok `plane` di `harness.config.json`, bagian Plane di `AGENTS.md`/README, dan test Plane (v190 serta sebagian v1130/v1131).
+- Kunci `plane` lama di `harness.config.json` diabaikan. `doctor` dan `migrate` menampilkannya sebagai **info** (tidak menggagalkan); boleh dihapus manual. Data `.harness/plane/` dan kartu di Plane tidak disentuh.
+- ROADMAP: status per 2026-11-22, R1 ✅.
+
 ## 1.22.11
 Penutup uji nyata di event: gerbang pilot §10 **hijau** (S1–S4 dan GitHub asli, PR #95 di repo event merged; `pilot --hours 6` = "Siap 2.0").
 - **Model bawaan sesi: Opus 5.5, effort medium** (`.claude/settings.json`: `"model": "claude-opus-5-5"`, `"effortLevel": "medium"`; permintaan user). `/model` atau `/effort` di dalam sesi tetap bisa menggantinya. Subagent tidak berubah (scout/runner Haiku, reviewer Opus, spesialis Sonnet).

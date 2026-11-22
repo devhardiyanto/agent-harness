@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   readStdinJson, projectRoot, loadConfig, listItems, summarizeItem, readEvidence, codeFingerprint, isQuick, readJson, audit, isMain, touchedSlugs,
-  readAlign, alignExempt, formatDecision, planeKick, decisionRows, isSingle,
+  readAlign, alignExempt, formatDecision, decisionRows, isSingle,
 } from './lib.mjs';
 import { logIntent } from './pilot.mjs';
 import { buildQuestions, saveNaskah, askInstruction, saveLessonNaskah } from './ask.mjs';
@@ -22,7 +22,7 @@ export const WAITING = /(background agent|agen(?:t)? latar|di latar belakang|(?:
 export function decisionFor(root, cfg, payload) {
   if (!cfg.align.decision_table || payload.stop_hook_active) return null;
   const mine = touchedSlugs(root, payload.session_id);
-  const parts = []; const slugs = []; const asked = []; const noClaims = [];
+  const parts = []; const asked = []; const noClaims = [];
   for (const it of listItems(root)) {
     if (!mine.has(it.slug) || it.status !== 'draft' || alignExempt(it, cfg)) continue;
     const a = readAlign(it);
@@ -30,7 +30,7 @@ export function decisionFor(root, cfg, payload) {
     if (a && a.verdict !== 'aligned' && !a.claims && isSingle(it) && a.decisions.length) { noClaims.push(it.slug); continue; }
     if (!a || a.verdict === 'aligned' || !a.claims) continue;
     if (!decisionRows(it).length) continue; // 1.19.2: tanpa keputusan/klaim terbuka tidak ada yang perlu ditanyakan; giliran tidak ditahan
-    parts.push(formatDecision(root, it)); if (it.fm.plane_id) slugs.push(it.slug); asked.push(it);
+    parts.push(formatDecision(root, it)); asked.push(it);
   }
   if (!parts.length && noClaims.length) {
     const nm = path.join(root, '.harness', 'state', `noclaims-${String(payload.session_id || 'x').replace(/\W/g, '')}.json`);
@@ -50,8 +50,6 @@ export function decisionFor(root, cfg, payload) {
   fs.mkdirSync(path.dirname(mark), { recursive: true });
   fs.writeFileSync(mark, JSON.stringify({ h, at: new Date().toISOString() }));
   logIntent(root, cfg, { type: 'stop-hold', sid: payload.session_id || 'unknown' });
-  // 1.13.0 (D19): keputusan yang menahan pekerjaan juga dikirim ke kartu Plane dengan @mention (latar, sekali per isi tabel)
-  if (cfg.plane.enabled) for (const sl of slugs) planeKick(root, ['ask', sl, '--decide']);
   // 1.16.0: keputusan D dengan opsi jelas ditanyakan lewat pemilih; jawabannya dicatat hook ask.mjs
   let pick = '';
   if (cfg.tui.ask) { const qs = []; for (const it of asked) { const q = buildQuestions(root, it); if (q.length) { saveNaskah(root, payload.session_id, it.slug, q); qs.push(...q); } } if (qs.length) pick = `\n\n${askInstruction(qs.slice(0, 4), root, payload.session_id)}`; }

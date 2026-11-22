@@ -39,11 +39,10 @@ function activeItem(root, sid) {
 
 export function statusData(root, cfg, payload = {}) {
   const it = activeItem(root, payload.session_id);
-  const d = { root: path.basename(root), item: null, inbox: 0, lessons: 0, ctx: null, model: null, effort: null };
+  const d = { root: path.basename(root), item: null, lessons: 0, ctx: null, model: null, effort: null };
   // 1.15.1: model dan effort dari JSON sesi Claude Code (effort hanya ada bila model mendukungnya)
   if (payload.model) d.model = String(payload.model.display_name || payload.model.id || '').trim() || null;
   if (payload.effort && payload.effort.level) d.effort = String(payload.effort.level);
-  try { d.inbox = (readJson(path.join(root, '.harness', 'plane-inbox.json'), []) || []).length; } catch { /* abaikan */ }
   try { d.lessons = fs.readFileSync(path.join(root, 'docs', 'memory', 'MEMORY.md'), 'utf8').split(/\r?\n§\r?\n/).filter((e) => e.replace(/<!--[\s\S]*?-->/g, '').trim()).length; } catch { /* belum ada memori */ }
   d.age = rootAge(root);
   const pct = payload.context_window && payload.context_window.used_percentage;
@@ -77,7 +76,6 @@ export function render(d, { theme = 'tenang', max = 120 } = {}) {
   }
   if (d.model) l2.unshift(c('item', d.effort ? `${d.model} · ${d.effort}` : d.model));
   if (d.bidang) l2.unshift(c('root', d.bidang));
-  if (d.inbox) l2.push(`Plane ${c('warn', String(d.inbox))}`);
   if (d.age !== null && d.age !== undefined) l2.push(c('dim', `umur ${d.age} h`));
   if (d.lessons) l2.push(c('dim', `${d.lessons} pelajaran`));
   if (d.ctx !== null) l2.push(d.ctx >= 80 ? c('bad', `konteks ${d.ctx}%`) : c('dim', `konteks ${d.ctx}%`));

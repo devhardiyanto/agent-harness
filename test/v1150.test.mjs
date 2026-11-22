@@ -15,7 +15,7 @@ const plain = (s) => s.replace(/\x1b\[[0-9;]*m/g, '');
 test('render: tanpa item satu baris; dengan item dua baris; mono tanpa ANSI; dipotong sesuai lebar', () => {
   assert.equal(render({ root: 'event', item: null, inbox: 0, lessons: 0, ctx: null }, { theme: 'mono' }), '▌event  tidak ada item aktif · ketik permintaanmu');
   const d = { root: 'event', item: { slug: 'pub-01', status: 'in-progress', quick: false, ac: [3, 5], checks: 'pass', decisions: 1 }, inbox: 2, lessons: 14, ctx: 41 };
-  assert.equal(render(d, { theme: 'mono' }), '▌event  pub-01  ● in-progress  AC 3/5  checks ✓\n▌1 keputusan · Plane 2 · 14 pelajaran · konteks 41%');
+  assert.equal(render(d, { theme: 'mono' }), '▌event  pub-01  ● in-progress  AC 3/5  checks ✓\n▌1 keputusan · 14 pelajaran · konteks 41%');
   const col = render(d, { theme: 'tenang' });
   assert.match(col, /\x1b\[/); assert.equal(plain(col), render(d, { theme: 'mono' }));
   assert.equal(plain(render(d, { theme: 'tidak-ada' })), render(d, { theme: 'mono' }), 'tema tak dikenal = tenang');

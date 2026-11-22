@@ -71,7 +71,6 @@ const cfg = JSON.parse(fs.readFileSync(cfgF, 'utf8'));
 cfg.services = ['frontend', 'backend'];
 cfg.ship = { ...(cfg.ship || {}), base: { frontend: 'main', backend: 'main' } };
 cfg.checks = { frontend: { test: 'npm test' }, backend: { test: 'npm test' } }; // 1.19.5: gate menjalankan test, bukan TIDAK DIPERIKSA
-if (cfg.plane) cfg.plane.enabled = false;
 fs.writeFileSync(cfgF, `${JSON.stringify(cfg, null, 2)}\n`);
 git(dir, 'add', '-A'); git(dir, 'commit', '-qm', 'sandbox: config'); git(dir, 'push', '-q', 'origin', 'main');
 

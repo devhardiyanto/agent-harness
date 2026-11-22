@@ -70,7 +70,7 @@ test('existing: ganti penuh, tag cadangan, branch, yang lain dipertahankan', () 
   assert.equal(fs.existsSync(path.join(root, '.harness-staging')), false);
   const cfg = JSON.parse(fs.readFileSync(path.join(root, 'harness.config.json'), 'utf8'));
   assert.deepEqual(cfg.services, ['ce-api', 'ce-web']);
-  assert.equal(cfg.plane.enabled, false, 'plane mati bawaan (1.9.0: sinkron status opsional)');
+  assert.equal(cfg.plane, undefined, 'Plane dicabut (1.23.0, D37)');
   const st = JSON.parse(fs.readFileSync(path.join(root, '.claude/settings.json'), 'utf8'));
   assert.equal(st.enabledPlugins, undefined, 'plugin global: tidak didaftarkan di settings project');
   assert.equal(st.extraKnownMarketplaces, undefined);
@@ -150,14 +150,14 @@ test('folder installer sendiri ditolak', () => {
 });
 
 // ---------- sisa modul lama & pasang ulang di atas v1 ----------
-test('tidak ada modul executor yang dipasang, plane mati bawaan; tidak ada .gitattributes baru', () => {
+test('tidak ada modul executor yang dipasang, Plane dicabut (1.23.0); tidak ada .gitattributes baru', () => {
   const root = existingProject();
   assert.equal(install(root, '--yes').status, 0);
   assert.equal(fs.existsSync(path.join(root, '.gitattributes')), false);
   assert.equal(fs.existsSync(path.join(root, 'scripts/executor')), false);
   assert.equal(fs.existsSync(path.join(root, '.agents')), false);
   const cfg = JSON.parse(fs.readFileSync(path.join(root, 'harness.config.json'), 'utf8'));
-  assert.equal(cfg.executor, undefined); assert.equal(cfg.plane.enabled, false);
+  assert.equal(cfg.executor, undefined); assert.equal(cfg.plane, undefined);
 });
 
 test('pasang ulang di atas v1: sisa executor/plane dibiarkan, dilaporkan, dan datanya tidak hilang', () => {

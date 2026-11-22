@@ -14,7 +14,6 @@
 //   ref:<slug> (di mana pun dalam prompt, maks 3)               → ringkasan item dimuat sebagai konteks
 //   bukan itu | salah tangkap (1.13)                            → intent terakhir ditandai salah tangkap (+ dibatalkan bila bisa)
 //   kerjakan <slug> | verifikasi knowledge <svc> | terapkan pola <slug> <P1|semua> (1.15)
-//   tarik | tarik plane | cek plane (1.13)                       → tarik komentar/checklist Plane ke cermin lokal
 const SLUG = '([\\w][\\w.\\-]*)';
 const ACC = '(?:\\s+terima\\s+(semua|all|C\\d+(?:\\s*,\\s*C\\d+)*))?';
 
@@ -45,6 +44,5 @@ export function parseIntent(prompt, cfg, resolve, soleDone = () => null) {
   if ((m = /^(?:ingat|remember)\s+(semua|all|P\d+(?:\s*,\s*P\d+)*)$/i.exec(t))) return { kind: 'remember-approve', ids: /^(semua|all)$/i.test(m[1]) ? 'all' : m[1].toUpperCase().split(/\s*,\s*/), refs };
   if ((m = /^(?:lupakan|forget)\s+([MU]?\d+)$/i.exec(t))) return { kind: 'forget', key: m[1].toUpperCase(), refs };
   if (/^(?:bukan\s+itu(?:\s+maksud(?:ku|nya))?|salah\s+tangkap|bukan\s+begitu)\s*$/i.test(t)) return { kind: 'misfire', refs };
-  if ((m = new RegExp(`^(?:tarik(?:\\s+plane)?|cek\\s+plane|sync\\s+plane)(?:\\s+${SLUG})?$`, 'i').exec(t))) return { kind: 'pull', slug: m[1] ? ok(m[1]) : null, refs };
   return { refs };
 }

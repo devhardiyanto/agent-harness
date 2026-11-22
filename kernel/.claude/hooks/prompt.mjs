@@ -3,10 +3,9 @@
 import fs from 'node:fs';
 import { isSingle, activeSessionItem, newItemTicketPath, shortSlug,
   readStdinJson, projectRoot, loadConfig, resolveSlug, readItem, checkTransition, setFmKey, context, audit, contextWarning, createQuick,
-  readAlign, alignExempt, updateTicketPath, CLAIM_ROW, nextStep, listItems, formatDecision, planeKick, readGate, codeFingerprint,
+  readAlign, alignExempt, updateTicketPath, CLAIM_ROW, nextStep, listItems, formatDecision, readGate, codeFingerprint,
 } from './lib.mjs';
 import { logIntent, markMisfire } from './pilot.mjs';
-import { takeInbox } from './plane.mjs';
 import { intentPath } from './ship.mjs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -46,11 +45,6 @@ if (slash) {
 if ((intent.command || intent.kind) && !['remember', 'misfire'].includes(intent.kind)) {
   logIntent(root, cfg, { type: 'intent', sid, kind: intent.kind || intent.command.split(/\s+/)[0].replace('/harness:', ''), slug: intent.slug || (intent.command || '').split(/\s+/)[1] || null, prompt: payload.prompt });
 }
-// 1.13.0: komentar manusia baru dari Plane (ditarik di latar) → konteks, sekali; tarik lagi di latar (dibatasi pull_min_interval_s)
-if (cfg.plane.enabled && cfg.plane.pull_comments) {
-  try { const inbox = takeInbox(root); if (inbox.length) refCtx.push(`[harness] Komentar baru dari user di Plane (balas di kartu dengan: node .claude/hooks/harness.mjs plane comment <slug> "<balasan>"; keputusan yang menahan pekerjaan: plane ask <slug> --decide):\n${inbox.slice(-8).map((c) => `- ${c.slug} (${c.at}): ${c.text.replace(/\n+/g, ' / ')}`).join('\n')}`); } catch { /* abaikan */ }
-  planeKick(root, ['pull', '--auto', '--quiet']);
-}
 refCtx.push(...extra0);
 // 1.18.0: rujukan otomatis untuk prompt biasa (bukan perintah pendek), dicari kode
 if (!intent.command && !intent.kind && !slash && cfg.memory.enabled) { try { const rt = recallText(autoRecall(root, cfg, payload.prompt, sid)); if (rt) refCtx.push(rt); } catch { /* abaikan */ } }
@@ -76,14 +70,8 @@ if (intent.kind) {
     if (last.kind === 'ship' && last.slug) { try { fs.rmSync(intentPath(root, last.slug), { force: true }); undo = `izin merge untuk ${last.slug} dicabut`; } catch { /* abaikan */ } }
     else if (last.kind === 'remember' && last.ref) { const r = removeEntry(root, last.ref, who0()); undo = r.ok ? `memori ${last.ref} dihapus lagi` : `memori ${last.ref} gagal dihapus: ${r.reason}`; }
     else if (last.kind === 'approve' && last.slug) undo = `approve ${last.slug} TIDAK dibatalkan otomatis; bila perlu user mengetik "! node .claude/hooks/harness.mjs reopen ${last.slug}"`;
-    else if (['decide', 'open', 'pull'].includes(last.kind)) undo = 'hanya menampilkan tabel; abaikan tabelnya';
+    else if (['decide', 'open'].includes(last.kind)) undo = 'hanya menampilkan tabel; abaikan tabelnya';
     say(`[harness] "${last.prompt || last.kind}" ditandai SALAH TANGKAP (dicatat untuk pilot 2.0). ${undo}. Jangan lanjutkan tindakan dari intent itu; tanyakan satu baris maksud user yang sebenarnya.`);
-  }
-  if (intent.kind === 'pull') {
-    if (!cfg.plane.enabled) stop('Plane mati (plane.enabled=false).');
-    const r = spawnSync(process.execPath, [path.join(root, '.claude', 'hooks', 'harness.mjs'), 'plane', 'pull', ...(intent.slug ? [intent.slug] : [])], { cwd: root, encoding: 'utf8', timeout: 40000, env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
-    const inbox = takeInbox(root);
-    say(`[harness] Hasil tarik Plane (cermin: .harness/plane/<slug>.md). Tampilkan tabel apa adanya, lalu tanggapi komentar baru (bila ada) di kartu dengan "node .claude/hooks/harness.mjs plane comment <slug> \"<balasan>\"".\n${(r.stdout || r.stderr || '(tanpa keluaran)').trim().slice(0, 4000)}${inbox.length ? `\nKomentar baru: ${inbox.map((c) => `${c.slug}: ${c.text.replace(/\n+/g, ' / ')}`).join(' ; ').slice(0, 2000)}` : ''}`);
   }
   if (intent.kind === 'menu') {
     const mn = menuFor(root, cfg, sid);
