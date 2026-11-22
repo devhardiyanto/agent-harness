@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.22.9
+Temuan uji nyata di project event (bukan sandbox).
+- **Saran membuka topik untuk prompt analisa**: sesi tanpa item atau topik yang menerima prompt berbentuk analisa/audit/penjelasan kini mendapat konteks yang menyarankan membuka topik, sekali per sesi (penanda `.harness/state/topicnudge-<sid>`). Sebelumnya hasil analisa hanya tertulis di chat dan hilang setelah sesi ditutup.
+- **Klaim dugaan bisa dijawab "belum tahu"**: pemilih klaim punya opsi ketiga "belum tahu", dan ketikan `C1 belum tahu` juga diterima. Status klaim menjadi `belum diketahui (user, …; risiko terbuka)`: tidak dikonfirmasi, tidak dibantah, dan tidak ditanyakan ulang. Sebelumnya user terpaksa memilih benar/salah atau klaimnya terus ditanyakan. Untuk baris keputusan (D), "belum tahu" diabaikan dan keputusannya tetap terbuka.
+- **Tabel keputusan tidak menelan baris "Berikutnya"**: `formatDecision` menambah baris kosong sebelum "Berikutnya", sehingga baris itu tidak lagi dirender sebagai baris tabel.
+- **`open --mine` hanya item sesi terakhir**: tabel "Belum selesai" kini diambil dari item yang disentuh sesi terakhir; event log (semua sesi) hanya cadangan bila daftarnya kosong. Sebelumnya item sesi lain ikut tampil, dan banner **⚠ BUTUH KEPUTUSANMU** menunjuk item yang salah.
+
 ## 1.22.8
 Penutup seri uji sandbox (T1–T20, N1–N9, E1–E5 lulus).
 - **Label blok keputusan di tabel "Belum selesai"**: item yang masih punya keputusan atau klaim terbuka kini berlabel **Keputusan**. Label **Persetujuan** hanya untuk item yang tinggal menunggu "setuju"/"align ok". Sebelumnya semuanya berlabel Persetujuan.

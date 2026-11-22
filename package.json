@@ -1,6 +1,6 @@
 {
   "name": "agent-harness",
-  "version": "1.22.8",
+  "version": "1.22.9",
   "private": true,
   "description": "Installer harness untuk Claude Code",
   "license": "MIT",
