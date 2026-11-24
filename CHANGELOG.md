@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.1
+Temuan pemakaian pertama 2.0.0 (astra, event, yhpa): remote repo service berupa SSH dengan alias per akun (`git@github-kantor:org/repo.git`).
+- **`git-auth` mengenali remote SSH beralias**: status `SSH <alias>: helper tidak perlu` (kunci SSH per alias sudah memisahkan akun; helper HTTPS tidak dipasang). Alias dicek lewat `ssh -G`. Remote HTTPS tetap memakai credential helper. Tabel kini memuat kolom `repo`.
+- **`git-auth repo <svc>`** mencetak `owner/repo` dari remote, untuk `gh ... -R <owner/repo>` (gh tidak mengenali alias SSH). Aturan `G-02`, `G-03`, dan `T-03` diperbarui.
+- **`doctor` tidak lagi OK palsu**: baris "akses git per service" hanya OK bila tiap service terpasang (HTTPS) atau SSH; service dengan remote lain/tanpa remote dilaporkan sebagai INFO.
+- **Commit dan PR di project tanpa penanda AI**: aturan `G-07`, dan `settings.json` kernel mematikan attribution bawaan Claude Code (`attribution.commit`/`attribution.pr` kosong, `includeCoAuthoredBy: false`).
+
 ## 2.0.0
 Rombak besar (keputusan K1–K23, 2026-11-24): harness jadi orkestrator + tim agent dengan **topik** sebagai catatan kerja. Gerbang alur 1.x dibuang.
 - **Dibuang**: work item (`docs/work`, draft→merged, AC, align, setuju, quick, kirim), semua hook alur (SessionStart, UserPromptSubmit, Stop, PostToolUse, PreCompact, SessionEnd, `gate.mjs`, `ask.mjs`, …), memori 1.x (pending, playbooks, recall, pelajaran), pilot, tidy, gc, persona G-xx, `work-item.md`, `playbook.md`, agent `explorer`/`implementer`, skill plugin `/harness:*` selain `init` dan `update`. Kunci config 1.x dibuang saat update.

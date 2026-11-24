@@ -41,7 +41,7 @@ Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge).
 | `node .claude/hooks/harness.mjs doctor` | cek pemasangan |
 | `harness.mjs topic new|list|close|active` | dipakai skill `topic` |
 | `harness.mjs remap [--apply]` | dipakai skill `remap` |
-| `harness.mjs git-auth [--apply]`, `git-auth which <svc>` | akun git per service |
+| `harness.mjs git-auth [--apply]`, `git-auth which|repo <svc>` | akun dan repo git per service |
 
 ## Akun git per service
 
@@ -49,7 +49,7 @@ Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge).
 ```json
 "git": { "host": "github.com", "default_account": "nawa9nest-dev", "services": { "<svc-pengecualian>": "devhardiyanto" } }
 ```
-`node .claude/hooks/harness.mjs git-auth --apply` memasang credential helper lokal di tiap repo service: git meminta token akun itu ke `gh` (`gh auth token --user <akun>`) saat push/fetch. Tanpa `gh auth switch`, token tidak ditulis ke berkas. Perintah `gh` di repo service: `GH_TOKEN="$(gh auth token --user <akun>)" gh pr create ...` (aturan `.claude/rules/git.md`). Syarat: akun sudah `gh auth login`. GitLab belum didukung.
+Remote SSH dengan alias per akun (`git@github-kantor:org/repo.git`): git sudah memakai kunci akun yang benar, tidak ada yang dipasang. Remote HTTPS: `node .claude/hooks/harness.mjs git-auth --apply` memasang credential helper lokal yang meminta token akun ke `gh` (`gh auth token --user <akun>`). Tanpa `gh auth switch`, token tidak ditulis ke berkas. Perintah `gh` di repo service: `GH_TOKEN="$(gh auth token --user <akun>)" gh pr create -R <owner/repo> ...` (`git-auth repo <svc>` mencetak `owner/repo`) (aturan `.claude/rules/git.md`). Syarat: akun sudah `gh auth login`. GitLab belum didukung.
 
 ## Yang dijaga hook (guard)
 

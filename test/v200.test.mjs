@@ -160,13 +160,13 @@ test('git-auth: helper per service memakai token akunnya sendiri tanpa switch', 
   fs.chmodSync(fake, 0o755);
   const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, CLAUDE_PROJECT_DIR: root, HARNESS_GH: fakeJs };
   const run = (...a) => spawnSync('node', [path.join(root, '.claude/hooks/harness.mjs'), ...a], { cwd: root, env, encoding: 'utf8' });
-  assert.match(run('git-auth').stdout, /\| api \| - \| akun belum diisi/);
+  assert.match(run('git-auth').stdout, /\| api \| - \| org\/api \| akun belum diisi/);
   const cfg = jr(root, 'harness.config.json'); cfg.git = { default_account: 'akun-a', services: { api: 'akun-b' } };
   wr(root, 'harness.config.json', JSON.stringify(cfg));
   assert.equal(run('git-auth', 'which', 'api').stdout.trim(), 'akun-b');
-  assert.match(run('git-auth').stdout, /\| api \| akun-b \| belum terpasang/);
+  assert.match(run('git-auth').stdout, /\| api \| akun-b \| org\/api \| belum terpasang/);
   const a = run('git-auth', '--apply');
-  assert.match(a.stdout, /\| api \| akun-b \| terpasang/, a.stdout + a.stderr);
+  assert.match(a.stdout, /\| api \| akun-b \| org\/api \| terpasang/, a.stdout + a.stderr);
   assert.equal(sh('git', ['config', '--local', 'harness.account'], svc).stdout.trim(), 'akun-b');
   const cred = spawnSync('git', ['credential', 'fill'], { cwd: svc, env, input: 'protocol=https\nhost=github.com\n\n', encoding: 'utf8' });
   if (process.platform !== 'win32') {
@@ -174,4 +174,25 @@ test('git-auth: helper per service memakai token akunnya sendiri tanpa switch', 
     assert.match(cred.stdout, /^password=tok-akun-b$/m);
   }
   assert.equal(sh('git', ['config', '--file', path.join(svc, '.git/config'), '--get-all', 'credential.https://github.com.helper'], svc).stdout.split('\n')[0], '', 'helper global dinonaktifkan untuk repo ini');
+});
+
+test('git-auth: remote SSH beralias dikenali, helper tidak dipasang; doctor tidak OK palsu', async () => {
+  const { parseRemote } = await import('../kernel/.claude/hooks/gitauth.mjs');
+  assert.deepEqual(parseRemote('git@github-kantor:DinovInovasi/ce-console-api.git'), { proto: 'ssh', host: 'github-kantor', repo: 'DinovInovasi/ce-console-api' });
+  assert.deepEqual(parseRemote('ssh://git@github.com:22/org/r.git'), { proto: 'ssh', host: 'github.com', repo: 'org/r' });
+  assert.deepEqual(parseRemote('https://github.com/org/r.git'), { proto: 'https', host: 'github.com', repo: 'org/r' });
+  assert.deepEqual(parseRemote('https://x-access-token@gitlab.com/g/sub/r'), { proto: 'https', host: 'gitlab.com', repo: 'g/sub/r' });
+  const root = project({ v1: true });
+  sh('git', ['remote', 'add', 'origin', 'git@github-pribadi:trio/api.git'], path.join(root, 'source-code/api'));
+  sh('git', ['remote', 'add', 'origin', 'https://gitlab.com/g/web.git'], path.join(root, 'source-code/web'));
+  const cfg = jr(root, 'harness.config.json'); cfg.git = { default_account: 'akun-a' };
+  wr(root, 'harness.config.json', JSON.stringify(cfg));
+  const a = hx(root, 'git-auth', '--apply');
+  assert.match(a.stdout, /\| api \| akun-a \| trio\/api \| SSH github-pribadi: helper tidak perlu \|/);
+  assert.match(a.stdout, /\| web \| akun-a \| g\/web \| remote bukan github\.com \(gitlab\.com\) \|/);
+  assert.equal(sh('git', ['config', '--local', '--get-all', 'credential.https://github.com.helper'], path.join(root, 'source-code/api')).stdout, '');
+  assert.equal(hx(root, 'git-auth', 'repo', 'api').stdout.trim(), 'trio/api');
+  const d = hx(root, 'doctor').stdout;
+  assert.match(d, /akses git per service \(helper HTTPS atau SSH\) \| OK/);
+  assert.match(d, /service di luar git-auth \| INFO \| web: remote bukan github\.com/);
 });

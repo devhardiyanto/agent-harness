@@ -11,9 +11,9 @@ Jawab ringkas dan objektif (kernel/.claude/rules/output.md). Satu PR per rilis; 
 ## 1. Status
 | hal | nilai |
 |---|---|
-| Versi | **2.0.0** (branch `claude/ecstatic-knuth-i8mjkt`, PR menunggu merge) |
-| Test | `npm test` 47/47 (Linux + Windows CI), `check-repo` 13/13 |
-| Root project | astra, event, yhpa: masih 1.24.0 sampai `harness-update` setelah merge |
+| Versi | **2.0.1** (2.0.0 merged lewat PR #73; 2.0.1 = git-auth untuk remote SSH beralias) |
+| Test | `npm test` 48/48, `check-repo` 13/13 |
+| Root project | astra, event, yhpa: 2.0.0 terpasang, `doctor` tanpa GAGAL (B4 astra selesai). Remote service = SSH alias (`github-kantor`, `github-pribadi`) |
 | Akun git | astra → `nawa9nest-dev`; event, yhpa → `devhardiyanto` (diisi user di `harness.config.json` → `git`) |
 
 ## 2. Keputusan rombak (form 2026-11-24)
@@ -56,7 +56,6 @@ Jawab ringkas dan objektif (kernel/.claude/rules/output.md). Satu PR per rilis; 
 | # | hal |
 |---|---|
 | T1 | K20: nama orang untuk agent |
-| T2 | astra `doctor` GAGAL di 1.24.0 (B4): cek ulang setelah 2.0 |
 | T3 | sandbox tidak terupdate karena perubahan tracked (B5) |
 | T4 | `git-auth` di Windows belum diuji nyata; GitLab belum didukung |
 | T5 | bootstrap knowledge: format dan cakupan masih bisa didiskusikan |

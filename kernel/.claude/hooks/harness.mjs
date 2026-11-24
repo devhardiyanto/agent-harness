@@ -4,7 +4,7 @@
 //   update [--all|--rollback]      perbarui harness root ini (lewat installer di ~/.harness/installer.json)
 //   topic new "<judul>" [--ref <topik>] | list [--open] | close <topik> | active
 //   remap [--apply] [--json]       rencana merapikan docs/ lama (tanpa --apply = rencana saja)
-//   git-auth [--apply] | git-auth which <service>
+//   git-auth [--apply] | git-auth which <service> | git-auth repo <service>
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -58,8 +58,9 @@ switch (cmd) {
   }
   case 'git-auth': {
     if (args[0] === 'which') { const a = gitauth.accountFor(cfg, args[1]); if (!a) die(`akun untuk ${args[1]} belum diisi di harness.config.json → git`); console.log(a); break; }
+    if (args[0] === 'repo') { const r = gitauth.plan(root, cfg).find((x) => x.svc === args[1]); if (!r || !r.repo) die(`repo untuk ${args[1]} tidak terbaca dari remote origin`); console.log(r.repo); break; }
     const rows = flag('apply') ? gitauth.apply(root, cfg) : gitauth.plan(root, cfg);
-    console.log(rows.length ? table(['service', 'akun', 'status'], rows.map((r) => [r.svc, r.account || '-', r.status])) : 'tidak ada service di harness.config.json');
+    console.log(rows.length ? table(['service', 'akun', 'repo', 'status'], rows.map((r) => [r.svc, r.account || '-', r.repo || '-', r.status])) : 'tidak ada service di harness.config.json');
     if (!flag('apply')) console.log('\nPasang: node .claude/hooks/harness.mjs git-auth --apply');
     break;
   }
@@ -103,7 +104,9 @@ switch (cmd) {
         const noTok = accts.filter((a) => !gitauth.tokenAvailable(a));
         ok('gh login untuk akun service', !noTok.length, `belum login: ${noTok.join(', ')} → gh auth login`);
         const notSet = g.filter((r) => r.status === 'belum terpasang').map((r) => r.svc);
-        ok('credential helper per service', !notSet.length, `${notSet.join(', ')} → node .claude/hooks/harness.mjs git-auth --apply`.slice(0, 300));
+        ok('akses git per service (helper HTTPS atau SSH)', !notSet.length, `${notSet.join(', ')} → node .claude/hooks/harness.mjs git-auth --apply`.slice(0, 300));
+        const other = g.filter((r) => !gitauth.OK_STATUS(r.status) && r.status !== 'belum terpasang');
+        if (other.length) add('service di luar git-auth', 'INFO', other.map((r) => `${r.svc}: ${r.status}`).join(' | ').slice(0, 300));
       }
     }
     const prot = [cfg.root_branch, ...cfg.protected_branches].map(globToRegex);
@@ -115,6 +118,6 @@ switch (cmd) {
     break;
   }
   default:
-    console.log('harness.mjs doctor | update [--all|--rollback] | topic new|list|close|active | remap [--apply] | git-auth [--apply] | git-auth which <svc>');
+    console.log('harness.mjs doctor | update [--all|--rollback] | topic new|list|close|active | remap [--apply] | git-auth [--apply] | git-auth which|repo <svc>');
     if (cmd && cmd !== 'help') process.exit(1);
 }
