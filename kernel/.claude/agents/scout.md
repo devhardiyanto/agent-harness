@@ -1,6 +1,6 @@
 ---
 name: scout
-description: Pencarian cepat dan murah, read-only: temukan file, simbol, pemakaian, konfigurasi, atau fakta singkat di kode. Pakai untuk "di mana X?" atau "apa nilai Y?", bukan untuk analisa mendalam (itu explorer).
+description: Pencarian cepat dan murah, read-only: temukan file, simbol, pemakaian, konfigurasi, atau fakta singkat di kode. Pakai untuk "di mana X?" atau "apa nilai Y?", bukan untuk analisa mendalam.
 tools: Read, Grep, Glob, Bash, LSP
 model: haiku
 omitClaudeMd: true

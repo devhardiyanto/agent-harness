@@ -1,8 +1,8 @@
 {
   "name": "harness",
   "displayName": "Harness",
-  "version": "1.24.0",
-  "description": "Skill per fase untuk alur kerja agentic: init (knowledge dari baseline), impact, plan, build, align, review (usulan pola), ship, update, status, board.",
+  "version": "2.0.0",
+  "description": "Skill global harness: init (cek pemasangan, akun git, bootstrap) dan update.",
   "author": { "name": "devhardiyanto" },
   "license": "MIT",
   "keywords": ["harness", "workflow", "plan", "review"]

@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 name: antislop
 description: "Anti Slop: Rules for AI Coding Agents. The core filter. Loaded by the harness for UI, copy, and docs work."
 allowed-tools: Read, Write, Edit, Glob, Grep

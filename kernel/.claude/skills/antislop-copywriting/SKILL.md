@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 name: antislop-copywriting
 description: "Copy and text skill for antislop. Use when writing or editing prose: headlines, tone, CTAs, and anti-AI-writing patterns. Load with the core."
 allowed-tools: Read, Write, Edit, Glob, Grep

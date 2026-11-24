@@ -4,7 +4,7 @@ updated: null
 ---
 # Peta project (L0)
 
-Dibuat installer dari folder repo git; relasi diisi `/harness:init` (dari commit baseline). Semua `UNKNOWN` = belum diverifikasi.
+Dibuat installer dari folder repo git; relasi diisi skill `bootstrap <service>`. Semua `UNKNOWN` = belum diverifikasi.
 
 ## Service
 | service | stack | peran | aktif? | pemilik skema? | branch default |

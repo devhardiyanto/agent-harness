@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 name: antislop-ui
 description: "UI and visual skill for antislop. Use when building or editing any interface: color, layout, components, motion, and page performance. Load with the core."
 allowed-tools: Read, Write, Edit, Glob, Grep

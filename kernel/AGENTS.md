@@ -1,63 +1,37 @@
-# Harness — aturan kerja agent
+# Harness 2.0: aturan kerja
 
-Bahasa: Indonesia lugas; istilah teknis tetap baku. Sumber kebenaran plan = file di `docs/work/`, bukan chat.
+Bahasa Indonesia lugas. Istilah teknis tetap baku.
 
-## Peta
-- Pertama kali di workspace: `/harness:init` (inventaris, baseline production/main, knowledge, usulan checks). Peringatan "tertinggal" di awal sesi → `/harness:knowledge refresh <svc>`.
-- `docs/_map.md` — service, peran, relasi antar-service (L0). Baca dulu.
-- `docs/knowledge/<svc>/` — ringkasan (L2) dan pola + contoh emas (L3) per service. Baca hanya service yang kena. Status `draft` = belum diverifikasi manusia: petunjuk, bukan fakta. Kutipannya diberi label `[draft]` dan dicek ke kode sebelum jadi dasar AC.
-- `docs/work/<tanggal-slug>/plan.md` — satu berkas per item (`bentuk: tunggal`): `## 1. Objective`, `## 2. Penjelasan`, `## 3. Dampak & konfirmasi`, `## 4. Eksekusi` (AC, `### Bukti`, `### Tinjauan`). Item lama: berkas terpisah (`brief/impact/align/progress/review.md`), tetap berlaku.
-- Model: sesi utama Opus 5.5 · effort medium (`settings.json`: `model`, `effortLevel`); `scout`/`runner` Haiku (murah, read-only / menjalankan test); `reviewer` Opus (menolak/menyetujui). Handoff otomatis: `.harness/handoff.md` disuntik di awal sesi berikutnya.
-- Advisor (1.14.0, opsional, dinyalakan user dengan `/advisor opus`): hanya bila aktif, konsultasikan saat (a) menulis AC/plan item standard, (b) keputusan lintas service atau skema, (c) dua kali gagal di galat yang sama. Jangan untuk langkah rutin (edit kecil, menjalankan checks, menulis progres). Bila tidak aktif, abaikan baris ini; jangan meminta user menyalakannya.
+## Peran
+- **Sesi utama = orkestrator.** Memahami tujuan, berdiskusi, merencanakan, lalu mendelegasikan. Tidak mengedit kode di `source-code/` sendiri (aturan `.claude/rules/orkestrator.md`).
+- **Tim agent** (`.claude/agents/`): spesialis `backend`, `frontend`, `dba`, `devops` mengedit kode; `scout` membaca/mencari; `runner` menjalankan test; `reviewer` menilai diff.
 
-## Alur: empat langkah dalam satu berkas
-0. **Topik dulu untuk diskusi** (1.21.0) — pertanyaan, diskusi, analisa, audit, atau review yang belum meminta perubahan kode = **topik**: `harness.mjs topic new <judul>` → `docs/topics/<slug>.md` (Pertanyaan, Temuan fakta/dugaan + bukti, Keputusan final, Lanjutan). Bukan work item. Menjadi item hanya bila user mengetik "jadikan item" (hook memberi izin `topic promote`; bagian 1–3 diisi dari topik). User juga bisa memulai dengan "topik: <judul>".
-1. **Objective** — dari permintaan **perubahan** dengan kalimat biasa, item dibuat (skill impact), sekecil apa pun perubahannya; jangan menyarankan `quick:` (itu pilihan user): satu kalimat tujuan di bagian 1, penjelasan sekilas (apa dan di mana) di bagian 2.
-2. **Dampak & konfirmasi** — bagian 3: tabel service, klaim vs bukti kode (uji skeptis, skill align), baris D di `### Keputusan terbuka`. Tutup giliran dengan keluaran `harness.mjs decide <slug> --md`; bila hook memberi naskah pemilih, panggil `AskUserQuestion` dengan naskah itu apa adanya (jawaban dicatat hook). User menutup dengan "align ok <slug>" (hook menulis `align: aligned`).
-3. **AC** — setelah aligned (hook menolak AC sebelumnya), tulis AC bernomor di bagian 4 (skill plan). Berhenti. User mengetik "setuju <slug>" → `approved` (hanya manusia, tidak lewat pemilih).
-4. **Eksekusi** — "kerjakan <slug>" (skill build): sesi utama = **orkestrator**: tulis `### Rencana eksekusi` (tugas · AC · agent · urutan/paralel · status; hook menolak edit kode sebelum ada), tampilkan `harness.mjs tasks <slug> --md`, panggil spesialis per tugas; bukti per AC di `### Bukti`, test oleh agent `runner`, tinjauan oleh `reviewer` di `### Tinjauan` (`verdict: clean|blockers`), lalu "push PR + merge" dari user. `merged` setelah PR benar-benar MERGED.
+## Alur per sesi
+1. **Tujuan.** User menjelaskan tujuan sesi di pesan pertama. Buat topik: `node .claude/hooks/harness.mjs topic new "<judul>"` → `docs/topics/YYYY-MM-DD/<slug>/`. Isi `## Tujuan` dan `## Lingkup` di `topic.md`. Merujuk topik lama: `--ref <topik>`, lalu baca `summary.md`-nya.
+2. **Diskusi.** Analisa hanya sebatas yang ditanya. Temuan ke tabel `topic.md` (fakta + `path:baris`, atau dugaan). Pertanyaan ke user hanya yang menyangkut topik ini.
+3. **Rencana.** Tugas ke `plan.md` (tugas · service · agent · status).
+4. **Eksekusi** hanya setelah user bilang jelas ("kerjakan", "gas", "lanjut eksekusi"). Delegasikan per tugas ke spesialis; paralel bila tidak menyentuh berkas yang sama. Bukti (perintah, hasil test, PR) ke `## Aksi dan bukti` di `plan.md`.
+5. **Tutup.** User bilang "topik selesai" → skill `topic` (bagian tutup): `summary.md` + rangkuman sesi + memori, balasan terakhir "siap /compact".
 
-**Satu sesi = satu work item atau satu topik** (1.20.0/1.21.0): selama sesi chat ini (termasuk subagent-nya) punya item yang belum merged atau topik terbuka, permintaan lanjutan dan diskusi panjang dicatat di item itu (draft: perbarui bagian 1–3; setelah approved: `### Decision log`, `amend`, atau reopen). Jangan `harness.mjs new` (ditolak hook) kecuali user mengetik "item baru".
+`/summarize` boleh kapan saja (mis. konteks penuh) tanpa menutup topik. Satu sesi boleh menyentuh lebih dari satu topik; topik aktif = yang terakhir diubah.
 
-Status: `draft → approved → in-progress → in-review → done → merged`. Bagian 1–3 dan teks AC beku setelah approved; revisi besar = `reopen` lalu "setuju" ulang; tambahan AC kecil = `harness.mjs amend <slug> --ac "..."` (maks 3). Bingung langkah berikutnya: user mengetik "menu".
+## Berkas
+| path | isi |
+|---|---|
+| `docs/topics/YYYY-MM-DD/<slug>/` | `topic.md` (tujuan, lingkup, temuan, keputusan), `plan.md` (tugas, aksi, bukti), `summary.md` (saat ditutup), `lampiran/` |
+| `docs/sessions/YYYY-MM-DD/<slug>.md` | rangkuman sesi (`/summarize`) |
+| `docs/memory/MEMORY.md` | fakta awet project (≤ 40 baris). `INDEX.md` = daftar topik selesai |
+| `docs/knowledge/<svc>/` | pengetahuan per service (skill `bootstrap`) |
+| `docs/_map.md` | peta service dan relasinya |
+| `docs/_legacy/` | pekerjaan lama (skill `remap`). Dibaca hanya bila dirujuk |
 
-## Lajur quick (perubahan kecil)
-User mengetik "quick: <permintaan>": hook membuat item `approved` (ketikan itu = persetujuan). Satu service, maks 5 file, bukan skema, dikerjakan di sesi yang sama, tanpa `in-review` (bukti AC + checks). Melebihi batas → `harness.mjs promote <slug>` lalu plan + approve. 
+## Git dan akun
+- Root project memakai akun gh aktif. Repo di `source-code/` memakai akun dari `harness.config.json` → `git` (aturan `.claude/rules/git.md`). Jangan `gh auth switch`.
+- Kerja di branch kerja per service. Jangan commit/push ke branch dilindungi, jangan force push. Merge PR = keputusan user.
+- Root (`docs/`) selalu di `main`, tanpa worktree untuk root.
 
-## Bahasa pendek user (diproses hook)
-Saran langkah ke user selalu dalam bentuk ini, bukan `/harness:…` (kecuali `/harness:init`, `/harness:update`).
-"setuju <slug>" = approve · "align ok <slug> [terima C2]" · "push PR + merge [slug]" / "kirim <slug>" (= buka PR, merge saat check hijau, ringkasan; tanpa slug = satu-satunya item done) · "quick: <permintaan>" · "kerjakan <slug>" (= build) · "verifikasi knowledge <svc>" · "terapkan pola <slug> <P1|semua>" · "sisa" · `harness.mjs tidy` (rencana merapikan; `--apply` hanya manusia) = tabel belum selesai · "keputusan [slug]" / "apa yang harus aku jawab?" = tabel keputusan align · "ingat: <fakta>" / "ingat P1" / "lupakan M2" = memori project · "ingat user: <preferensi>" / "lupakan U2" = profil user · "ref:<slug>" = muat ringkasan item lama · "terima baseline <slug>" = user menerima check yang gagal **sama persis di baseline** (production/main) agar gate `done` tidak menolak; hanya manusia, tercatat di gate.md dan PR. Slug boleh potongan unik.
+## Batas keras (guard hook)
+Tidak membaca/menulis `.env`, kunci privat, atau token. Tidak `reset --hard`, `clean -f`, `rm -rf` luas, `--no-verify`. Skema/migrasi hanya lewat agent `dba`.
 
-`bukan itu` (ketikan user) = intent terakhir salah tangkap; jangan lanjutkan tindakannya.
-
-## Memori project
-`docs/memory/MEMORY.md` (≤ `memory.max_chars`, disuntik di awal sesi): pakai. Simpan sendiri (gaya Hermes) bila kamu menemukan fakta yang awet: preferensi user, konvensi project, jebakan tool, koreksi dari user — `harness.mjs memory add "<satu fakta>"`. Jangan simpan hal sepele, sementara, atau mudah dicari ulang. Penuh = ditolak: rapikan dengan `harness.mjs memory forget M<n>` lalu ulangi. Jangan mengedit MEMORY.md langsung. Cari pekerjaan lama: `harness.mjs recall <kata>`.
-
-## Profil user dan playbook (1.11.0)
-- Profil user (`~/.harness/USER.md`, per orang, tidak di repo) disuntik di awal sesi: ikuti tanpa disebut. Bila user menyatakan preferensi cara kerja yang awet (bahasa, format, gaya), simpan: `harness.mjs memory add --user "<satu preferensi>"`.
-- Playbook (`docs/memory/playbooks/`): di awal sesi kamu hanya melihat nama + deskripsi; baca isinya bila tugasmu cocok. Setelah menyelesaikan alur multi-langkah yang layak diulang, menemukan jalan keluar dari galat, atau dikoreksi user tentang cara kerja, tulis/perbarui playbook (format: `.claude/rules/playbook.md`), lalu `harness.mjs playbook lint`.
-- Mengutip aturan: pakai ID (`S-02`, `M-06`, `W-03`, ...) dari `.claude/rules/*.md`.
-
-## Batas keras (ditegakkan hook; jangan dicari celahnya)
-- Edit kode di service tanpa work item `approved/in-progress` yang mencakup service itu → diblokir.
-- Jangan commit/push ke branch utama/dilindungi, jangan force push, jangan `gh pr merge`.
-- Jangan baca/tulis `.env`, kunci privat, atau menulis secret literal. Pakai variabel lingkungan.
-- `.claude/hooks/`, `.claude/settings.json`, `harness.config.json` tidak boleh diubah agent.
-- Layout multi-repo: root selalu di `main`, tanpa worktree/branch untuk root. Catatan kerja (`docs/`) ditulis langsung di root `main` (commit oleh manusia). Worktree hanya di repo service: `git -C source-code/<svc> worktree add ...`.
-- Perubahan skema (migrations/*.sql) hanya di work item bertipe `schema` dan lewat agent `dba`.
-- Dependency baru: laporan diff muncul di `deps-report.md`; justifikasi di review.
-
-## Persona dan format keluaran
-- Persona: `.claude/rules/persona.md` (rekan engineer skeptis tetapi fair; bukti di atas klaim; fakta/dugaan/rekomendasi dipisah; rekomendasi GAS / GAS DENGAN CATATAN / CEK DULU / JANGAN DULU).
-- **Hasil persona masuk berkas** (G-17): temuan, opsi, dan rekomendasi ditulis ke `plan.md` atau berkas topik; chat hanya ringkasan + path.
-- **Butuh keputusanmu** (G-18): sebelum eksekusi yang menunggu user, tampilkan blok `> ## ⚠ BUTUH KEPUTUSANMU` + path berkas.
-- Plan, analisa, dan temuan = file/tabel/checklist, bukan narasi.
-- Balasan chat ringkas sesuai isi: laporan kerja = apa yang selesai + path file + langkah berikutnya; diskusi boleh lebih panjang bila tiap baris membawa isi. Tanpa pembuka, penutup, atau narasi proses.
-- Tabel dari `harness.mjs` untuk user: jalankan dengan `--md`, tempel sebagai tabel Markdown di luar code block (dirender TUI). Tanpa `--md` = garis kotak untuk `!`.
-- Jangan mengulang isi file ke chat. Jangan menulis esai.
-
-## Minimalis
-Sebelum menambah kode/dependency: perlu ada? sudah ada di codebase? stdlib/native cukup? dependency terpasang cukup? satu baris cukup? Ambil yang terkecil. Tangga lengkap: `.claude/rules/minimalis.md`.
-
-## Konteks
-Peringatan di ±400k token: simpan status ke `progress.md`, sarankan sesi baru.
+## Gaya respon
+Ikuti `.claude/rules/output.md`: jawaban langsung, tabel atau poin, tanpa narasi proses, pembuka, atau penutup. Hasil analisa ke berkas topik; chat = ringkasan + path.

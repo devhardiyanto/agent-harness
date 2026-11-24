@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.0.0
+Rombak besar (keputusan K1–K23, 2026-11-24): harness jadi orkestrator + tim agent dengan **topik** sebagai catatan kerja. Gerbang alur 1.x dibuang.
+- **Dibuang**: work item (`docs/work`, draft→merged, AC, align, setuju, quick, kirim), semua hook alur (SessionStart, UserPromptSubmit, Stop, PostToolUse, PreCompact, SessionEnd, `gate.mjs`, `ask.mjs`, …), memori 1.x (pending, playbooks, recall, pelajaran), pilot, tidy, gc, persona G-xx, `work-item.md`, `playbook.md`, agent `explorer`/`implementer`, skill plugin `/harness:*` selain `init` dan `update`. Kunci config 1.x dibuang saat update.
+- **Topik** (`docs/topics/YYYY-MM-DD/<slug>/`: `topic.md`, `plan.md`, `summary.md`, `lampiran/`): skill `topic` membuka dari pesan pertama sesi, menutup saat user bilang "topik selesai" (summary + rangkuman sesi + `MEMORY.md`, lalu "siap /compact"). `harness.mjs topic new|list|close|active`.
+- **`/summarize`** menulis ke `docs/sessions/YYYY-MM-DD/<slug>.md` (slug = topik aktif).
+- **`/remap`** (`harness.mjs remap [--apply]`): `docs/work`, topik datar, `docs/topik`, sesi dengan format nama apa pun, `docs/reports` → bentuk baru bila < `remap.legacy_months` (2) bulan, ke `docs/_legacy/YYYY-MM-DD/<slug>/` + `INDEX.md` bila lebih tua. Arsip dan sisa 1.x → `docs/_legacy/_lama/`. `.harness/`, `.claude/state`, `.codex/`, `.agents/`, `.wt/`, `.tmp/` hanya dicetak sebagai skrip hapus.
+- **`/bootstrap <svc>`**: knowledge per service dari branch baseline, lewat `scout`.
+- **Akun git per service** (`git.default_account`, `git.services`; `harness.mjs git-auth [--apply]`, `git-auth which <svc>`): credential helper lokal per repo meminta token akunnya ke `gh auth token --user`, tanpa `gh auth switch`. Aturan `.claude/rules/git.md`.
+- **Hook tinggal satu**: `guard.mjs` (PreToolUse) untuk keamanan: secret, cetak env/token, perintah destruktif, force push, push/commit ke branch dilindungi (root boleh commit `docs/` di `main`).
+- **Status line** satu baris: root · topik aktif · model · effort. Persen konteks dihapus agar tidak berbeda dengan `/context`.
+- **Gaya respon** (`rules/output.md`, output style `harness`): jawaban langsung, ringkas, objektif; analisa dan keputusan sebatas yang ditanya.
+- **Orkestrator** (`rules/orkestrator.md`): sesi utama tidak mengedit `source-code/`; tugas ke spesialis, paralel bila tidak bentrok.
+- antislop tetap terpasang, hanya saat dipanggil (`disable-model-invocation`).
+- `AGENTS.md` ditulis ulang (≤ 60 baris).
+
 ## 1.24.0
 ROADMAP §12 **O1**: orkestrator menulis rencana eksekusi sebelum kode diedit.
 - **`### Rencana eksekusi`** di bagian 4 `plan.md` (template baru): `| T1 | tugas | AC | agent | urutan | status |`. Urutan sama = paralel; status `rencana | jalan | selesai | gagal`. Ditulis sesi utama saat "kerjakan"; bukan bagian beku, jadi bisa diisi setelah approved.
