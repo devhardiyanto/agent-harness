@@ -1,6 +1,7 @@
 // Akun git per service (2.0, K13) tanpa `gh auth switch`.
-// Tiap repo service mendapat credential helper lokal yang meminta token akunnya sendiri ke gh
-// (`gh auth token --user <akun>`) saat git butuh kredensial. Token tidak pernah ditulis ke berkas atau dicetak.
+// Remote HTTPS: credential helper lokal per repo meminta token akunnya ke gh (`gh auth token --user <akun>`).
+// Remote SSH (alias per akun): git sudah memakai kunci yang benar; helper tidak dipasang.
+// Perintah gh selalu memakai GH_TOKEN akun service + `-R owner/repo` (gh tidak mengenali alias SSH). Token tidak pernah ditulis atau dicetak.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -14,15 +15,44 @@ export function accountFor(cfg, svc) {
 
 export const helperFor = (account) => `!f() { test "$1" = get || exit 0; echo username=${account}; echo "password=$(gh auth token --user ${account})"; }; f`;
 
+// Remote → { proto, host, repo }. SSH dengan alias host (git@github-kantor:org/repo.git) umum untuk multi-akun.
+export function parseRemote(url) {
+  const u = String(url || '').trim();
+  let m = /^(?:ssh:\/\/)?[\w.-]+@([^:/]+)(?::\d+)?[:/](.+?)(?:\.git)?\/?$/.exec(u);
+  if (m && !/^https?:/.test(u)) return { proto: 'ssh', host: m[1], repo: m[2] };
+  m = /^https?:\/\/(?:[^@/]+@)?([^/]+)\/(.+?)(?:\.git)?\/?$/.exec(u);
+  if (m) return { proto: 'https', host: m[1], repo: m[2] };
+  return null;
+}
+
+// Hostname asli di balik alias SSH (~/.ssh/config), lewat `ssh -G`. Gagal → alias itu sendiri.
+function sshHostname(alias) {
+  const r = spawnSync('ssh', ['-G', alias], { encoding: 'utf8', timeout: 5000 });
+  const m = r.status === 0 && /^hostname\s+(\S+)/m.exec(r.stdout || '');
+  return m ? m[1] : alias;
+}
+
+export const OK_STATUS = (st) => st === 'terpasang' || st.startsWith('SSH');
+
 export function plan(root, cfg) {
   const host = (cfg.git && cfg.git.host) || 'github.com';
   return (cfg.services || []).map((svc) => {
     const dir = path.join(root, cfg.services_dir, svc);
-    const row = { svc, dir, account: accountFor(cfg, svc), status: '' };
+    const row = { svc, dir, account: accountFor(cfg, svc), repo: '', status: '' };
     if (!fs.existsSync(path.join(dir, '.git'))) return { ...row, status: 'bukan repo git' };
     const url = (git(dir, ['remote', 'get-url', 'origin']).stdout || '').trim();
-    if (!url.includes(host)) return { ...row, status: url ? `remote bukan ${host}` : 'tanpa remote origin' };
+    if (!url) return { ...row, status: 'tanpa remote origin' };
+    const r = parseRemote(url);
+    if (!r) return { ...row, status: 'format remote tidak dikenali' };
+    row.repo = r.repo;
     if (!row.account) return { ...row, status: 'akun belum diisi (git.default_account / git.services)' };
+    if (r.proto === 'ssh') {
+      // Kunci SSH per alias sudah memisahkan akun untuk git; helper HTTPS tidak dipakai.
+      const real = r.host === host ? host : sshHostname(r.host);
+      if (real !== host && !r.host.includes('github')) return { ...row, status: `remote bukan ${host} (${r.host})` };
+      return { ...row, status: `SSH ${r.host}: helper tidak perlu` };
+    }
+    if (r.host !== host) return { ...row, status: `remote bukan ${host} (${r.host})` };
     const cur = (git(dir, ['config', '--local', '--get', 'harness.account']).stdout || '').trim();
     return { ...row, status: cur === row.account ? 'terpasang' : 'belum terpasang' };
   });
