@@ -74,7 +74,7 @@ check('rujukan /harness:<perintah> menunjuk skill yang ada', (bad) => {
 
 // 5. modul yang sudah dibuang tidak boleh dirujuk lagi di kernel dan plugin
 check('tidak ada rujukan ke modul yang dibuang (executor, dispatch, plane, lean, agy, graphify)', (bad) => {
-  const banned = /\/harness:(dispatch|plane|lean)\b|executor\.enabled|scripts\/executor|\.agents\/|--with-executor|Antigravity|\bagy\b|graphify|knowledge\/graph/i;
+  const banned = /\/harness:(dispatch|plane|lean)\b|executor\.enabled|scripts\/executor|--with-executor|Antigravity|\bagy\b|graphify|knowledge\/graph/i;
   for (const f of [...walk('kernel'), ...walk('plugin')].filter((x) => /\.(md|mjs|json)$/.test(x))) {
     const m = banned.exec(read(f));
     if (m) bad(`${f}: memuat "${m[0]}"`);
@@ -94,8 +94,8 @@ check('hook di settings.json ada dan sintaks Node valid', (bad) => {
 });
 
 // 7. kernel lengkap untuk installer, dan template work item lengkap
-check('kernel dan template work item lengkap', (bad) => {
-  for (const f of ['AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude/settings.json', '.claude/hooks/gate.mjs', '.claude/hooks/lib.mjs', 'docs/_map.md', 'docs/work/_TEMPLATE/plan.md', 'docs/work/_TEMPLATE/brief.md']) {
+check('kernel lengkap (hook, skill topik/remap/summarize/bootstrap)', (bad) => {
+  for (const f of ['AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude/settings.json', '.claude/hooks/guard.mjs', '.claude/hooks/lib.mjs', '.claude/hooks/harness.mjs', '.claude/hooks/statusline.mjs', 'docs/_map.md', '.claude/skills/topic/SKILL.md', '.claude/skills/remap/SKILL.md', '.claude/skills/summarize/SKILL.md', '.claude/skills/bootstrap/SKILL.md']) {
     if (!has(`kernel/${f}`)) bad(`kernel/${f} tidak ada`);
   }
   for (const f of walk('kernel/.claude/rules')) if (!read(f).trim()) bad(`${f} kosong`);
@@ -140,7 +140,9 @@ check('hook settings.json memakai exec form (command: node + args)', (bad) => {
     if (h.command !== 'node' || !Array.isArray(h.args) || !h.args.length) bad(`${ev}: hook harus {command:"node", args:[...]} (ditemukan ${JSON.stringify(h.command)})`);
     else if (!/^\$\{CLAUDE_PROJECT_DIR\}\/\.claude\/hooks\/[\w.-]+\.mjs$/.test(h.args[0])) bad(`${ev}: args[0] bukan path hook di \${CLAUDE_PROJECT_DIR}: ${h.args[0]}`);
   }
-  for (const ev of ['Stop', 'PreCompact', 'SessionEnd', 'SessionStart']) if (!(st.hooks || {})[ev]) bad(`hook ${ev} tidak terpasang`);
+  // 2.0 (K4): hanya guard keamanan. Hook alur (Stop, UserPromptSubmit, SessionStart, ...) tidak boleh kembali.
+  if (!(st.hooks || {}).PreToolUse) bad('hook PreToolUse (guard) tidak terpasang');
+  for (const ev of Object.keys(st.hooks || {})) if (ev !== 'PreToolUse') bad(`hook ${ev} terpasang; 2.0 hanya memakai PreToolUse (guard)`);
 });
 
 // 11. agent: frontmatter lengkap, model dikenal; scout/runner Haiku, reviewer Opus

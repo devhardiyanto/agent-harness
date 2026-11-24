@@ -18,6 +18,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const KERNEL = path.join(HERE, 'kernel');
 const VERSION = fs.readFileSync(path.join(HERE, 'VERSION'), 'utf8').trim();
 const LEGACY_BLOCKS = ['executor'];
+const DROP_1X = ['allow_paths', 'protected_paths', 'schema_paths', 'gate', 'checks', 'quick', 'amend', 'ship', 'context', 'knowledge', 'baseline', 'store',
+  'align', 'stop_gate', 'session_item', 'orchestrator', 'handoff', 'intent', 'recap', 'memory', 'playbooks', 'pilot', 'tidy', 'item', 'bidang', 'growth', 'plane', 'executor'];
 
 // ---------- argumen ----------
 const argv = process.argv.slice(2);
@@ -161,6 +163,9 @@ function render(det, mode) {
   const merge = (a, b) => { const o = { ...a }; for (const k of Object.keys(b || {})) o[k] = isObj(a[k]) && isObj(b[k]) ? merge(a[k], b[k]) : b[k]; return o; };
   const base = hadV1 ? merge(cfg, oldCfg) : cfg;
   Object.assign(cfg, base);
+  // 2.0: kunci config 1.x (alur work item, gate, memori lama, Plane) tidak dipakai lagi; dibuang agar config bersih.
+  for (const k of DROP_1X) delete cfg[k];
+  if (cfg.tui) { delete cfg.tui.ask; delete cfg.tui.menu; }
   cfg.harness_version = VERSION;
   cfg.project = opt('project-name') || (hadV1 && oldCfg.project) || path.basename(target);
   cfg.root_branch = opt('root-branch') || (hadV1 && oldCfg.root_branch) || 'main';
@@ -177,8 +182,8 @@ function render(det, mode) {
   // rule per service
   for (const s of det.services) {
     const body = `---\npaths:\n  - "source-code/${s.name}/**"\n---\n# Service: ${s.name}\n\n- Stack (terdeteksi installer, belum diverifikasi): ${s.stack}\n- Branch default: ${s.branch}\n` +
-      `- Sebelum mengedit: baca \`docs/knowledge/${s.name}/summary.md\` dan \`patterns.md\` bila ada; bila belum ada, jalankan \`/harness:init\`.\n` +
-      `- Perintah terdeteksi: ${s.commands.length ? s.commands.map((c) => `\`${c}\``).join(', ') : 'UNKNOWN'}\n- Edit hanya lewat work item approved yang mencakup service ini (hook menegakkan).\n`;
+      `- Sebelum mengedit: baca \`docs/knowledge/${s.name}/summary.md\` dan \`patterns.md\` bila ada; bila belum ada, minta user menjalankan \`/bootstrap ${s.name}\`.\n` +
+      `- Perintah terdeteksi: ${s.commands.length ? s.commands.map((c) => `\`${c}\``).join(', ') : 'UNKNOWN'}\n- Edit kode hanya oleh agent spesialis, dengan akun git service ini (\`.claude/rules/git.md\`).\n`;
     // svc-*.md hasil verifikasi/penyuntingan user (stack sebenarnya, baseline, perintah terbukti, aturan migrasi) tidak boleh kembali ke templat deteksi.
     const mine = path.join(target, '.claude', 'rules', `svc-${s.name}.md`);
     fs.writeFileSync(path.join(stage, '.claude', 'rules', `svc-${s.name}.md`), hadV1 && fs.existsSync(mine) ? fs.readFileSync(mine) : body);
@@ -213,7 +218,7 @@ function render(det, mode) {
   fs.writeFileSync(path.join(stage, '.claude', 'harness.manifest.json'), JSON.stringify({ version: VERSION, files: [...ownedNow()].filter((f) => !/harness\.(version|manifest)/.test(f)).sort() }, null, 2) + '\n');
   fs.writeFileSync(path.join(stage, '.claude', 'harness.version'), JSON.stringify({ version: VERSION, installed_at: new Date().toISOString(), installer_repo: slug, mode: UPDATE ? 'update' : mode, ...(UPDATE && installedVer ? { previous: installedVer } : {}) }, null, 2) + '\n');
   // verifikasi staging
-  for (const f of ['AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude/settings.json', '.claude/hooks/gate.mjs', '.claude/hooks/lib.mjs', 'docs/_map.md', 'docs/work/_TEMPLATE/plan.md']) {
+  for (const f of ['AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude/settings.json', '.claude/hooks/guard.mjs', '.claude/hooks/lib.mjs', 'docs/_map.md']) {
     if (!fs.existsSync(path.join(stage, f))) die(`staging tidak lengkap: ${f}`);
   }
   JSON.parse(fs.readFileSync(setP, 'utf8')); JSON.parse(fs.readFileSync(cfgP, 'utf8'));
@@ -255,7 +260,7 @@ const mode = existing.length ? 'existing' : 'new';
 // Pasang ulang di atas harness v1: pengetahuan (docs/knowledge) dan work item (docs/work) adalah DATA user, bukan perangkat; jangan dibuang.
 const hadV1 = exists('.claude/harness.version');
 // Dokumentasi/data user TIDAK PERNAH dibuang, juga pada root yang belum ber-harness v1 (docs/discussion bahkan tidak ada di daftar buang).
-const PRESERVE = ['docs/knowledge', 'docs/work', 'docs/topics', 'docs/sessions', 'docs/memory', 'docs/_map.md', 'docs/_archive', 'docs/_registry.md'];
+const PRESERVE = ['docs/knowledge', 'docs/work', 'docs/topics', 'docs/sessions', 'docs/memory', 'docs/_legacy', 'docs/_map.md', 'docs/_archive', 'docs/_registry.md'];
 const installedVer = hadV1 ? (() => { try { return JSON.parse(fs.readFileSync(path.join(target, '.claude', 'harness.version'), 'utf8')).version || null; } catch { return null; } })() : null;
 if (UPDATE) {
   if (!hadV1) die('--update butuh harness terpasang (.claude/harness.version tidak ada). Jalankan tanpa --update untuk memasang.');
@@ -306,7 +311,7 @@ table(['aksi', 'path'], [
   ...(exists('docs/discussion') ? [['DIPERTAHANKAN', 'docs/discussion (data user)']] : []),
   ...KEEP_PATHS.filter((p) => !p.includes(' ') ? exists(p) : true).map((p) => ['DIPERTAHANKAN', p]),
   ...IGNORE.map((n) => ['DIABAIKAN (.gitignore; tidak di-commit, tidak disentuh)', n]),
-  ['DIPASANG', 'AGENTS.md, CLAUDE.md, harness.config.json, .claude/{settings.json,hooks,rules,agents}, docs/{_map.md,knowledge,work/_TEMPLATE}'],
+  ['DIPASANG', 'AGENTS.md, CLAUDE.md, harness.config.json, .claude/{settings.json,hooks,rules,agents,skills}, docs/{_map.md,knowledge,topics,memory}'],
   ...LEFTOVER.map((p) => ['DIBIARKAN (sisa modul lama; tidak dipakai lagi sejak 1.4.0, hapus manual bila sudah tidak perlu)', p]),
 ]);
 log(`\nCadangan: ${isGit ? `tag git harness-pre-${UPDATE ? 'update' : 'v1'}-${stamp} di HEAD, ${IN_PLACE ? ', tetap di branch aktif (--in-place)' : `, lalu branch ${opt('branch', UPDATE ? 'harness-update' : 'harness-v1')}`}` : `salinan di .harness-backup-${stamp}/`}`);
@@ -323,7 +328,7 @@ if (isGit && !flag('allow-dirty')) {
   const dirty = dirtyTracked();
   if (dirty) die(`ada perubahan tracked yang belum di-commit:\n${dirty}\n${DIRTY_HELP}`);
 }
-if (!(await confirm(UPDATE ? `\nPerbarui berkas harness ${installedVer || '?'} → ${VERSION}? Data (docs/work, docs/knowledge, docs/sessions, docs/discussion, _map.md, config) dipertahankan. (y/N): ` : mode === 'existing' ? `\nHarness lama ${removable.length ? `akan diganti; ${removable.length} berkas lama DIBUANG (lihat Rencana)` : 'akan diganti di tempat; tidak ada berkas yang dibuang'}. Data user dipertahankan. Ketik "ganti" untuk lanjut: ` : '\nPasang harness v1? (y/N): '))) die('dibatalkan oleh user.');
+if (!(await confirm(UPDATE ? `\nPerbarui berkas harness ${installedVer || '?'} → ${VERSION}? Data (docs/topics, docs/work, docs/knowledge, docs/sessions, docs/memory, _map.md, config) dipertahankan. (y/N): ` : mode === 'existing' ? `\nHarness lama ${removable.length ? `akan diganti; ${removable.length} berkas lama DIBUANG (lihat Rencana)` : 'akan diganti di tempat; tidak ada berkas yang dibuang'}. Data user dipertahankan. Ketik "ganti" untuk lanjut: ` : '\nPasang harness v1? (y/N): '))) die('dibatalkan oleh user.');
 
 const { stage, slug } = render(det, mode);
 let branch = null; let tag = null;
@@ -351,14 +356,14 @@ try {
   for (const d of ['scripts', 'docs', '.claude']) { const dp = path.join(target, d); try { if (fs.existsSync(dp) && !fs.readdirSync(dp).length) fs.rmdirSync(dp); } catch { /* abaikan */ } }
   const isUserData = (rel) => PRESERVE.some((d) => rel === d || rel.startsWith(d + '/'));
   // Berkas bawaan harness di dalam folder data (templat dan README) diperbarui; berkas lain di PRESERVE yang sudah ada (mis. docs/knowledge/_init.md, log milik user) tidak pernah ditimpa.
-  const harnessDoc = (rel) => rel.startsWith('docs/work/_TEMPLATE/') || rel === 'docs/work/README.md' || rel === 'docs/knowledge/README.md';
+  const harnessDoc = (rel) => rel === 'docs/knowledge/README.md';
   fs.cpSync(stage, target, { recursive: true, force: true, filter: (src, dest) => {
     if (!fs.existsSync(dest) || !fs.statSync(dest).isFile()) return true;
     const rel = path.relative(target, dest).split(path.sep).join('/');
     if (hadV1 && harnessDoc(rel)) return true;
     return !isUserData(rel);
   } });
-  for (const d of ['docs/knowledge', 'docs/work']) fs.mkdirSync(path.join(target, d), { recursive: true });
+  for (const d of ['docs/knowledge', 'docs/topics']) fs.mkdirSync(path.join(target, d), { recursive: true });
   applyGitignore(isGit);
   fs.rmSync(path.join(target, '.harness-staging'), { recursive: true, force: true });
 } catch (e) {
@@ -368,7 +373,7 @@ try {
 let committed = false;
 if (isGit && !flag('no-commit')) {
   // Hanya path milik harness yang di-stage. JANGAN `git add -A`: itu ikut meng-commit file/folder lain yang belum di-track (backup/, catatan, dump).
-  const stagePaths = [...new Set([...removable, 'AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude', 'docs/_map.md', 'docs/knowledge', 'docs/work', '.gitignore'])];
+  const stagePaths = [...new Set([...removable, 'AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude', 'docs/_map.md', 'docs/knowledge', 'docs/topics', 'docs/memory', '.gitignore'])];
   for (const sp of stagePaths) if (exists(sp) || removable.includes(sp)) sh('git', ['add', '-A', '--', sp]);
   const nm = out(sh('git', ['config', 'user.name'])) ? [] : ['-c', 'user.name=harness-installer', '-c', 'user.email=harness@localhost'];
   const c = sh('git', [...nm, 'commit', '-q', '-m', opt('commit-message') || (UPDATE ? `chore(harness): perbarui ke ${VERSION}` : `chore(harness): ganti ke harness v1 (${VERSION})`)]);
@@ -387,9 +392,10 @@ table(['item', 'nilai'], [
 ]);
 if (warnings.length) log(`\nPeringatan:\n${warnings.map((w) => `- ${w}`).join('\n')}`);
 log('\n## Langkah berikutnya (kamu)');
-log('1. Plugin (skill /harness:*) dipasang global sekali per mesin:  node scripts/update-all.mjs --setup-plugin   (atau: claude plugin install harness --marketplace <owner>/<repo-installer> --scope user). Lewati bila sudah.');
+log('1. Plugin (/harness:init, /harness:update) global sekali per mesin:  node scripts/update-all.mjs --setup-plugin. Lewati bila sudah.');
 log('2. Cek:  node .claude/hooks/harness.mjs doctor');
-log('3. Isi pengetahuan (sekali per root):  /harness:init   (satu service dulu → lihat /usage → lanjut all), lalu ketik: verifikasi knowledge <svc>');
-log('4. Pakai:  ketik permintaanmu dengan kalimat biasa; ketik "menu" bila ragu langkah berikutnya.');
+log('3. Akun git service: isi "git": {"default_account": "<akun>"} di harness.config.json, lalu  node .claude/hooks/harness.mjs git-auth --apply');
+log('4. Data 1.x (docs/work, sesi lama): di sesi claude ketik  /remap');
+log('5. Pakai: jelaskan tujuan sesi di pesan pertama; agent membuat topik di docs/topics/.');
 if (LEFTOVER.length || LEGACY_BLOCKS.some((k) => oldCfg[k])) log(`\nCatatan: sisa modul lama (${[...LEFTOVER, ...LEGACY_BLOCKS.filter((k) => oldCfg[k]).map((k) => `config.${k}`)].join(', ')}) dibiarkan apa adanya. Executor dan dispatch sudah dibuang di harness ini; hapus sendiri bila tidak diperlukan.`);
 if (tag) log(`\nKembali ke harness lama kapan saja:  git switch -c lama ${tag}`);

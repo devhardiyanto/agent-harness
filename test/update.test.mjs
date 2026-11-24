@@ -29,7 +29,7 @@ const intact = (root) => {
   const cfg = jr(root, 'harness.config.json');
   assert.equal(cfg.root_branch, 'production', 'root_branch user tidak direset ke main');
   assert.deepEqual(cfg.protected_branches, ['production', 'main']);
-  assert.equal(cfg.checks.api.test, 'npm test');
+  assert.equal(cfg.checks, undefined, '2.0: checks 1.x dibuang');
 };
 
 test('pasang menulis harness.version dan manifest; doctor melaporkan versi', () => {
@@ -37,10 +37,10 @@ test('pasang menulis harness.version dan manifest; doctor melaporkan versi', () 
   const v = jr(root, '.claude/harness.version');
   assert.equal(v.version, VERSION);
   const m = jr(root, '.claude/harness.manifest.json');
-  assert.ok(m.files.includes('.claude/hooks/gate.mjs') && m.files.includes('.claude/rules/svc-api.md'));
+  assert.ok(m.files.includes('.claude/hooks/guard.mjs') && m.files.includes('.claude/rules/svc-api.md'));
   const d = hx(root, 'doctor');
   assert.equal(d.status, 0, d.stdout);
-  assert.match(d.stdout, /harness\.version terbaca \| OK/);
+  assert.match(d.stdout, /harness\.version \| OK/);
 });
 
 test('doctor: config dan versi terpasang tidak sama → GAGAL dengan petunjuk update', () => {
@@ -49,7 +49,7 @@ test('doctor: config dan versi terpasang tidak sama → GAGAL dengan petunjuk up
   wr(root, 'harness.config.json', JSON.stringify(cfg));
   const d = hx(root, 'doctor');
   assert.equal(d.status, 2);
-  assert.match(d.stdout, /install --update/);
+  assert.match(d.stdout, /versi config = versi terpasang \| GAGAL/);
 });
 
 test('--update tanpa harness terpasang: ditolak dan tidak mengubah apa pun', () => {
@@ -89,7 +89,7 @@ test('--update dari versi lama: hook diperbarui, data user dan berkas buatan use
   // meniru instalasi lama: versi lebih rendah, hook rusak/usang, berkas usang milik harness
   const v = jr(root, '.claude/harness.version'); v.version = '1.0.0';
   wr(root, '.claude/harness.version', JSON.stringify(v));
-  wr(root, '.claude/hooks/gate.mjs', '// versi lama');
+  wr(root, '.claude/hooks/guard.mjs', '// versi lama');
   const man = jr(root, '.claude/harness.manifest.json'); man.files.push('.claude/hooks/usang.mjs');
   wr(root, '.claude/harness.manifest.json', JSON.stringify(man));
   wr(root, '.claude/hooks/usang.mjs', '// hook yang sudah tidak ada di kernel');
@@ -99,11 +99,11 @@ test('--update dari versi lama: hook diperbarui, data user dan berkas buatan use
   assert.match(dry.stdout, new RegExp(`Pembaruan: 1\\.0\\.0 → ${VERSION.replace(/\./g, '\\.')}`));
   assert.match(dry.stdout, /DIBUANG\s*\| \.claude\/hooks\/usang\.mjs/);
   assert.doesNotMatch(dry.stdout, /DIBUANG\s*\| docs/);
-  assert.equal(rd(root, '.claude/hooks/gate.mjs'), '// versi lama', 'dry-run tidak mengubah apa pun');
+  assert.equal(rd(root, '.claude/hooks/guard.mjs'), '// versi lama', 'dry-run tidak mengubah apa pun');
 
   const r = install(root, '--update', '--yes');
   assert.equal(r.status, 0, r.stderr + r.stdout);
-  assert.ok(rd(root, '.claude/hooks/gate.mjs').length > 100, 'hook diganti versi kernel');
+  assert.ok(rd(root, '.claude/hooks/guard.mjs').length > 100, 'hook diganti versi kernel');
   assert.equal(fs.existsSync(path.join(root, '.claude/hooks/usang.mjs')), false, 'berkas usang milik harness dibuang');
   intact(root);
   assert.equal(jr(root, '.claude/harness.version').previous, '1.0.0');
@@ -126,7 +126,7 @@ test('--update membawa pengaturan user di settings.json (izin dan kunci lain)', 
   assert.ok(after.permissions.allow.includes('Bash(npm run lint)'));
   assert.ok(after.permissions.allow.includes('Bash(node .claude/hooks/harness.mjs *)'));
   assert.deepEqual(after.env, { FOO: 'bar' });
-  assert.ok(after.hooks.UserPromptSubmit);
+  assert.deepEqual(Object.keys(after.hooks), ['PreToolUse'], '2.0: hook alur lama tidak dibawa');
 });
 
 test('config rusak: installer berhenti, config tidak ditimpa', () => {
@@ -157,8 +157,8 @@ test('root pra-v1: dokumentasi yang ada tidak dihapus dan tidak ditimpa', () => 
   for (const [p, c] of [['docs/knowledge/api/summary.md', 'ringkasan lama'], ['docs/knowledge/README.md', 'readme milik user'], ['docs/work/lama/plan.md', 'plan lama'], ['docs/_map.md', '# peta lama\n'], ['docs/_archive/a.md', 'arsip'], ['docs/discussion/d.md', 'diskusi'], ['docs/other/n.md', 'lain']]) {
     assert.equal(rd(root, p), c, p);
   }
-  assert.ok(rd(root, 'AGENTS.md').includes('aturan kerja agent'), 'berkas perangkat tetap diganti');
-  assert.ok(fs.existsSync(path.join(root, 'docs/work/_TEMPLATE/plan.md')));
+  assert.ok(rd(root, 'AGENTS.md').includes('Harness 2.0: aturan kerja'), 'berkas perangkat tetap diganti');
+  assert.ok(fs.existsSync(path.join(root, 'docs/topics')));
 });
 
 test('pasang ulang tanpa --update di atas v1 tetap menjaga root_branch dan data user', () => {
@@ -184,21 +184,6 @@ test('--update --dry-run memperingatkan perubahan tracked yang belum di-commit; 
   const ok = install(root, '--update', '--yes', '--allow-dirty');
   assert.equal(ok.status, 0, ok.stderr);
   assert.doesNotMatch(ok.stderr, /DEP0190/, 'tanpa peringatan args+shell di Node 24');
-});
-
-test('doctor: branch baseline yang belum dilindungi dilaporkan GAGAL; default baru melindungi production dan staging', () => {
-  const root = project({ v1: true });
-  const cfg0 = jr(root, 'harness.config.json');
-  assert.ok(cfg0.protected_branches.includes('production') && cfg0.protected_branches.includes('staging'), 'bawaan baru');
-  const api = path.join(root, 'source-code/api'); commitAll(api, 'init'); sh('git', ['branch', 'production'], api); // service contoh belum punya commit
-  const cfg = { ...cfg0, protected_branches: ['main'], baseline: { api: 'production' } };
-  wr(root, 'harness.config.json', JSON.stringify(cfg));
-  const bad = hx(root, 'doctor');
-  assert.equal(bad.status, 2, bad.stdout + bad.stderr);
-  assert.match(bad.stdout, /branch baseline tiap service dilindungi \(protected_branches\) \| GAGAL \| api: production/);
-  wr(root, 'harness.config.json', JSON.stringify({ ...cfg, protected_branches: ['main', 'production'] }));
-  const ok = hx(root, 'doctor');
-  assert.match(ok.stdout, /branch baseline tiap service dilindungi \(protected_branches\) \| OK/);
 });
 
 test('--update tidak menimpa svc-*.md buatan user; service baru tetap dibuatkan templat', () => {

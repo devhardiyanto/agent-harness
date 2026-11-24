@@ -62,7 +62,7 @@ test('existing: ganti penuh, tag cadangan, branch, yang lain dipertahankan', () 
   assert.equal(sh('git', ['branch', '--show-current'], root).stdout.trim(), 'harness-v1');
   assert.equal(sh('git', ['status', '--porcelain'], root).stdout.trim(), '');
   assert.equal(fs.existsSync(path.join(root, '.claude/agents/x.md')), false);
-  assert.equal(fs.existsSync(path.join(root, '.claude/agents/explorer.md')), true);
+  assert.equal(fs.existsSync(path.join(root, '.claude/agents/scout.md')), true);
   assert.equal(fs.readFileSync(path.join(root, 'docs/other/note.md'), 'utf8'), 'keep');
   assert.equal(fs.readFileSync(path.join(root, 'scripts/my-deploy.sh'), 'utf8'), 'keep');
   assert.equal(fs.existsSync(path.join(root, 'scripts/check-git-gate.sh')), false);
@@ -78,28 +78,17 @@ test('existing: ganti penuh, tag cadangan, branch, yang lain dipertahankan', () 
   // tag benar-benar berisi harness lama
   assert.match(sh('git', ['show', `${sh('git', ['tag'], root).stdout.trim()}:.claude/agents/x.md`], root).stdout, /x/);
 });
-test('hasil instalasi langsung menegakkan gerbang; alur lengkap approve→build→done', () => {
+test('hasil instalasi: tanpa gerbang alur, guard keamanan aktif (2.0)', () => {
   const root = existingProject();
   assert.equal(install(root, '--yes').status, 0);
+  const st = JSON.parse(fs.readFileSync(path.join(root, '.claude/settings.json'), 'utf8'));
+  assert.deepEqual(Object.keys(st.hooks), ['PreToolUse']);
   const file = path.join(root, 'source-code/ce-api/src/a.ts');
-  const edit = () => hook(root, 'gate.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: file, old_string: 'a', new_string: 'b' } });
-  assert.equal(edit().status, 2);
-  const slug = path.basename(hx(root, 'new', 'feature', 'Endpoint baru').stdout.trim());
-  const p = path.join(root, 'docs/work', slug, 'plan.md');
-  fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('services: []', 'services: [ce-api]').replace('- AC1:', '- AC1: GET /x 200'));
-  fs.writeFileSync(path.join(root, 'docs/work', slug, 'align.md'), '---\nverdict: aligned\nrounds: 1\n---\n| C1 | k | a.ts:1 | terverifikasi |\n');
-  const ap = hook(root, 'prompt.mjs', { hook_event_name: 'UserPromptSubmit', prompt: `/harness:approve ${slug}` });
-  assert.equal(ap.status, 0);
-  assert.equal(edit().status, 0);
-  assert.equal(hx(root, 'start', slug).status, 0);
-  assert.equal(hx(root, 'set-status', slug, 'in-review').status, 0);
-  fs.writeFileSync(path.join(root, 'docs/work', slug, 'progress.md'), '- AC1: curl localhost:3000/x -> 200 OK\n');
-  fs.writeFileSync(path.join(root, 'docs/work', slug, 'review.md'), '---\nverdict: clean\n---\n');
-  assert.equal(hx(root, 'set-status', slug, 'done').status, 0);
-  // git gate di service: commit di branch main diblokir
+  assert.equal(hook(root, 'guard.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: file, old_string: 'a', new_string: 'b' } }).status, 0);
+  assert.equal(hook(root, 'guard.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path: path.join(root, 'source-code/ce-api/.env'), content: 'x' } }).status, 2);
   const svc = path.join(root, 'source-code/ce-api');
-  const g = hook(root, 'guard-bash.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Bash', cwd: svc, tool_input: { command: 'git commit -m x' } });
-  assert.equal(g.status, 2);
+  assert.equal(hook(root, 'guard.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Bash', cwd: svc, tool_input: { command: 'git commit -m x' } }).status, 2);
+  for (const f of ['gate.mjs', 'prompt.mjs', 'stop.mjs', 'guard-bash.mjs']) assert.equal(fs.existsSync(path.join(root, '.claude/hooks', f)), false, f);
 });
 test('idempoten: pasang ulang (ganti penuh) pada project ber-harness v1', () => {
   const root = existingProject();
@@ -136,13 +125,11 @@ test('project baru ber-git tanpa commit: tanpa tag, tetap jalan', () => {
   assert.equal(r.status, 0, r.stderr + r.stdout);
   assert.equal(sh('git', ['tag'], root).stdout.trim(), '');
 });
-test('layout single: semua kode di-gate, docs bebas', () => {
+test('layout single: terpasang tanpa services', () => {
   const root = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ins-')), 'mono');
   gitRepo(root); fs.writeFileSync(path.join(root, 'package.json'), '{}');
   assert.equal(install(root, '--yes', '--no-commit').status, 0);
-  const e = (rel) => hook(root, 'gate.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: path.join(root, rel), old_string: 'a', new_string: 'b' } }).status;
-  assert.equal(e('src/app.js'), 2);
-  assert.equal(e('docs/note.md'), 0);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'harness.config.json'), 'utf8')).layout, 'single');
 });
 test('folder installer sendiri ditolak', () => {
   const r = sh('node', [installer, path.join(here, '..'), '--yes'], here);
@@ -181,8 +168,8 @@ test('pasang ulang di atas v1: sisa executor/plane dibiarkan, dilaporkan, dan da
   assert.equal(fs.readFileSync(path.join(root, 'scripts/executor/executor.py'), 'utf8'), 'milik user');
   assert.equal(fs.readFileSync(path.join(root, '.agents/agents/implementer/agent.md'), 'utf8'), 'milik user');
   const after = JSON.parse(fs.readFileSync(cp, 'utf8'));
-  assert.deepEqual(after.executor, { enabled: true, sandbox: false });
-  assert.equal(after.plane.project_id, 'p1'); assert.equal(after.plane.workspace, 'w'); assert.equal(after.plane.enabled, false); // nilai user menang; kunci baru dari kernel ikut masuk
+  assert.equal(after.executor, undefined, '2.0: kunci config 1.x dibuang');
+  assert.equal(after.plane, undefined);
   assert.match(r.stdout, /Catatan: sisa modul lama/);
   assert.equal(hx(root, 'doctor').status, 0);
 });
@@ -201,6 +188,7 @@ test('pasang ulang di atas v1: work item, knowledge, peta, dan checks dipertahan
   const cp = path.join(root, 'harness.config.json');
   const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
   cfg.checks = { 'ce-api': { lint: null, test: 'npm test' } };
+  cfg.git = { default_account: 'akun-a', services: { 'ce-web': 'akun-b' } };
   fs.writeFileSync(cp, JSON.stringify(cfg, null, 2));
   sh('git', ['add', '-A'], root); sh('git', ['commit', '-qm', 'data user'], root);
   const r = install(root, '--yes');
@@ -210,9 +198,12 @@ test('pasang ulang di atas v1: work item, knowledge, peta, dan checks dipertahan
   assert.equal(fs.readFileSync(path.join(root, 'docs/discussion/catatan.md'), 'utf8'), 'diskusi penting');
   assert.equal(fs.readFileSync(path.join(root, 'docs/_map.md'), 'utf8'), '# peta hasil onboard\n');
   const after = JSON.parse(fs.readFileSync(cp, 'utf8'));
-  assert.equal(after.checks['ce-api'].test, 'npm test');
-  assert.ok(fs.existsSync(path.join(root, 'docs/work/_TEMPLATE/plan.md')));
-  assert.equal(hx(root, 'doctor').status, 0);
+  assert.equal(after.checks, undefined, '2.0: checks 1.x dibuang');
+  assert.equal(after.git.default_account, 'akun-a');
+  assert.equal(after.git.services['ce-web'], 'akun-b');
+  assert.ok(fs.existsSync(path.join(root, 'docs/topics')));
+  // akun contoh tidak login di gh mesin test: hanya baris itu yang boleh GAGAL
+  assert.doesNotMatch(hx(root, 'doctor').stdout.replace(/gh login untuk akun service \| GAGAL[^\n]*/, ''), /GAGAL/);
 });
 
 test('backup/ di root diabaikan otomatis; file lain yang belum di-track TIDAK ikut ter-commit', () => {

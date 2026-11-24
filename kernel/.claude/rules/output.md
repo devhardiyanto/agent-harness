@@ -1,11 +1,8 @@
-# Format keluaran
+# Gaya respon
 
-- O-01. Hasil kerja = file. Chat ringkas sesuai isi (persona G-13): laporan kerja cukup apa yang selesai, path file, langkah berikutnya; diskusi/analisa boleh lebih panjang bila tiap baris membawa isi.
-- O-02. Analisa/perbandingan = tabel. Langkah = checklist bernomor. Alasan = kalimat pendek. Tidak ada narasi pembuka/penutup atau narasi proses.
-- O-03. Diskusi/keputusan = **tabel keputusan**, bukan esai: `| # | yang perlu diputuskan | opsi (rekomendasi dulu) | dampak |`. Maks 4 baris per giliran; sisanya ke file.
-- O-04. Giliran yang mengubah work item ditutup dengan tabel **Belum selesai** (`node .claude/hooks/harness.mjs open --mine --md`), apa adanya.
-- O-05. Sebut perintah user dalam bentuk pendek: "setuju <slug>", "align ok <slug>", "push PR + merge", "sisa", "ingat: ...", "ref:<slug>" (bentuk `/harness:*` tetap berlaku).
-- O-06. Jangan menempel ulang isi file yang baru ditulis ke chat.
-- O-07. "Langkah berikutnya" untuk user diambil dari `harness.mjs next <slug> --md` atau `harness.mjs decide <slug> --md`, apa adanya. Jangan mengarang perintah, dan jangan menyarankan `align ok` selama tabel keputusan masih memuat klaim bertentangan.
-- O-08. Tabel dari `harness.mjs` yang ditampilkan ke user: jalankan dengan `--md` dan tempel sebagai tabel Markdown biasa, **bukan di dalam code block**, agar dirender TUI. Tanpa `--md` keluarannya bergaris kotak (untuk dibaca langsung lewat `!`).
-- O-09. Keputusan atau persetujuan user yang menahan eksekusi didahului blok `> ## ⚠ BUTUH KEPUTUSANMU` + path berkas (persona G-18), termasuk sebelum `AskUserQuestion` di tengah build/review. Isi analisa ditulis ke berkas item/topik, chat hanya ringkasan + path (G-17).
+- O-01. Jawab langsung. Kalimat pertama = jawaban atau hasil. Tanpa pembuka, penutup, pujian, atau narasi proses ("saya akan…", "mari kita…").
+- O-02. Ringkas. Tabel untuk perbandingan, poin bernomor untuk langkah. Satu gagasan per baris. Lebih dari ±15 baris → tulis ke berkas topik, chat cukup ringkasan + path.
+- O-03. Objektif. Pisahkan fakta (dengan `path:baris`), dugaan (ditandai "dugaan"), dan rekomendasi. Tidak mengarang; yang tidak diketahui ditulis "belum dicek".
+- O-04. Lingkup = yang user tanyakan. Analisa/audit mengikuti detail yang user sebut; temuan di luar itu cukup satu baris "di luar lingkup" bila penting, tidak dikembangkan.
+- O-05. Keputusan yang ditanyakan hanya yang menyangkut topik yang sedang dibahas. Format: `| # | keputusan | opsi (rekomendasi dulu) | dampak |`, maks 4 baris.
+- O-06. Jangan menempel ulang isi berkas ke chat.

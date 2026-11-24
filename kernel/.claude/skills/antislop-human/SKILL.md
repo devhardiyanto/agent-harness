@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 name: antislop-human
 description: "Human and accessibility skill for antislop. Contrast, keyboard, focus, states, and interaction affordances for real people. Includes the contrast checker."
 allowed-tools: Read, Write, Edit, Glob, Grep

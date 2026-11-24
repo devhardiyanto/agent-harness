@@ -1,5 +1,7 @@
 # Roadmap: 1.10.0 → 1.21 → 2.0.0
 
+> **Status per 2026-11-24 (harness 2.0.0)**: rombak K1–K23 (lihat `docs/HANDOFF.md` §2 dan CHANGELOG 2.0.0). Rencana O2–O4 dan R2–R5 di bawah **digantikan**: work item, gerbang, dan pilot dibuang; orkestrator kini aturan (`rules/orkestrator.md`), bukan hook. Bagian di bawah dipertahankan sebagai riwayat.
+>
 > **Status per 2026-11-22 (harness 1.24.0)**
 > - **Gerbang pilot §10 hijau** (sandbox + GitHub asli di event). **R1 selesai** (1.23.0): Plane dicabut. **O1 selesai** (1.24.0): rencana eksekusi tertulis. Berikutnya O2 (pelacakan per tugas, status line `tugas n/m`).
 >
