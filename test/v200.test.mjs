@@ -152,10 +152,13 @@ test('git-auth: helper per service memakai token akunnya sendiri tanpa switch', 
   const svc = path.join(root, 'source-code/api');
   sh('git', ['remote', 'add', 'origin', 'https://github.com/org/api.git'], svc);
   const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'ghbin-'));
+  // gh tiruan: skrip Node (HARNESS_GH, juga jalan di Windows) + pembungkus sh untuk helper git
+  const fakeJs = path.join(bin, 'gh.mjs');
+  fs.writeFileSync(fakeJs, 'const a = process.argv.slice(2); if (a.slice(0, 3).join(" ") === "auth token --user") { console.log("tok-" + a[3]); process.exit(0); } console.log("gh version 0.0.0");\n');
   const fake = path.join(bin, 'gh');
-  fs.writeFileSync(fake, '#!/bin/sh\nif [ "$1 $2 $3" = "auth token --user" ]; then echo "tok-$4"; exit 0; fi\necho "gh version 0.0.0"\n');
+  fs.writeFileSync(fake, `#!/bin/sh\nexec node "${fakeJs}" "$@"\n`);
   fs.chmodSync(fake, 0o755);
-  const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, CLAUDE_PROJECT_DIR: root };
+  const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, CLAUDE_PROJECT_DIR: root, HARNESS_GH: fakeJs };
   const run = (...a) => spawnSync('node', [path.join(root, '.claude/hooks/harness.mjs'), ...a], { cwd: root, env, encoding: 'utf8' });
   assert.match(run('git-auth').stdout, /\| api \| - \| akun belum diisi/);
   const cfg = jr(root, 'harness.config.json'); cfg.git = { default_account: 'akun-a', services: { api: 'akun-b' } };

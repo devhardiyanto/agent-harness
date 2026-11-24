@@ -12,7 +12,7 @@ Jawab ringkas dan objektif (kernel/.claude/rules/output.md). Satu PR per rilis; 
 | hal | nilai |
 |---|---|
 | Versi | **2.0.0** (branch `claude/ecstatic-knuth-i8mjkt`, PR menunggu merge) |
-| Test | `npm test` 47/47, `check-repo` 13/13 |
+| Test | `npm test` 47/47 (Linux + Windows CI), `check-repo` 13/13 |
 | Root project | astra, event, yhpa: masih 1.24.0 sampai `harness-update` setelah merge |
 | Akun git | astra → `nawa9nest-dev`; event, yhpa → `devhardiyanto` (diisi user di `harness.config.json` → `git`) |
 

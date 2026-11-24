@@ -29,7 +29,9 @@ export function plan(root, cfg) {
 }
 
 export function tokenAvailable(account) {
-  const r = spawnSync('gh', ['auth', 'token', '--user', account], { encoding: 'utf8' });
+  // HARNESS_GH: gh tiruan (sandbox/test), skrip Node yang dijalankan langsung.
+  const fake = process.env.HARNESS_GH;
+  const r = fake ? spawnSync(process.execPath, [fake, 'auth', 'token', '--user', account], { encoding: 'utf8' }) : spawnSync('gh', ['auth', 'token', '--user', account], { encoding: 'utf8' });
   return r.status === 0 && !!String(r.stdout).trim();
 }
 
