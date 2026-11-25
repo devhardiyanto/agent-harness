@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.5
+Temuan pemakaian di astra (sesi lanjutan yang besar).
+- **Lanjut topik dengan kalimat biasa** (U1 a): `harness.mjs topic find <kata>` mencari di `docs/topics` dan `docs/_legacy` (skor: slug/judul ×3, isi ×1); `topic use <topik>` mengaktifkan topik untuk sesi ini (`dipakai: …`, topik `closed` dibuka lagi). Skill `topic`: satu kandidat jelas langsung dipakai, beberapa → satu pertanyaan, hanya di legacy → topik baru dengan `--ref`. User tidak perlu menyebut slug.
+- **Lingkup topik di status line** (F2): service dari kolom `service` di `plan.md` topik + `source-code/<svc>` yang disentuh tool di sesi ini, mis. `ce-console-api, ce-microservices-go` (maks 3, sisanya `+N`).
+- **`+N −M` hanya tampil bila sesi sudah punya topik** (U2 b).
+- **Status line tidak hilang di sesi besar** (F1): baris transcript tanpa kata kunci dilewati tanpa parse JSON, tiap refresh membaca ≤ 2 MB, dan sesi lama yang besar (resume) mulai dibaca dari 2 MB terakhir.
+
 ## 2.0.4
 Tim agent bernama orang (K20, keputusan N1 a: satu tim untuk semua project).
 - **Agent spesialis**: `backend` → `nikola-be`, `frontend` → `hana-fe`, `dba` → `freya-dba`, `devops` → `kofi-ops`, `reviewer` → `lucia-rv`. `scout` dan `runner` tetap. Deskripsi tiap agent diawali label (mis. "Nikola, Backend Engineer").

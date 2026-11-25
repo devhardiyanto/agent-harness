@@ -1,7 +1,7 @@
 {
   "name": "harness",
   "displayName": "Harness",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "Skill global harness: init (cek pemasangan, akun git, bootstrap) dan update.",
   "author": { "name": "devhardiyanto" },
   "license": "MIT",

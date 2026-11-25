@@ -212,7 +212,7 @@ test('status line 2.0.2: kapsul, konteks + token, batas, +/- baris, badge ponyta
   assert.deepEqual(d.ctx, { pct: 72, tokens: 144000, size: 200000 });
   assert.equal(d.ponytail, null);
   const mono = r(d, { theme: 'mono' });
-  assert.match(mono, /^▌proj · belum ada topik · Opus 5\.5 · medium\n▌\[konteks 72%\] · 144k\/200k · 5j 88% \(reset \d\d:\d\d\) · 7h 30% · \+310 −88$/);
+  assert.match(mono, /^▌proj · belum ada topik · Opus 5\.5 · medium\n▌\[konteks 72%\] · 144k\/200k · 5j 88% \(reset \d\d:\d\d\) · 7h 30%$/, 'U2 b: tanpa topik, +/- tidak tampil');
   fs.writeFileSync(path.join(cfgDir, '.ponytail-active'), 'ultra\n');
   d = statusData(root, payload, { CLAUDE_CONFIG_DIR: cfgDir });
   assert.equal(d.ponytail, 'ultra');
@@ -280,4 +280,43 @@ test('2.0.4: agent bernama orang; berkas agent lama dibuang saat update', () => 
   assert.equal(r.status, 0, r.stderr + r.stdout);
   assert.equal(fs.existsSync(path.join(root, '.claude/agents/backend.md')), false);
   assert.match(rd(root, 'AGENTS.md'), /`nikola-be` \(backend\)/);
+});
+
+test('2.0.5: topic find/use dari kalimat biasa, lingkup service, +/- hanya dengan topik, transcript besar', async () => {
+  const { sessionTopic, findTopics } = await import('../kernel/.claude/hooks/topics.mjs');
+  const { statusData, render } = await import('../kernel/.claude/hooks/statusline.mjs');
+  const root = project({ v1: true });
+  hx(root, 'topic', 'new', 'feedback microservices go booking service');
+  hx(root, 'topic', 'new', 'promo invitation code');
+  wr(root, 'docs/_legacy/2026-08-01/migrasi-voucher/plan.md', 'voucher booking lama');
+  const t = today();
+  const f = hx(root, 'topic', 'find', 'lanjut', 'topik', 'mengenai', 'feedback', 'microservices-go', 'bagian', 'booking_service');
+  assert.match(f.stdout.split('\n')[2], new RegExp(`docs/topics/${t}/feedback-microservices-go-booking-service/`), f.stdout);
+  assert.ok(findTopics(root, 'voucher').some((x) => x.where === 'legacy'));
+  hx(root, 'topic', 'close', 'feedback-microservices');
+  const u = hx(root, 'topic', 'use', 'feedback-microservices');
+  assert.match(u.stdout, new RegExp(`^dipakai: docs/topics/${t}/feedback-microservices-go-booking-service/  \\(dibuka lagi\\)`));
+  assert.match(rd(root, `docs/topics/${t}/feedback-microservices-go-booking-service/topic.md`), /^status: open$/m);
+  assert.notEqual(hx(root, 'topic', 'use', 'tidak-ada').status, 0);
+  // status line: "dipakai:" + service dari transcript dan plan.md; +/- baru tampil setelah ada topik
+  const tr = path.join(root, 't.jsonl');
+  const L = (content) => JSON.stringify({ message: { content } }) + '\n';
+  const P = { session_id: 's9', transcript_path: tr, cost: { total_lines_added: 730, total_lines_removed: 18 } };
+  fs.writeFileSync(tr, L([{ type: 'tool_use', name: 'Edit', input: { file_path: 'source-code/ce-share-api/a.ts' } }]));
+  let d = statusData(root, P, { CLAUDE_CONFIG_DIR: root });
+  assert.equal(d.topic, null); assert.equal(d.lines, null, 'U2 b: tanpa topik, +/- disembunyikan');
+  fs.appendFileSync(tr, L([{ type: 'tool_result', content: u.stdout }]));
+  fs.appendFileSync(tr, L([{ type: 'tool_use', name: 'Bash', input: { command: 'git -C source-code/ce-microservices-go status' } }]));
+  wr(root, `docs/topics/${t}/feedback-microservices-go-booking-service/plan.md`, '| # | tugas | service | agent | status |\n|---|---|---|---|---|\n| 1 | a | ce-console-api, ce-microservices-go | nikola-be | rencana |\n');
+  d = statusData(root, P, { CLAUDE_CONFIG_DIR: root });
+  assert.equal(d.topic, 'feedback-microservices-go-booking-service');
+  assert.deepEqual(d.services, ['ce-console-api', 'ce-microservices-go'], 'plan + transcript, tanpa duplikat; service sebelum topik tidak dihitung');
+  assert.deepEqual(d.lines, { add: 730, del: 18 });
+  assert.match(render(d, { theme: 'mono' }), /feedback-microservices-go-booking-servi… · ce-console-api, ce-microservices-go\n▌\+730 −18$/);
+  // transcript besar (resume sesi lama): pertama kali hanya ekor 2 MB yang dibaca
+  const big = path.join(root, 'big.jsonl');
+  fs.writeFileSync(big, L([{ type: 'tool_use', input: { file_path: `docs/topics/${t}/promo-invitation-code/topic.md` } }]) + `${'x'.repeat(1000)}\n`.repeat(3000));
+  assert.equal(sessionTopic(root, { session_id: 'big', transcript_path: big }), null, 'bukti di luar ekor 2 MB tidak dibaca');
+  fs.appendFileSync(big, L([{ type: 'tool_use', input: { file_path: `docs/topics/${t}/promo-invitation-code/plan.md` } }]));
+  assert.equal(sessionTopic(root, { session_id: 'big', transcript_path: big }).slug, 'promo-invitation-code', 'baris baru setelahnya terbaca');
 });

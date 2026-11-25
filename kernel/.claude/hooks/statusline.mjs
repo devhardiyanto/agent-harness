@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { loadConfig, isMain } from './lib.mjs';
-import { sessionTopic } from './topics.mjs';
+import { sessionTopic, planServices } from './topics.mjs';
 
 const width = (s) => [...s.replace(/\x1b\[[0-9;]*m/g, '')].length;
 const num = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
@@ -29,7 +29,10 @@ export function statusData(root, payload = {}, env = process.env) {
   const d = { root: path.basename(root), topic: null, model: null, effort: null, ctx: null, limits: [], lines: null, ponytail: ponytailMode(env) };
   if (payload.model) d.model = String(payload.model.display_name || payload.model.id || '').trim() || null;
   if (payload.effort && payload.effort.level) d.effort = String(payload.effort.level);
-  try { const t = sessionTopic(root, payload); if (t) d.topic = t.slug; } catch { /* abaikan */ }
+  try {
+    const t = sessionTopic(root, payload);
+    if (t) { d.topic = t.slug; d.services = [...new Set([...planServices(t.dir), ...t.services])]; }
+  } catch { /* abaikan */ }
   const cw = payload.context_window || {};
   const cu = cw.current_usage || {};
   const tokens = num(cw.total_input_tokens) ?? (cw.current_usage ? (num(cu.input_tokens) || 0) + (num(cu.cache_creation_input_tokens) || 0) + (num(cu.cache_read_input_tokens) || 0) : null);
@@ -42,7 +45,8 @@ export function statusData(root, payload = {}, env = process.env) {
     if (p !== null) d.limits.push({ label, pct: Math.round(p), reset: num(rl[key].resets_at) });
   }
   const c = payload.cost || {};
-  if ((num(c.total_lines_added) || 0) + (num(c.total_lines_removed) || 0) > 0) d.lines = { add: num(c.total_lines_added) || 0, del: num(c.total_lines_removed) || 0 };
+  // 2.0.5 (U2 b): baris +/- hanya bila sesi sudah punya topik
+  if (d.topic && (num(c.total_lines_added) || 0) + (num(c.total_lines_removed) || 0) > 0) d.lines = { add: num(c.total_lines_added) || 0, del: num(c.total_lines_removed) || 0 };
   return d;
 }
 
@@ -50,6 +54,7 @@ export function statusData(root, payload = {}, env = process.env) {
 function segments(d) {
   const topic = d.topic ? (d.topic.length > 40 ? `${d.topic.slice(0, 39)}…` : d.topic) : null;
   const l1 = [{ t: d.root, k: 'root', pill: true }, topic ? { t: topic, k: 'topic', pill: true } : { t: 'belum ada topik', k: 'dim' }];
+  if (d.services && d.services.length) l1.push({ t: d.services.length > 3 ? `${d.services.slice(0, 3).join(', ')} +${d.services.length - 3}` : d.services.join(', '), k: 'svc' });
   if (d.model) l1.push({ t: d.effort ? `${d.model} · ${d.effort}` : d.model, k: 'dim' });
   if (d.ponytail) l1.push({ t: `ponytail:${d.ponytail}`, k: 'dim' });
   const l2 = [];
@@ -68,9 +73,9 @@ function segments(d) {
 }
 
 const PALETTE = {
-  kapsul: { root: [30, 255], topic: [238, 255], 'ctx-ok': [71, 16], 'ctx-warn': [178, 16], 'ctx-bad': [167, 255], dim: 244, add: 71, del: 167 },
-  tenang: { root: '36', topic: '1', dim: '2', 'ctx-ok': '32', 'ctx-warn': '33', 'ctx-bad': '31', add: '32', del: '31' },
-  kontras: { root: '1;96', topic: '1;97', dim: '37', 'ctx-ok': '1;92', 'ctx-warn': '1;93', 'ctx-bad': '1;91', add: '1;92', del: '1;91' },
+  kapsul: { root: [30, 255], topic: [238, 255], svc: 179, 'ctx-ok': [71, 16], 'ctx-warn': [178, 16], 'ctx-bad': [167, 255], dim: 244, add: 71, del: 167 },
+  tenang: { root: '36', topic: '1', svc: '33', dim: '2', 'ctx-ok': '32', 'ctx-warn': '33', 'ctx-bad': '31', add: '32', del: '31' },
+  kontras: { root: '1;96', topic: '1;97', svc: '1;93', dim: '37', 'ctx-ok': '1;92', 'ctx-warn': '1;93', 'ctx-bad': '1;91', add: '1;92', del: '1;91' },
 };
 
 function paint(seg, theme) {

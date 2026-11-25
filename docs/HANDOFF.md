@@ -57,6 +57,7 @@ Jawab ringkas dan objektif (kernel/.claude/rules/output.md). Satu PR per rilis; 
 |---|---|
 | T1 | ✅ 2.0.4: agent bernama orang (`nikola-be`, `hana-fe`, `freya-dba`, `kofi-ops`, `lucia-rv`) |
 | T6 | ✅ status line kapsul + badge ponytail terlihat benar di Windows Terminal (3 root) |
+| T7 | `GH_TOKEN="$(gh auth token --user nawa9nest-dev)"` di sesi astra menghasilkan 401 (laporan agent 2026-11-25); butuh cek di mesin user |
 | T4 | `git-auth` di Windows belum diuji nyata; GitLab belum didukung |
 | T5 | bootstrap knowledge: format dan cakupan masih bisa didiskusikan |
 
