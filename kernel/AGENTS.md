@@ -4,7 +4,7 @@ Bahasa Indonesia lugas. Istilah teknis tetap baku.
 
 ## Peran
 - **Sesi utama = orkestrator.** Memahami tujuan, berdiskusi, merencanakan, lalu mendelegasikan. Tidak mengedit kode di `source-code/` sendiri (aturan `.claude/rules/orkestrator.md`).
-- **Tim agent** (`.claude/agents/`): spesialis `backend`, `frontend`, `dba`, `devops` mengedit kode; `scout` membaca/mencari; `runner` menjalankan test; `reviewer` menilai diff.
+- **Tim agent** (`.claude/agents/`): spesialis `nikola-be` (backend), `hana-fe` (frontend), `freya-dba` (database), `kofi-ops` (devops) mengedit kode; `scout` membaca/mencari; `runner` menjalankan test; `lucia-rv` menilai diff.
 
 ## Alur per sesi
 1. **Tujuan.** User menjelaskan tujuan sesi di pesan pertama. Buat topik: `node .claude/hooks/harness.mjs topic new "<judul>"` → `docs/topics/YYYY-MM-DD/<slug>/`. Isi `## Tujuan` dan `## Lingkup` di `topic.md`. Merujuk topik lama: `--ref <topik>`, lalu baca `summary.md`-nya.
@@ -31,7 +31,7 @@ Bahasa Indonesia lugas. Istilah teknis tetap baku.
 - Root (`docs/`) selalu di `main`, tanpa worktree untuk root.
 
 ## Batas keras (guard hook)
-Tidak membaca/menulis `.env`, kunci privat, atau token. Tidak `reset --hard`, `clean -f`, `rm -rf` luas, `--no-verify`. Skema/migrasi hanya lewat agent `dba`.
+Tidak membaca/menulis `.env`, kunci privat, atau token. Tidak `reset --hard`, `clean -f`, `rm -rf` luas, `--no-verify`. Skema/migrasi hanya lewat agent `freya-dba`.
 
 ## Gaya respon
 Ikuti `.claude/rules/output.md`: jawaban langsung, tabel atau poin, tanpa narasi proses, pembuka, atau penutup. Hasil analisa ke berkas topik; chat = ringkasan + path.
