@@ -43,6 +43,14 @@ Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge).
 | `harness.mjs remap [--apply]` | dipakai skill `remap` |
 | `harness.mjs git-auth [--apply]`, `git-auth which|repo <svc>` | akun dan repo git per service |
 
+## Status line
+
+```
+▐event▌ ▐analisa-promo▌ Opus 5.5 · medium ponytail:full
+▐konteks 72%▌ 144k/200k 5j 61% · 7h 30% +310 −88
+```
+Tema `harness.config.json` → `tui.theme`: `kapsul` (bawaan), `tenang`, `kontras`, `mono` (`NO_COLOR`). Angka konteks = respons API terakhir; `/context` bisa sedikit lebih tinggi sampai respons berikutnya. Badge `ponytail:` muncul bila plugin ponytail terpasang (plugin global terpisah; harness tidak memasang atau memperbaruinya).
+
 ## Akun git per service
 
 `harness.config.json`:

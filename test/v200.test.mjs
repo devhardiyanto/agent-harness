@@ -21,8 +21,8 @@ test('topic new/list/close: folder per hari, INDEX.md, status line', () => {
   assert.match(hx(root, 'topic', 'new', 'analisa fitur promo invitation code').stdout, /sudah ada/);
   assert.equal(hx(root, 'topic', 'active').stdout.trim(), `${rel}/`);
   const s = spawnSync('node', [path.join(root, '.claude/hooks/statusline.mjs')], { input: JSON.stringify({ model: { display_name: 'Opus 5.5' }, effort: { level: 'medium' }, context_window: { used_percentage: 41 } }), env: { ...process.env, CLAUDE_PROJECT_DIR: root, NO_COLOR: '1' }, encoding: 'utf8' });
-  assert.match(s.stdout, /topik: analisa-fitur-promo-invitation-code\s+Opus 5\.5 · medium/);
-  assert.doesNotMatch(s.stdout, /konteks|41%/, 'persen konteks tidak ditampilkan (K6)');
+  assert.match(s.stdout, /analisa-fitur-promo-invitation-code · Opus 5\.5 · medium/);
+  assert.match(s.stdout, /\n.*\[konteks 41%\]/, '2.0.2 (D1): konteks tampil di baris 2');
   const c = hx(root, 'topic', 'close', 'promo');
   assert.equal(c.status, 0, c.stderr);
   assert.match(c.stdout, /summary\.md belum ada/);
@@ -34,7 +34,7 @@ test('topic new/list/close: folder per hari, INDEX.md, status line', () => {
 });
 
 test('status line tanpa topik', () => {
-  assert.match(render({ root: 'event', topic: null, model: null }, { theme: 'mono' }), /▌event {2}belum ada topik/);
+  assert.equal(render({ root: 'event', topic: null, model: null, limits: [], ctx: null, lines: null }, { theme: 'mono' }), '▌event · belum ada topik');
 });
 
 function legacyRoot() {
@@ -195,4 +195,43 @@ test('git-auth: remote SSH beralias dikenali, helper tidak dipasang; doctor tida
   const d = hx(root, 'doctor').stdout;
   assert.match(d, /akses git per service \(helper HTTPS atau SSH\) \| OK/);
   assert.match(d, /service di luar git-auth \| INFO \| web: remote bukan github\.com/);
+});
+
+test('status line 2.0.2: kapsul, konteks + token, batas, +/- baris, badge ponytail', async () => {
+  const { statusData, render: r, level } = await import('../kernel/.claude/hooks/statusline.mjs');
+  const root = project({ v1: true });
+  const cfgDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-'));
+  const payload = { model: { display_name: 'Opus 5.5' }, effort: { level: 'medium' },
+    context_window: { used_percentage: 72.4, context_window_size: 200000, current_usage: { input_tokens: 4000, cache_creation_input_tokens: 0, cache_read_input_tokens: 140000 } },
+    rate_limits: { five_hour: { used_percentage: 88, resets_at: 1764079200 }, seven_day: { used_percentage: 30 } },
+    cost: { total_lines_added: 310, total_lines_removed: 88 } };
+  let d = statusData(root, payload, { CLAUDE_CONFIG_DIR: cfgDir });
+  assert.deepEqual(d.ctx, { pct: 72, tokens: 144000, size: 200000 });
+  assert.equal(d.ponytail, null);
+  const mono = r(d, { theme: 'mono' });
+  assert.match(mono, /^▌proj · belum ada topik · Opus 5\.5 · medium\n▌\[konteks 72%\] · 144k\/200k · 5j 88% \(reset \d\d:\d\d\) · 7h 30% · \+310 −88$/);
+  fs.writeFileSync(path.join(cfgDir, '.ponytail-active'), 'ultra\n');
+  d = statusData(root, payload, { CLAUDE_CONFIG_DIR: cfgDir });
+  assert.equal(d.ponytail, 'ultra');
+  const k = r(d, { theme: 'kapsul' });
+  assert.match(k, /\x1b\[48;5;30;38;5;255;1mproj/, 'root = kapsul');
+  assert.match(k, /\x1b\[48;5;178;38;5;16;1mkonteks 72%/, '72% = kuning');
+  assert.match(k, /ponytail:ultra/);
+  fs.writeFileSync(path.join(cfgDir, '.ponytail-active'), 'off');
+  assert.equal(statusData(root, payload, { CLAUDE_CONFIG_DIR: cfgDir }).ponytail, null);
+  assert.deepEqual([level(59), level(60), level(84), level(85)], ['ok', 'warn', 'warn', 'bad']);
+  // tanpa used_percentage: dihitung dari token / ukuran; lebar sempit memotong segmen, bukan galat
+  const d2 = statusData(root, { context_window: { total_input_tokens: 50000, context_window_size: 200000 } }, { CLAUDE_CONFIG_DIR: cfgDir });
+  assert.equal(d2.ctx.pct, 25);
+  assert.equal(r(d, { theme: 'mono', max: 20 }).split('\n')[0], '▌proj');
+  assert.equal(jr(root, '.claude/settings.json').statusLine.refreshInterval, undefined, 'D4: tanpa refreshInterval');
+  assert.equal(jr(root, 'harness.config.json').tui.theme, 'kapsul');
+});
+
+test('git-auth: petunjuk --apply hanya bila ada yang belum terpasang', () => {
+  const root = project({ v1: true });
+  sh('git', ['remote', 'add', 'origin', 'git@github-pribadi:trio/api.git'], path.join(root, 'source-code/api'));
+  const cfg = jr(root, 'harness.config.json'); cfg.git = { default_account: 'akun-a' }; cfg.services = ['api'];
+  wr(root, 'harness.config.json', JSON.stringify(cfg));
+  assert.doesNotMatch(hx(root, 'git-auth').stdout, /Pasang:/);
 });

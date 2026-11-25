@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.2
+Status line baru (keputusan D1–D4, tema C) dan penyesuaian ponytail (P1–P3).
+- **Status line dua baris, tema `kapsul` (bawaan)**: baris 1 root · topik · model · effort; baris 2 konteks % + token (`context_window.*`), batas 5 jam/7 hari (`rate_limits.*`, jam reset saat ≥ 85%), `+/−` baris (`cost.total_lines_*`). Kapsul konteks hijau < 60%, kuning 60–84%, merah ≥ 85%. Warna xterm-256, tanpa emoji. Tema `tenang`, `kontras`, `mono` (`NO_COLOR`) tetap ada. Root yang masih bertema `tenang` (bawaan lama) dipindah ke `kapsul` sekali saat update.
+- **Beda angka dengan `/context`** (K6): status line memakai respons API terakhir; `/context` menambah perkiraan pesan sesudahnya, jadi bisa sedikit lebih tinggi sampai respons berikutnya.
+- **`refreshInterval` dihapus**: Claude Code me-refresh status line sendiri (pesan baru, `/compact`, reset batas). Lebar mengikuti `COLUMNS` − 4.
+- **ponytail** (plugin global terpisah, dipasang user): badge `ponytail:<mode>` di baris 1 bila `~/.claude/.ponytail-active` ada dan bukan `off`. Aturan `T-07`: `/ponytail-review` sebelum `reviewer` bila terpasang. `minimalis.md` tetap.
+- `git-auth` hanya menampilkan petunjuk `--apply` bila ada service yang belum terpasang.
+
 ## 2.0.1
 Temuan pemakaian pertama 2.0.0 (astra, event, yhpa): remote repo service berupa SSH dengan alias per akun (`git@github-kantor:org/repo.git`).
 - **`git-auth` mengenali remote SSH beralias**: status `SSH <alias>: helper tidak perlu` (kunci SSH per alias sudah memisahkan akun; helper HTTPS tidak dipasang). Alias dicek lewat `ssh -G`. Remote HTTPS tetap memakai credential helper. Tabel kini memuat kolom `repo`.

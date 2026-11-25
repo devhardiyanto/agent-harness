@@ -166,6 +166,8 @@ function render(det, mode) {
   // 2.0: kunci config 1.x (alur work item, gate, memori lama, Plane) tidak dipakai lagi; dibuang agar config bersih.
   for (const k of DROP_1X) delete cfg[k];
   if (cfg.tui) { delete cfg.tui.ask; delete cfg.tui.menu; }
+  // 2.0.2: 'tenang' adalah bawaan lama, bukan pilihan user → ikut bawaan baru 'kapsul' sekali saat naik dari < 2.0.2.
+  if (cfg.tui && cfg.tui.theme === 'tenang' && hadV1 && installedVer && cmpVer(installedVer, '2.0.2') < 0) cfg.tui.theme = 'kapsul';
   cfg.harness_version = VERSION;
   cfg.project = opt('project-name') || (hadV1 && oldCfg.project) || path.basename(target);
   cfg.root_branch = opt('root-branch') || (hadV1 && oldCfg.root_branch) || 'main';
