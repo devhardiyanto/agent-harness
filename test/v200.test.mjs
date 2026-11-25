@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { sh, hx, hook, project, gitRepo, commitAll, rd, wr, jr } from './helpers.mjs';
+import { sh, hx, hook, project, gitRepo, commitAll, rd, wr, jr, install } from './helpers.mjs';
 import * as remap from '../kernel/.claude/hooks/remap.mjs';
 import { render } from '../kernel/.claude/hooks/statusline.mjs';
 import { today } from '../kernel/.claude/hooks/lib.mjs';
@@ -276,7 +276,7 @@ test('2.0.4: agent bernama orang; berkas agent lama dibuang saat update', () => 
   const m = jr(root, '.claude/harness.manifest.json'); m.files.push('.claude/agents/backend.md'); wr(root, '.claude/harness.manifest.json', JSON.stringify(m));
   const v = jr(root, '.claude/harness.version'); v.version = '2.0.3'; wr(root, '.claude/harness.version', JSON.stringify(v));
   commitAll(root, 'lama');
-  const r = sh('node', [path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'install.mjs'), root, '--update', '--yes', '--repo', 'devhardiyanto/agent-harness'], root);
+  const r = install(root, '--update', '--yes');
   assert.equal(r.status, 0, r.stderr + r.stdout);
   assert.equal(fs.existsSync(path.join(root, '.claude/agents/backend.md')), false);
   assert.match(rd(root, 'AGENTS.md'), /`nikola-be` \(backend\)/);
