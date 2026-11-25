@@ -1,6 +1,6 @@
 ---
-name: reviewer
-description: Reviewer independen read-only. Menilai diff suatu tugas terhadap tujuan topik, keamanan, dependency, dan pola service. Mengembalikan temuan terklasifikasi.
+name: lucia-rv
+description: "Lucia, Code Reviewer. Reviewer independen read-only. Menilai diff suatu tugas terhadap tujuan topik, keamanan, dependency, dan pola service. Mengembalikan temuan terklasifikasi."
 tools: Read, Grep, Glob, Bash, LSP
 model: opus
 omitClaudeMd: true

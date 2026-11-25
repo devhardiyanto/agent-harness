@@ -145,9 +145,9 @@ check('hook settings.json memakai exec form (command: node + args)', (bad) => {
   for (const ev of Object.keys(st.hooks || {})) if (ev !== 'PreToolUse') bad(`hook ${ev} terpasang; 2.0 hanya memakai PreToolUse (guard)`);
 });
 
-// 11. agent: frontmatter lengkap, model dikenal; scout/runner Haiku, reviewer Opus
+// 11. agent: frontmatter lengkap, model dikenal; scout/runner Haiku, lucia-rv (reviewer) Opus
 check('agent: frontmatter valid dan routing model sesuai', (bad) => {
-  const want = { scout: 'haiku', runner: 'haiku', reviewer: 'opus' };
+  const want = { scout: 'haiku', runner: 'haiku', 'lucia-rv': 'opus' };
   for (const f of walk('kernel/.claude/agents').filter((x) => x.endsWith('.md'))) {
     const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(read(f));
     if (!m) { bad(`${f}: frontmatter tidak ada`); continue; }

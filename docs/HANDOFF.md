@@ -38,7 +38,7 @@ Jawab ringkas dan objektif (kernel/.claude/rules/output.md). Satu PR per rilis; 
 | K17 | `docs/reports`, `docs/topik` ikut remap; nama folder `topics` |
 | K18 | antislop tetap, hanya manual |
 | K19 | skill bootstrap manual per service |
-| K20 | agent tetap nama peran; nama orang (asep-be, cantika-fe, …) **didiskusikan nanti** |
+| K20 | 2.0.4: nama orang dunia + singkatan peran: `nikola-be`, `hana-fe`, `freya-dba`, `kofi-ops`, `lucia-rv`; `scout`, `runner` tetap |
 | K21 | sesi utama tidak mengedit kode; aturan di `rules/orkestrator.md` |
 | K22 | `.codex/`, `.agents/` disarankan dihapus lewat skrip cetak remap |
 | K23 | respon ringkas, lingkup sebatas yang ditanya |
@@ -55,9 +55,8 @@ Jawab ringkas dan objektif (kernel/.claude/rules/output.md). Satu PR per rilis; 
 ## 4. Terbuka
 | # | hal |
 |---|---|
-| T1 | K20: nama orang untuk agent |
+| T1 | ✅ 2.0.4: agent bernama orang (`nikola-be`, `hana-fe`, `freya-dba`, `kofi-ops`, `lucia-rv`) |
 | T6 | ✅ status line kapsul + badge ponytail terlihat benar di Windows Terminal (3 root) |
-| T3 | sandbox tidak terupdate karena perubahan tracked (B5) |
 | T4 | `git-auth` di Windows belum diuji nyata; GitLab belum didukung |
 | T5 | bootstrap knowledge: format dan cakupan masih bisa didiskusikan |
 
@@ -70,7 +69,7 @@ Jawab ringkas dan objektif (kernel/.claude/rules/output.md). Satu PR per rilis; 
 | `kernel/.claude/hooks/{topics,remap,gitauth,lib}.mjs` | logika |
 | `kernel/.claude/skills/{topic,summarize,remap,bootstrap}` | skill proyek |
 | `kernel/.claude/rules/{output,orkestrator,git,security,minimalis,knowledge}.md` | aturan |
-| `kernel/.claude/agents/` | backend, frontend, dba, devops, scout, runner, reviewer |
+| `kernel/.claude/agents/` | nikola-be, hana-fe, freya-dba, kofi-ops, lucia-rv, scout, runner |
 | `plugin/skills/{init,update}` | skill global |
 | `test/v200.test.mjs` | test 2.0 |
 

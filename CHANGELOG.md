@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.4
+Tim agent bernama orang (K20, keputusan N1 a: satu tim untuk semua project).
+- **Agent spesialis**: `backend` → `nikola-be`, `frontend` → `hana-fe`, `dba` → `freya-dba`, `devops` → `kofi-ops`, `reviewer` → `lucia-rv`. `scout` dan `runner` tetap. Deskripsi tiap agent diawali label (mis. "Nikola, Backend Engineer").
+- Berkas agent lama dibuang otomatis saat update (lewat manifest). Agent buatan user tidak disentuh.
+- Aturan `T-02`: sebutan user "be"/"backend"/"Nikola", "fe"/"frontend"/"Hana", "dba"/"database"/"Freya", "ops"/"devops"/"Kofi", "review"/"Lucia" dipetakan ke agent yang benar. `AGENTS.md`, `T-04`, `T-07`, README, dan `check-repo` memakai nama baru.
+
 ## 2.0.3
 Temuan uji 2.0.2 di astra, event, yhpa.
 - **Topik di status line = topik sesi ini** (T1 a): dibaca dari transcript sesi (`transcript_path`), hanya dari bukti kerja: input tool (path berkas/perintah di `docs/topics/<tgl>/<slug>/`) dan keluaran `topic new`. Teks chat dan keluaran lain (mis. tabel remap) diabaikan. Dibaca bertahap; posisi disimpan di `.claude/state/topic-<sesi>.json`. Sesi baru tampil "belum ada topik". Sebelumnya: topik terbuka terakhir di project, sehingga topik lama hasil remap ikut tampil.

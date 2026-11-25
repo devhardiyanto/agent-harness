@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { sh, hx, hook, project, gitRepo, commitAll, rd, wr, jr } from './helpers.mjs';
+import { sh, hx, hook, project, gitRepo, commitAll, rd, wr, jr, install } from './helpers.mjs';
 import * as remap from '../kernel/.claude/hooks/remap.mjs';
 import { render } from '../kernel/.claude/hooks/statusline.mjs';
 import { today } from '../kernel/.claude/hooks/lib.mjs';
@@ -264,4 +264,20 @@ test('status line 2.0.3: topik per sesi dari transcript, bertahap, abaikan teks 
   assert.equal(d.lines, null, '+0 −0 disembunyikan');
   d.ponytail = 'full';
   assert.match(render(d, { theme: 'kapsul' }), /M · low\x1b\[0m · \x1b\[38;5;244mponytail:full/, 'pemisah · sebelum badge');
+});
+
+test('2.0.4: agent bernama orang; berkas agent lama dibuang saat update', () => {
+  const root = project({ v1: true });
+  const names = fs.readdirSync(path.join(root, '.claude/agents')).sort();
+  assert.deepEqual(names, ['freya-dba.md', 'hana-fe.md', 'kofi-ops.md', 'lucia-rv.md', 'nikola-be.md', 'runner.md', 'scout.md']);
+  for (const f of names) assert.match(rd(root, `.claude/agents/${f}`), new RegExp(`^---\\nname: ${f.replace('.md', '')}\\n`));
+  // simulasi root lama yang masih punya backend.md di manifest
+  wr(root, '.claude/agents/backend.md', '---\nname: backend\n---\n');
+  const m = jr(root, '.claude/harness.manifest.json'); m.files.push('.claude/agents/backend.md'); wr(root, '.claude/harness.manifest.json', JSON.stringify(m));
+  const v = jr(root, '.claude/harness.version'); v.version = '2.0.3'; wr(root, '.claude/harness.version', JSON.stringify(v));
+  commitAll(root, 'lama');
+  const r = install(root, '--update', '--yes');
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(fs.existsSync(path.join(root, '.claude/agents/backend.md')), false);
+  assert.match(rd(root, 'AGENTS.md'), /`nikola-be` \(backend\)/);
 });

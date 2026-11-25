@@ -1,6 +1,6 @@
 # agent-harness — Harness untuk Claude Code
 
-Sesi chat utama = **orkestrator**; tim agent (`backend`, `frontend`, `dba`, `devops`, `scout`, `runner`, `reviewer`) yang mengerjakan kode. Pekerjaan dicatat per **topik** di `docs/topics/YYYY-MM-DD/<slug>/`. Tanpa gerbang alur: hook hanya menjaga keamanan. Service dideteksi dari `source-code/<repo git>`.
+Sesi chat utama = **orkestrator**; tim agent (`nikola-be`, `hana-fe`, `freya-dba`, `kofi-ops`, `scout`, `runner`, `lucia-rv`) yang mengerjakan kode. Pekerjaan dicatat per **topik** di `docs/topics/YYYY-MM-DD/<slug>/`. Tanpa gerbang alur: hook hanya menjaga keamanan. Service dideteksi dari `source-code/<repo git>`.
 
 ## Pasang (repo privat, lewat `gh`)
 
