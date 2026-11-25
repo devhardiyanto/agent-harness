@@ -6,6 +6,7 @@ Temuan pemakaian di astra (sesi lanjutan yang besar).
 - **Lingkup topik di status line** (F2): service dari kolom `service` di `plan.md` topik + `source-code/<svc>` yang disentuh tool di sesi ini, mis. `ce-console-api, ce-microservices-go` (maks 3, sisanya `+N`).
 - **`+N −M` hanya tampil bila sesi sudah punya topik** (U2 b).
 - **Status line tidak hilang di sesi besar** (F1): baris transcript tanpa kata kunci dilewati tanpa parse JSON, tiap refresh membaca ≤ 2 MB, dan sesi lama yang besar (resume) mulai dibaca dari 2 MB terakhir.
+- **Guard: `gh auth token … >/dev/null` diizinkan** (G1): token yang dibuang ke `/dev/null`/`NUL` tidak tercetak, jadi tidak diblokir. `2>/dev/null` saja (stdout tetap tercetak) dan pipe tetap diblokir.
 
 ## 2.0.4
 Tim agent bernama orang (K20, keputusan N1 a: satu tim untuk semua project).

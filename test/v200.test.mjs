@@ -143,6 +143,12 @@ test('guard: keamanan tetap, alur kerja bebas', () => {
   assert.equal(bash('git reset --hard HEAD~1'), 2);
   assert.equal(bash('gh auth token --user nawa9nest-dev'), 2, 'token tidak boleh dicetak');
   assert.equal(bash('GH_TOKEN="$(gh auth token --user nawa9nest-dev)" gh pr create -R a/b --title x'), 0);
+  // 2.0.5 (G1): token dibuang ke /dev/null tidak tercetak → boleh; hanya stderr yang dibuang → tetap dilarang
+  assert.equal(bash('gh auth token --user nawa9nest-dev >/dev/null 2>&1 && echo ADA || echo GAGAL'), 0);
+  assert.equal(bash('gh auth token --user a &>/dev/null; echo $?'), 0);
+  assert.equal(bash('gh auth token --user a > NUL'), 0);
+  assert.equal(bash('gh auth token --user a 2>/dev/null'), 2);
+  assert.equal(bash('gh auth token --user a | cat'), 2);
   assert.equal(bash('git commit -m "catatan"'), 0, 'root boleh commit docs di main');
   const svc = path.join(root, 'source-code/api');
   assert.equal(bash('git commit -m x', svc), 2, 'repo service di main: dilarang');
