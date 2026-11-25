@@ -13,7 +13,7 @@ Rangkum seluruh isi percakapan kita di dalam room chat ini secara chronological 
 ## Lokasi berkas
 `docs/sessions/YYYY-MM-DD/<slug>.md`
 - `YYYY-MM-DD` = tanggal hari ini.
-- `<slug>` = slug topik aktif (`node .claude/hooks/harness.mjs topic active`); tanpa topik: 2–4 kata topik utama, huruf kecil, dipisah tanda hubung.
+- `<slug>` = slug topik yang dibuka atau dikerjakan di sesi ini (yang tampil di status line); tanpa topik: 2–4 kata topik utama, huruf kecil, dipisah tanda hubung.
 - Berkas dengan slug itu sudah ada hari ini → **perbarui**, jangan buat `-2`.
 
 ## Isi

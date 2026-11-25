@@ -112,3 +112,51 @@ export function closeTopic(root, q, { date = today() } = {}) {
   if (!cur.includes(`| ${t.rel} |`)) fs.writeFileSync(idx, `${cur.replace(/\n*$/, '\n')}| ${date} | ${t.rel} | ${t.title.replace(/\|/g, '/')} |\n`);
   return { ok: true, topic: t, summary: fs.existsSync(path.join(t.dir, 'summary.md')) };
 }
+
+// 2.0.3 (T1 a): topik milik SESI ini, dari transcript. Hanya bukti kerja yang dihitung: input tool (path berkas,
+// perintah) dan keluaran `topic new` ("dibuat:"/"sudah ada:"). Teks chat dan keluaran lain (mis. tabel remap) diabaikan.
+// Dibaca bertahap: posisi terakhir disimpan per sesi, jadi biaya tiap refresh hanya baris baru.
+const TOPIC_PATH = /docs[\\/]+topics[\\/]+(\d{4}-\d{2}-\d{2})[\\/]+([a-z0-9][a-z0-9_-]*)/gi;
+function topicsIn(text) { const out = []; for (const m of String(text).matchAll(TOPIC_PATH)) out.push(`${m[1]}/${m[2].toLowerCase()}`); return out; }
+function evidence(line) {
+  let j; try { j = JSON.parse(line); } catch { return []; }
+  const content = j && j.message && Array.isArray(j.message.content) ? j.message.content : [];
+  const found = [];
+  for (const c of content) {
+    if (c && c.type === 'tool_use') found.push(...topicsIn(JSON.stringify(c.input || {})));
+    else if (c && c.type === 'tool_result') {
+      const t = Array.isArray(c.content) ? c.content.map((x) => (x && x.text) || '').join('\n') : String(c.content || '');
+      for (const l of t.split(/\r?\n/)) if (/^(dibuat|sudah ada): /.test(l)) found.push(...topicsIn(l));
+    }
+  }
+  return found;
+}
+export function sessionTopic(root, payload = {}) {
+  const tp = payload.transcript_path;
+  const sid = String(payload.session_id || '').replace(/[^\w-]/g, '');
+  if (!tp || !sid) return null;
+  const stateDir = path.join(root, '.claude', 'state');
+  const sf = path.join(stateDir, `topic-${sid}.json`);
+  let st = { offset: 0, id: null };
+  try { st = { ...st, ...JSON.parse(fs.readFileSync(sf, 'utf8')) }; } catch { /* belum ada */ }
+  let size = 0; try { size = fs.statSync(tp).size; } catch { return null; }
+  if (size < st.offset) st = { offset: 0, id: null }; // transcript baru/terpotong
+  if (size > st.offset) {
+    const fd = fs.openSync(tp, 'r');
+    try {
+      const len = Math.min(size - st.offset, 8 * 1024 * 1024);
+      const buf = Buffer.alloc(len);
+      fs.readSync(fd, buf, 0, len, st.offset);
+      const text = buf.toString('utf8');
+      const end = text.lastIndexOf('\n');
+      if (end >= 0) {
+        for (const line of text.slice(0, end).split('\n')) { const f = evidence(line); if (f.length) st.id = f[f.length - 1]; }
+        st.offset += Buffer.byteLength(text.slice(0, end + 1));
+        try { fs.mkdirSync(stateDir, { recursive: true }); fs.writeFileSync(sf, JSON.stringify(st)); } catch { /* cache saja */ }
+      }
+    } finally { fs.closeSync(fd); }
+  }
+  if (!st.id) return null;
+  const [date, slug] = st.id.split('/');
+  return fs.existsSync(path.join(root, TOPICS_DIR, date, slug)) ? { date, slug, id: st.id } : null;
+}

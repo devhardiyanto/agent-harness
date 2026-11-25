@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.3
+Temuan uji 2.0.2 di astra, event, yhpa.
+- **Topik di status line = topik sesi ini** (T1 a): dibaca dari transcript sesi (`transcript_path`), hanya dari bukti kerja: input tool (path berkas/perintah di `docs/topics/<tgl>/<slug>/`) dan keluaran `topic new`. Teks chat dan keluaran lain (mis. tabel remap) diabaikan. Dibaca bertahap; posisi disimpan di `.claude/state/topic-<sesi>.json`. Sesi baru tampil "belum ada topik". Sebelumnya: topik terbuka terakhir di project, sehingga topik lama hasil remap ikut tampil.
+- `+0 −0` tidak ditampilkan; tema kapsul memakai pemisah `·` antar teks (mis. sebelum badge `ponytail:`).
+- Skill `summarize`: slug = topik sesi ini.
+
 ## 2.0.2
 Status line baru (keputusan D1–D4, tema C) dan penyesuaian ponytail (P1–P3).
 - **Status line dua baris, tema `kapsul` (bawaan)**: baris 1 root · topik · model · effort; baris 2 konteks % + token (`context_window.*`), batas 5 jam/7 hari (`rate_limits.*`, jam reset saat ≥ 85%), `+/−` baris (`cost.total_lines_*`). Kapsul konteks hijau < 60%, kuning 60–84%, merah ≥ 85%. Warna xterm-256, tanpa emoji. Tema `tenang`, `kontras`, `mono` (`NO_COLOR`) tetap ada. Root yang masih bertema `tenang` (bawaan lama) dipindah ke `kapsul` sekali saat update.
