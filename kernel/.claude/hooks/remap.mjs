@@ -112,7 +112,7 @@ export function destFor(u, cutoff) {
 // Folder di root yang bukan milik project: state harness 1.x dan folder tool lain. Hanya disarankan dihapus.
 const DELETE_SUGGEST = [
   ['.harness', 'state harness 1.x (tidak dipakai 2.0)'], ['.harness-staging', 'sisa installer'],
-  ['.claude/state', 'state hook 1.x'], ['.claude/audit', 'log hook 1.x'], ['.claude/worktrees', 'worktree sesi background'],
+  ['.claude/state', 'state hook 1.x + cache status line (aman dihapus, dibuat ulang)'], ['.claude/audit', 'log hook 1.x'], ['.claude/worktrees', 'worktree sesi background'],
   ['.codex', 'konfigurasi Codex (di luar harness)'], ['.agents', 'agent lama (di luar harness)'], ['.wt', 'worktree manual'], ['.tmp', 'berkas sementara'],
 ];
 const KNOWN_DOCS = new Set(['work', 'topics', 'topik', 'sessions', 'reports', '_arsip', '_archive', 'init', 'memory', 'knowledge', '_map.md', '_legacy']);

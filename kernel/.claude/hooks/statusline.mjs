@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Status line 2.0.2: dua baris.
-//   1: root · topik aktif · model · effort · badge ponytail (bila terpasang)
+//   1: root · topik sesi ini (2.0.3: dari transcript, bukan topik terbuka terakhir di project) · model · effort · badge ponytail
 //   2: konteks % + token · batas 5 jam / 7 hari · +/- baris
 // Angka konteks = respons API terakhir (context_window.*); `/context` bisa sedikit lebih tinggi sampai respons berikutnya.
 // Tema: kapsul (bawaan, xterm-256), tenang, kontras, mono (NO_COLOR). Tidak pernah gagal keras: galat → nama root saja.
@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { loadConfig, isMain } from './lib.mjs';
-import { activeTopic } from './topics.mjs';
+import { sessionTopic } from './topics.mjs';
 
 const width = (s) => [...s.replace(/\x1b\[[0-9;]*m/g, '')].length;
 const num = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
@@ -29,7 +29,7 @@ export function statusData(root, payload = {}, env = process.env) {
   const d = { root: path.basename(root), topic: null, model: null, effort: null, ctx: null, limits: [], lines: null, ponytail: ponytailMode(env) };
   if (payload.model) d.model = String(payload.model.display_name || payload.model.id || '').trim() || null;
   if (payload.effort && payload.effort.level) d.effort = String(payload.effort.level);
-  try { const t = activeTopic(root); if (t) d.topic = t.slug; } catch { /* abaikan */ }
+  try { const t = sessionTopic(root, payload); if (t) d.topic = t.slug; } catch { /* abaikan */ }
   const cw = payload.context_window || {};
   const cu = cw.current_usage || {};
   const tokens = num(cw.total_input_tokens) ?? (cw.current_usage ? (num(cu.input_tokens) || 0) + (num(cu.cache_creation_input_tokens) || 0) + (num(cu.cache_read_input_tokens) || 0) : null);
@@ -42,7 +42,7 @@ export function statusData(root, payload = {}, env = process.env) {
     if (p !== null) d.limits.push({ label, pct: Math.round(p), reset: num(rl[key].resets_at) });
   }
   const c = payload.cost || {};
-  if (num(c.total_lines_added) !== null || num(c.total_lines_removed) !== null) d.lines = { add: num(c.total_lines_added) || 0, del: num(c.total_lines_removed) || 0 };
+  if ((num(c.total_lines_added) || 0) + (num(c.total_lines_removed) || 0) > 0) d.lines = { add: num(c.total_lines_added) || 0, del: num(c.total_lines_removed) || 0 };
   return d;
 }
 
@@ -93,7 +93,8 @@ export function render(d, { theme = 'kapsul', max = 120 } = {}) {
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
       const piece = paint(s, th);
-      const glue = !out ? '' : segs[i - 1] && segs[i - 1].join ? ' ' : sep;
+      const prev = segs[i - 1];
+      const glue = !out ? '' : prev && prev.join ? ' ' : th === 'kapsul' && prev && !prev.pill && !s.pill ? ' · ' : sep;
       const next = out + glue + piece;
       if (width(next) > max) break;
       out = next;

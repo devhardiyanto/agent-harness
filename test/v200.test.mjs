@@ -20,7 +20,10 @@ test('topic new/list/close: folder per hari, INDEX.md, status line', () => {
   assert.ok(fs.existsSync(path.join(root, rel, 'plan.md')));
   assert.match(hx(root, 'topic', 'new', 'analisa fitur promo invitation code').stdout, /sudah ada/);
   assert.equal(hx(root, 'topic', 'active').stdout.trim(), `${rel}/`);
-  const s = spawnSync('node', [path.join(root, '.claude/hooks/statusline.mjs')], { input: JSON.stringify({ model: { display_name: 'Opus 5.5' }, effort: { level: 'medium' }, context_window: { used_percentage: 41 } }), env: { ...process.env, CLAUDE_PROJECT_DIR: root, NO_COLOR: '1' }, encoding: 'utf8' });
+  // 2.0.3 (T1 a): status line memakai topik yang disentuh sesi ini (transcript), bukan topik terbuka terakhir
+  const tr = path.join(root, 'transcript.jsonl');
+  fs.writeFileSync(tr, JSON.stringify({ message: { content: [{ type: 'tool_result', content: `dibuat: ${rel}/` }] } }) + '\n');
+  const s = spawnSync('node', [path.join(root, '.claude/hooks/statusline.mjs')], { input: JSON.stringify({ session_id: 's1', transcript_path: tr, model: { display_name: 'Opus 5.5' }, effort: { level: 'medium' }, context_window: { used_percentage: 41 } }), env: { ...process.env, CLAUDE_PROJECT_DIR: root, NO_COLOR: '1' }, encoding: 'utf8' });
   assert.match(s.stdout, /analisa-fitur-promo-invitation-code · Opus 5\.5 · medium/);
   assert.match(s.stdout, /\n.*\[konteks 41%\]/, '2.0.2 (D1): konteks tampil di baris 2');
   const c = hx(root, 'topic', 'close', 'promo');
@@ -234,4 +237,31 @@ test('git-auth: petunjuk --apply hanya bila ada yang belum terpasang', () => {
   const cfg = jr(root, 'harness.config.json'); cfg.git = { default_account: 'akun-a' }; cfg.services = ['api'];
   wr(root, 'harness.config.json', JSON.stringify(cfg));
   assert.doesNotMatch(hx(root, 'git-auth').stdout, /Pasang:/);
+});
+
+test('status line 2.0.3: topik per sesi dari transcript, bertahap, abaikan teks chat dan tabel remap', async () => {
+  const { sessionTopic } = await import('../kernel/.claude/hooks/topics.mjs');
+  const root = project({ v1: true });
+  for (const t of ['2026-11-20/lama', '2026-11-25/baru', '2026-11-25/kedua']) fs.mkdirSync(path.join(root, 'docs/topics', t), { recursive: true });
+  const tr = path.join(root, 't.jsonl');
+  const line = (content, role = 'assistant') => JSON.stringify({ type: role, message: { role, content } }) + '\n';
+  const P = { session_id: 'abc', transcript_path: tr };
+  fs.writeFileSync(tr, line([{ type: 'text', text: 'lihat docs/topics/2026-11-20/lama/topic.md' }]));
+  assert.equal(sessionTopic(root, P), null, 'sesi baru: teks chat bukan bukti');
+  fs.appendFileSync(tr, line([{ type: 'tool_result', content: '| baru | docs/topics/2026-11-20/lama |' }], 'user'));
+  assert.equal(sessionTopic(root, P), null, 'keluaran tool selain topic new diabaikan');
+  fs.appendFileSync(tr, line([{ type: 'tool_use', name: 'Write', input: { file_path: 'D:\\dev\\event\\docs\\topics\\2026-11-25\\baru\\topic.md' } }]));
+  assert.equal(sessionTopic(root, P).slug, 'baru', 'path Windows di input tool');
+  fs.appendFileSync(tr, '{"partial":');
+  assert.equal(sessionTopic(root, P).slug, 'baru', 'baris belum lengkap ditunda');
+  fs.appendFileSync(tr, '1}\n' + line([{ type: 'tool_use', name: 'Bash', input: { command: 'cat docs/topics/2026-11-25/kedua/plan.md' } }]));
+  assert.equal(sessionTopic(root, P).slug, 'kedua', 'yang terakhir disentuh menang');
+  assert.ok(JSON.parse(fs.readFileSync(path.join(root, '.claude/state/topic-abc.json'), 'utf8')).offset > 0, 'posisi baca disimpan');
+  assert.equal(sessionTopic(root, { session_id: 'lain', transcript_path: path.join(root, 'tidak-ada.jsonl') }), null);
+  assert.equal(sessionTopic(root, { transcript_path: tr }), null, 'tanpa session_id');
+  const { statusData, render } = await import('../kernel/.claude/hooks/statusline.mjs');
+  const d = statusData(root, { cost: { total_lines_added: 0, total_lines_removed: 0 }, model: { display_name: 'M' }, effort: { level: 'low' } }, { CLAUDE_CONFIG_DIR: root });
+  assert.equal(d.lines, null, '+0 −0 disembunyikan');
+  d.ponytail = 'full';
+  assert.match(render(d, { theme: 'kapsul' }), /M · low\x1b\[0m · \x1b\[38;5;244mponytail:full/, 'pemisah · sebelum badge');
 });
