@@ -114,19 +114,27 @@ export function closeTopic(root, q, { date = today() } = {}) {
 }
 
 // 2.0.3 (T1 a): topik milik SESI ini, dari transcript. Hanya bukti kerja yang dihitung: input tool (path berkas,
-// perintah) dan keluaran `topic new` ("dibuat:"/"sudah ada:"). Teks chat dan keluaran lain (mis. tabel remap) diabaikan.
-// Dibaca bertahap: posisi terakhir disimpan per sesi, jadi biaya tiap refresh hanya baris baru.
+// perintah) dan keluaran `topic new`/`topic use` ("dibuat:"/"sudah ada:"/"dipakai:"). Teks chat dan keluaran lain diabaikan.
+// 2.0.5 (F1): baris tanpa kata kunci dilewati tanpa JSON.parse; tiap refresh membaca paling banyak READ_MAX; sesi lama yang
+// besar (mis. hasil resume) mulai dibaca dari READ_MAX terakhir, agar status line tidak dibatalkan karena lambat.
+// 2.0.5 (F2): service di source-code/ yang disentuh input tool sesi ini ikut dicatat.
 const TOPIC_PATH = /docs[\\/]+topics[\\/]+(\d{4}-\d{2}-\d{2})[\\/]+([a-z0-9][a-z0-9_-]*)/gi;
+const SVC_PATH = /source-code[\\/]+([A-Za-z0-9][\w.-]*)/g;
+const READ_MAX = 2 * 1024 * 1024;
 function topicsIn(text) { const out = []; for (const m of String(text).matchAll(TOPIC_PATH)) out.push(`${m[1]}/${m[2].toLowerCase()}`); return out; }
 function evidence(line) {
-  let j; try { j = JSON.parse(line); } catch { return []; }
+  const found = { topics: [], svcs: [] };
+  if (!line.includes('topics') && !line.includes('source-code')) return found;
+  let j; try { j = JSON.parse(line); } catch { return found; }
   const content = j && j.message && Array.isArray(j.message.content) ? j.message.content : [];
-  const found = [];
   for (const c of content) {
-    if (c && c.type === 'tool_use') found.push(...topicsIn(JSON.stringify(c.input || {})));
-    else if (c && c.type === 'tool_result') {
+    if (c && c.type === 'tool_use') {
+      const inp = JSON.stringify(c.input || {});
+      found.topics.push(...topicsIn(inp));
+      for (const m of inp.matchAll(SVC_PATH)) found.svcs.push(m[1]);
+    } else if (c && c.type === 'tool_result') {
       const t = Array.isArray(c.content) ? c.content.map((x) => (x && x.text) || '').join('\n') : String(c.content || '');
-      for (const l of t.split(/\r?\n/)) if (/^(dibuat|sudah ada): /.test(l)) found.push(...topicsIn(l));
+      for (const l of t.split(/\r?\n/)) if (/^(dibuat|sudah ada|dipakai): /.test(l)) found.topics.push(...topicsIn(l));
     }
   }
   return found;
@@ -137,26 +145,86 @@ export function sessionTopic(root, payload = {}) {
   if (!tp || !sid) return null;
   const stateDir = path.join(root, '.claude', 'state');
   const sf = path.join(stateDir, `topic-${sid}.json`);
-  let st = { offset: 0, id: null };
+  let st = { offset: -1, id: null, svcs: [] };
   try { st = { ...st, ...JSON.parse(fs.readFileSync(sf, 'utf8')) }; } catch { /* belum ada */ }
   let size = 0; try { size = fs.statSync(tp).size; } catch { return null; }
-  if (size < st.offset) st = { offset: 0, id: null }; // transcript baru/terpotong
+  if (st.offset < 0) { st.offset = Math.max(0, size - READ_MAX); st.lead = st.offset > 0; } // pertama kali: sesi besar mulai dari ekor
+  else if (st.lead === undefined) st.lead = false;
+  if (size < st.offset) st = { offset: 0, id: null, svcs: [] }; // transcript baru/terpotong
   if (size > st.offset) {
     const fd = fs.openSync(tp, 'r');
     try {
-      const len = Math.min(size - st.offset, 8 * 1024 * 1024);
+      const len = Math.min(size - st.offset, READ_MAX);
       const buf = Buffer.alloc(len);
       fs.readSync(fd, buf, 0, len, st.offset);
-      const text = buf.toString('utf8');
+      let text = buf.toString('utf8');
+      let skip = 0;
+      if (st.lead) { const nl = text.indexOf('\n'); skip = nl >= 0 ? nl + 1 : 0; } // awal ekor = potongan baris
       const end = text.lastIndexOf('\n');
-      if (end >= 0) {
-        for (const line of text.slice(0, end).split('\n')) { const f = evidence(line); if (f.length) st.id = f[f.length - 1]; }
+      if (end >= skip) {
+        const svcs = new Set(st.svcs || []);
+        for (const line of text.slice(skip, end).split('\n')) {
+          const f = evidence(line);
+          if (f.topics.length) { st.id = f.topics[f.topics.length - 1]; svcs.clear(); }
+          for (const sv of f.svcs) svcs.add(sv);
+        }
+        st.svcs = [...svcs];
         st.offset += Buffer.byteLength(text.slice(0, end + 1));
+        st.lead = false;
         try { fs.mkdirSync(stateDir, { recursive: true }); fs.writeFileSync(sf, JSON.stringify(st)); } catch { /* cache saja */ }
-      }
+      } else if (len === READ_MAX) { st.offset += len; try { fs.writeFileSync(sf, JSON.stringify(st)); } catch { /* abaikan */ } } // satu baris > READ_MAX
     } finally { fs.closeSync(fd); }
   }
   if (!st.id) return null;
   const [date, slug] = st.id.split('/');
-  return fs.existsSync(path.join(root, TOPICS_DIR, date, slug)) ? { date, slug, id: st.id } : null;
+  const dir = path.join(root, TOPICS_DIR, date, slug);
+  return fs.existsSync(dir) ? { date, slug, id: st.id, dir, services: st.svcs || [] } : null;
+}
+
+// Service dari tabel tugas plan.md topik (kolom "service"), untuk lingkup topik di status line.
+export function planServices(dir) {
+  let t = ''; try { t = fs.readFileSync(path.join(dir, 'plan.md'), 'utf8'); } catch { return []; }
+  const lines = t.split(/\r?\n/).filter((l) => /^\|/.test(l));
+  const head = lines.find((l) => /\|\s*service\s*\|/i.test(l));
+  if (!head) return [];
+  const idx = head.split('|').map((x) => x.trim().toLowerCase()).indexOf('service');
+  const out = [];
+  for (const l of lines.slice(lines.indexOf(head) + 1)) {
+    const c = (l.split('|')[idx] || '').trim();
+    if (!c || /^-+$/.test(c) || c === '-') continue;
+    for (const v of c.split(/[,+/]/)) { const x = v.replace(/`/g, '').trim(); if (x && !out.includes(x)) out.push(x); }
+  }
+  return out;
+}
+
+// 2.0.5 (U1): cari topik dari kalimat biasa, di docs/topics dan docs/_legacy. Skor: kata di slug/judul ×3, di isi ×1.
+const STOP = new Set(['yang', 'dan', 'di', 'ke', 'dari', 'untuk', 'mengenai', 'tentang', 'topik', 'lanjut', 'bagian', 'itu', 'ini', 'aja', 'ya', 'the', 'of']);
+export function findTopics(root, query, { limit = 5 } = {}) {
+  const words = String(query || '').toLowerCase().split(/[^a-z0-9_]+/).filter((w) => w.length > 1 && !STOP.has(w));
+  if (!words.length) return [];
+  const cands = listTopics(root).map((t) => ({ ...t, where: 'topics' }));
+  const leg = path.join(root, 'docs', '_legacy');
+  try {
+    for (const d of fs.readdirSync(leg, { withFileTypes: true })) {
+      if (!d.isDirectory() || !DATE_DIR.test(d.name)) continue;
+      for (const s of fs.readdirSync(path.join(leg, d.name), { withFileTypes: true })) if (s.isDirectory()) cands.push({ date: d.name, slug: s.name, id: `${d.name}/${s.name}`, dir: path.join(leg, d.name, s.name), rel: `docs/_legacy/${d.name}/${s.name}`, status: 'legacy', title: s.name, where: 'legacy' });
+    }
+  } catch { /* belum ada legacy */ }
+  const scored = cands.map((t) => {
+    let body = '';
+    for (const f of ['topic.md', 'summary.md', 'plan.md', 'session.md']) { try { body += fs.readFileSync(path.join(t.dir, f), 'utf8').toLowerCase().slice(0, 20000); } catch { /* tidak ada */ } }
+    const head = `${t.slug} ${t.title}`.toLowerCase();
+    let score = 0;
+    for (const w of words) { if (head.includes(w)) score += 3; else if (body.includes(w)) score += 1; }
+    return { ...t, score };
+  }).filter((t) => t.score > 0);
+  return scored.sort((a, b) => b.score - a.score || (a.id < b.id ? 1 : -1)).slice(0, limit);
+}
+
+// 2.0.5 (U1): pakai topik yang sudah ada di docs/topics untuk sesi ini. Topik closed dibuka lagi.
+export function useTopic(root, q) {
+  const t = findTopic(root, q);
+  if (!t) return { ok: false, reason: `topik "${q}" tidak ada di docs/topics (atau ambigu). Cari: harness.mjs topic find <kata>` };
+  if (t.status === 'closed') { const f = path.join(t.dir, 'topic.md'); fs.writeFileSync(f, setFm(fs.readFileSync(f, 'utf8'), 'status', 'open')); }
+  return { ok: true, topic: t, reopened: t.status === 'closed' };
 }

@@ -1,15 +1,24 @@
 ---
 name: topic
-description: Membuka, melanjutkan, atau menutup topik di docs/topics/YYYY-MM-DD/<slug>/. Pakai di pesan pertama sesi yang menjelaskan tujuan, saat user merujuk topik lama, dan saat user bilang "topik selesai" / "tutup topik".
+description: Membuka, melanjutkan (termasuk dari kalimat biasa seperti "lanjut topik X"), atau menutup topik di docs/topics/YYYY-MM-DD/<slug>/. Pakai di pesan pertama sesi yang menjelaskan tujuan, saat user merujuk topik lama, dan saat user bilang "topik selesai" / "tutup topik".
 argument-hint: "[judul | selesai]"
 ---
 # Topik
 
 ## Buka (pesan pertama yang berisi tujuan)
-1. Topik serupa sudah ada? `node .claude/hooks/harness.mjs topic list --open`. Bila user menyebut topik lama, baca `summary.md`/`topic.md`-nya dulu.
+1. Topik serupa sudah ada? `node .claude/hooks/harness.mjs topic find <kata kunci>`. Bila ada yang cocok, ikuti bagian "Lanjut pekerjaan lama".
 2. `node .claude/hooks/harness.mjs topic new "<judul pendek dari tujuan user>"` (tambah `--ref <topik lama>` bila merujuk). Judul ≤ 6 kata, tanpa kata kerja pengisi.
 3. Isi `topic.md`: `## Tujuan` (kalimat user, dirapikan) dan `## Lingkup` (dibahas / di luar lingkup, dari detail yang user sebut saja).
 4. Balas: path topik + pertanyaan klarifikasi bila tujuan belum jelas (maks 3). Lalu mulai analisa.
+
+## Lanjut pekerjaan lama (user bicara biasa, tanpa slug)
+Contoh: "lanjut topik feedback microservices-go bagian booking_service".
+1. `node .claude/hooks/harness.mjs topic find <kata kunci dari kalimat user>`.
+2. Satu kandidat jelas (skor tertinggi jauh di atas yang lain) di `docs/topics` → `node .claude/hooks/harness.mjs topic use <tanggal/slug>`, lalu satu baris ke user: "lanjut di topik <slug>". Baca `summary.md`/`topic.md`-nya, lalu jawab pertanyaannya.
+3. Beberapa kandidat mirip → satu `AskUserQuestion` (maks 3 opsi + "topik baru").
+4. Kandidat hanya di `docs/_legacy` → `topic new "<judul>" --ref <tanggal/slug lama>`, baca berkas lama sebagai rujukan.
+5. Tidak ada → topik baru seperti biasa.
+Jangan meminta user menyebut slug.
 
 ## Selama topik
 - Temuan → tabel `## Diskusi dan temuan` (`path:baris` untuk fakta). Keputusan user → `## Keputusan` dengan tanggal.

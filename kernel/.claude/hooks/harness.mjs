@@ -2,14 +2,14 @@
 // CLI harness 2.0. Perintah:
 //   doctor                         cek pemasangan
 //   update [--all|--rollback]      perbarui harness root ini (lewat installer di ~/.harness/installer.json)
-//   topic new "<judul>" [--ref <topik>] | list [--open] | close <topik> | active
+//   topic new "<judul>" [--ref <topik>] | list [--open] | find <kata> | use <topik> | close <topik> | active
 //   remap [--apply] [--json]       rencana merapikan docs/ lama (tanpa --apply = rencana saja)
 //   git-auth [--apply] | git-auth which <service> | git-auth repo <service>
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { loadConfig, readJson, globToRegex } from './lib.mjs';
-import { newTopic, listTopics, closeTopic, activeTopic } from './topics.mjs';
+import { newTopic, listTopics, closeTopic, activeTopic, findTopics, useTopic } from './topics.mjs';
 import * as remap from './remap.mjs';
 import * as gitauth from './gitauth.mjs';
 
@@ -36,10 +36,17 @@ switch (cmd) {
       const r = closeTopic(root, args[1] || (activeTopic(root) || {}).id);
       if (!r.ok) die(r.reason);
       console.log(`ditutup: ${r.topic.rel}/${r.summary ? '' : '  (summary.md belum ada: tulis dulu)'}`);
+    } else if (sub === 'find') {
+      const r = findTopics(root, args.slice(1).join(' '));
+      console.log(r.length ? table(['skor', 'lokasi', 'status', 'judul'], r.map((t) => [t.score, `${t.rel}/`, t.status, t.title])) : 'tidak ada topik yang cocok');
+    } else if (sub === 'use') {
+      const r = useTopic(root, args[1]);
+      if (!r.ok) die(r.reason);
+      console.log(`dipakai: ${r.topic.rel}/${r.reopened ? '  (dibuka lagi)' : ''}`);
     } else if (sub === 'active') {
       const t = activeTopic(root);
       console.log(t ? `${t.rel}/` : '');
-    } else die('pakai: harness.mjs topic new|list|close|active');
+    } else die('pakai: harness.mjs topic new|list|find|use|close|active');
     break;
   }
   case 'remap': {

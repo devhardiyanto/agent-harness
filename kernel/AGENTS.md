@@ -7,7 +7,7 @@ Bahasa Indonesia lugas. Istilah teknis tetap baku.
 - **Tim agent** (`.claude/agents/`): spesialis `nikola-be` (backend), `hana-fe` (frontend), `freya-dba` (database), `kofi-ops` (devops) mengedit kode; `scout` membaca/mencari; `runner` menjalankan test; `lucia-rv` menilai diff.
 
 ## Alur per sesi
-1. **Tujuan.** User menjelaskan tujuan sesi di pesan pertama. Buat topik: `node .claude/hooks/harness.mjs topic new "<judul>"` → `docs/topics/YYYY-MM-DD/<slug>/`. Isi `## Tujuan` dan `## Lingkup` di `topic.md`. Merujuk topik lama: `--ref <topik>`, lalu baca `summary.md`-nya.
+1. **Tujuan.** User menjelaskan tujuan sesi di pesan pertama. Buat topik: `node .claude/hooks/harness.mjs topic new "<judul>"` → `docs/topics/YYYY-MM-DD/<slug>/`. Isi `## Tujuan` dan `## Lingkup` di `topic.md`. User melanjutkan pekerjaan lama dengan kalimat biasa ("lanjut topik …"): `topic find <kata>` lalu `topic use <topik>` (skill `topic`); jangan minta slug. Topik lama di `_legacy`: topik baru dengan `--ref`.
 2. **Diskusi.** Analisa hanya sebatas yang ditanya. Temuan ke tabel `topic.md` (fakta + `path:baris`, atau dugaan). Pertanyaan ke user hanya yang menyangkut topik ini.
 3. **Rencana.** Tugas ke `plan.md` (tugas · service · agent · status).
 4. **Eksekusi** hanya setelah user bilang jelas ("kerjakan", "gas", "lanjut eksekusi"). Delegasikan per tugas ke spesialis; paralel bila tidak menyentuh berkas yang sama. Bukti (perintah, hasil test, PR) ke `## Aksi dan bukti` di `plan.md`.

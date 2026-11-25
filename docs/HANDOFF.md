@@ -57,6 +57,7 @@ Jawab ringkas dan objektif (kernel/.claude/rules/output.md). Satu PR per rilis; 
 |---|---|
 | T1 | ✅ 2.0.4: agent bernama orang (`nikola-be`, `hana-fe`, `freya-dba`, `kofi-ops`, `lucia-rv`) |
 | T6 | ✅ status line kapsul + badge ponytail terlihat benar di Windows Terminal (3 root) |
+| T7 | ✅ `gh` di sesi claude gagal membaca Credential Manager (semua akun); selesai dengan menutup lalu membuka ulang Claude Code. Penyebab tidak terlihat |
 | T4 | `git-auth` di Windows belum diuji nyata; GitLab belum didukung |
 | T5 | bootstrap knowledge: format dan cakupan masih bisa didiskusikan |
 

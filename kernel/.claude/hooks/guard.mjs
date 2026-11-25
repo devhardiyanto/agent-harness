@@ -52,8 +52,8 @@ export function evaluateBash(root, cfg, payload) {
     const f = m[2];
     if (SECRET_FILE.test(posix(f).replace(/^.*\//, '')) && !/\.(example|sample|template)$/.test(f)) return fail(`membaca ${f} (berkas rahasia) dilarang.`);
   }
-  if (/\b(printenv|env)\s*(\||$|;)/.test(flat) || /\bcat\s+\/proc\/\S*environ/.test(flat) || /\bgh\s+auth\s+token\b(?![^|;&]*\))/.test(flat.replace(/\$\(\s*gh\s+auth\s+token[^)]*\)/g, ''))) {
-    return fail('mencetak environment atau token dilarang. Token gh hanya boleh dipakai di dalam $(...), mis. GH_TOKEN="$(gh auth token --user <akun>)" gh pr create ...');
+  if (/\b(printenv|env)\s*(\||$|;)/.test(flat) || /\bcat\s+\/proc\/\S*environ/.test(flat) || /\bgh\s+auth\s+token\b(?![^|;&]*\))/.test(flat.replace(/\$\(\s*gh\s+auth\s+token[^)]*\)/g, '').replace(/\bgh\s+auth\s+token\b[^|;&>]*(?:&>|(?<![0-9])1?>)\s*(?:\/dev\/null|nul)\b/gi, ''))) {
+    return fail('mencetak environment atau token dilarang. Token gh hanya boleh dipakai di dalam $(...) atau dibuang ke /dev/null, mis. GH_TOKEN="$(gh auth token --user <akun>)" gh pr create ..., atau gh auth token --user <akun> >/dev/null && echo ADA');
   }
   return { ok: true };
 }
