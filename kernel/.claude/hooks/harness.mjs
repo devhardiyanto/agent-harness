@@ -61,7 +61,7 @@ switch (cmd) {
     if (args[0] === 'repo') { const r = gitauth.plan(root, cfg).find((x) => x.svc === args[1]); if (!r || !r.repo) die(`repo untuk ${args[1]} tidak terbaca dari remote origin`); console.log(r.repo); break; }
     const rows = flag('apply') ? gitauth.apply(root, cfg) : gitauth.plan(root, cfg);
     console.log(rows.length ? table(['service', 'akun', 'repo', 'status'], rows.map((r) => [r.svc, r.account || '-', r.repo || '-', r.status])) : 'tidak ada service di harness.config.json');
-    if (!flag('apply')) console.log('\nPasang: node .claude/hooks/harness.mjs git-auth --apply');
+    if (!flag('apply') && rows.some((r) => r.status === 'belum terpasang')) console.log('\nPasang: node .claude/hooks/harness.mjs git-auth --apply');
     break;
   }
   case 'update': {

@@ -56,6 +56,7 @@ Jawab ringkas dan objektif (kernel/.claude/rules/output.md). Satu PR per rilis; 
 | # | hal |
 |---|---|
 | T1 | K20: nama orang untuk agent |
+| T6 | 2.0.2: status line kapsul + ponytail belum dilihat di terminal nyata (Windows) |
 | T3 | sandbox tidak terupdate karena perubahan tracked (B5) |
 | T4 | `git-auth` di Windows belum diuji nyata; GitLab belum didukung |
 | T5 | bootstrap knowledge: format dan cakupan masih bisa didiskusikan |

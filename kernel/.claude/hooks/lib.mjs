@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_CONFIG = {
-  harness_version: '2.0.1',
+  harness_version: '2.0.2',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single'
@@ -19,7 +19,7 @@ export const DEFAULT_CONFIG = {
   git: { host: 'github.com', default_account: null, services: {} },
   // Skill remap (K15): yang bertanggal lebih tua dari N bulan pindah ke docs/_legacy/.
   remap: { legacy_months: 2 },
-  tui: { statusline: true, theme: 'tenang', max_width: 120 },
+  tui: { statusline: true, theme: 'kapsul', max_width: 120 }, // kapsul | tenang | kontras | mono
   update: { autoPush: false },
 };
 
