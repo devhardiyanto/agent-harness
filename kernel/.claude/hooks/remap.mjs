@@ -1,9 +1,5 @@
-// Remap (2.0, K3, K15–K17, K22): merapikan docs/ lama ke bentuk 2.0.
-//   bertanggal < N bulan  → docs/topics/YYYY-MM-DD/<slug>/ (work item, topik datar, laporan) atau docs/sessions/YYYY-MM-DD/<slug>.md
-//   bertanggal >= N bulan → docs/_legacy/YYYY-MM-DD/<slug>/ + baris di docs/_legacy/INDEX.md
-//   arsip lama dan sisa harness 1.x → docs/_legacy/_lama/
-// Tanggal diambil dari nama (YYYY-MM-DD di depan); tanpa tanggal: commit git terakhir berkas itu, lalu mtime.
-// Hanya docs/ yang dipindah. State harness dan folder tool lain hanya didaftar sebagai skrip hapus; tidak dijalankan.
+// Merapikan docs/ lama: < N bulan → docs/topics atau docs/sessions, ≥ N bulan → docs/_legacy (+ INDEX.md).
+// Tanggal dari nama berkas; tanpa tanggal: commit git terakhir, lalu mtime. Folder di luar docs/ hanya disarankan dihapus.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -12,7 +8,9 @@ import { today } from './lib.mjs';
 const DATED = /^(\d{4}-\d{2}-\d{2})(?:_\d{6}_SESSION_|[_-])?(.*)$/i;
 const DATE_DIR = /^\d{4}-\d{2}-\d{2}$/;
 const clean = (s) => String(s).toLowerCase().replace(/\.[a-z0-9]+$/i, '').replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'tanpa-nama';
-const ls = (dir) => { try { return fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; } };
+// Berkas titik (.gitkeep, .DS_Store) bukan pekerjaan; dulu .gitkeep terbaca sebagai lampiran topik "tanpa-nama".
+const ls = (dir) => { try { return fs.readdirSync(dir, { withFileTypes: true }).filter((e) => !e.name.startsWith('.')); } catch { return []; } };
+const onlyDotfiles = (dir) => { try { return fs.readdirSync(dir, { withFileTypes: true }).every((e) => (e.isDirectory() ? onlyDotfiles(path.join(dir, e.name)) : e.name.startsWith('.'))); } catch { return false; } };
 
 export function cutoffDate(months, now = new Date()) {
   const d = new Date(now.getFullYear(), now.getMonth() - months, now.getDate());
@@ -55,7 +53,7 @@ export function collect(root) {
     for (const e of ls(D(top))) {
       const rel = `${top}/${e.name}`;
       if (top === 'docs/topics' && e.isDirectory() && DATE_DIR.test(e.name)) {
-        for (const s of ls(D(rel))) if (s.isDirectory()) units.push({ src: `${rel}/${s.name}`, kind: 'topic-dir', name: s.name, date: e.name, slug: s.name });
+        for (const s of ls(D(rel))) if (s.isDirectory()) units.push({ src: `${rel}/${s.name}`, kind: s.name === 'tanpa-nama' && onlyDotfiles(D(`${rel}/${s.name}`)) ? 'sampah' : 'topic-dir', name: s.name, date: e.name, slug: s.name });
       } else if (e.isDirectory()) add(rel, top === 'docs/topik' ? 'topic-dir-lama' : 'lama');
       else if (/\.md$/i.test(e.name)) add(rel, 'topic-file');
       else add(rel, 'topic-attach');
@@ -109,7 +107,6 @@ export function destFor(u, cutoff) {
   }
 }
 
-// Folder di root yang bukan milik project: state harness 1.x dan folder tool lain. Hanya disarankan dihapus.
 const DELETE_SUGGEST = [
   ['.harness', 'state harness 1.x (tidak dipakai 2.0)'], ['.harness-staging', 'sisa installer'],
   ['.claude/state', 'state hook 1.x + cache status line (aman dihapus, dibuat ulang)'], ['.claude/audit', 'log hook 1.x'], ['.claude/worktrees', 'worktree sesi background'],
@@ -123,6 +120,7 @@ export function plan(root, cfg, { now = new Date() } = {}) {
   const moves = [];
   for (const u of collect(root)) {
     const to = destFor(u, cutoff);
+    if (u.kind === 'sampah') { moves.push({ ...u, to: null, legacy: false, remove: true }); continue; }
     if (!to || to === u.src) continue;
     moves.push({ ...u, to, legacy: to.startsWith('docs/_legacy/') });
   }
@@ -159,7 +157,7 @@ export function apply(root, p) {
   for (const m of p.moves) {
     const src = path.join(root, m.src);
     if (!fs.existsSync(src)) continue;
-    moveInto(src, path.join(root, m.to));
+    if (m.remove) fs.rmSync(src, { recursive: true, force: true }); else moveInto(src, path.join(root, m.to));
     pruneEmpty(path.dirname(src), path.join(root, 'docs'));
     done.push(m);
   }

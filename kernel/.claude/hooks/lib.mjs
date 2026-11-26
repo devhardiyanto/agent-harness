@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_CONFIG = {
-  harness_version: '2.0.5',
+  harness_version: '2.0.6',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single'
@@ -13,11 +13,10 @@ export const DEFAULT_CONFIG = {
   protected_branches: ['main', 'master', 'develop', 'production', 'staging', 'release/*'],
   deny_commands: [
     'npm\\s+publish', 'terraform\\s+(apply|destroy)', 'kubectl\\s+(delete|drain)', 'docker\\s+push',
-    '\\bDROP\\s+(TABLE|DATABASE|SCHEMA)\\b', '\\bTRUNCATE\\s+TABLE\\b', 'gh\\s+repo\\s+delete',
+    '\\bDROP\\s+(TABLE|DATABASE|SCHEMA)\\b', '\\bTRUNCATE\\s+TABLE\\b', 'gh\\s+repo\\s+delete', 'gh\\s+pr\\s+merge',
   ],
-  // Akun git per service (K13): default untuk semua service, services untuk pengecualian. Root memakai akun aktif gh.
+  // Root memakai akun gh aktif; services = pengecualian per service.
   git: { host: 'github.com', default_account: null, services: {} },
-  // Skill remap (K15): yang bertanggal lebih tua dari N bulan pindah ke docs/_legacy/.
   remap: { legacy_months: 2 },
   tui: { statusline: true, theme: 'kapsul', max_width: 120 }, // kapsul | tenang | kontras | mono
   update: { autoPush: false },

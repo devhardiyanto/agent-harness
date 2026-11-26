@@ -51,6 +51,13 @@ Prasyarat: Node ≥ 18, git, Claude Code ≥ 2.1.295; `gh` (PR & cek merge).
 ```
 Tema `harness.config.json` → `tui.theme`: `kapsul` (bawaan), `tenang`, `kontras`, `mono` (`NO_COLOR`). Angka konteks = respons API terakhir; `/context` bisa sedikit lebih tinggi sampai respons berikutnya. Badge `ponytail:` muncul bila plugin ponytail terpasang (plugin global terpisah; harness tidak memasang atau memperbaruinya).
 
+## Plugin pendamping (opsional, global, dipasang sendiri)
+
+| plugin | pasang | dipakai harness |
+|---|---|---|
+| ponytail | `claude plugin marketplace add DietrichGebert/ponytail` lalu `claude plugin install ponytail@ponytail --scope user` | badge status line; `/ponytail-review` sebelum `lucia-rv` (T-07) |
+| hallmark | `claude plugin marketplace add nutlope/hallmark` lalu `claude plugin install hallmark@hallmark --scope user` (tanpa hook edit-time) | `hana-fe` untuk halaman baru/redesign (T-08): `sloplint` tanpa `--render`, cek visual lewat Claude in Chrome bila ada |
+
 ## Akun git per service
 
 `harness.config.json`:

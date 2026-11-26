@@ -33,7 +33,8 @@ switch (cmd) {
       const ts = listTopics(root).filter((t) => !flag('open') || t.status !== 'closed');
       console.log(ts.length ? table(['tanggal', 'topik', 'status', 'judul'], ts.map((t) => [t.date, t.slug, t.status, t.title])) : 'belum ada topik');
     } else if (sub === 'close') {
-      const r = closeTopic(root, args[1] || (activeTopic(root) || {}).id);
+      if (!args[1]) die('pakai: harness.mjs topic close <tanggal/slug>');
+      const r = closeTopic(root, args[1]);
       if (!r.ok) die(r.reason);
       console.log(`ditutup: ${r.topic.rel}/${r.summary ? '' : '  (summary.md belum ada: tulis dulu)'}`);
     } else if (sub === 'find') {
@@ -52,10 +53,10 @@ switch (cmd) {
   case 'remap': {
     const p = remap.plan(root, cfg);
     if (flag('json')) { console.log(JSON.stringify(p, null, 2)); break; }
-    const nT = p.moves.filter((m) => !m.legacy).length; const nL = p.moves.length - nT;
+    const nX = p.moves.filter((m) => m.remove).length; const nL = p.moves.filter((m) => m.legacy).length; const nT = p.moves.length - nL - nX;
     console.log(`## Remap (batas legacy: sebelum ${p.cutoff}, ${p.months} bulan)\n`);
-    console.log(table(['ringkas', 'jumlah'], [['ke docs/topics atau docs/sessions (baru)', nT], ['ke docs/_legacy', nL], ['tidak disentuh', p.untouched.length], ['disarankan dihapus (skrip)', p.deletes.length]]));
-    if (p.moves.length) console.log(`\n${table(['ke', 'dari', 'tujuan'], p.moves.map((m) => [m.legacy ? 'legacy' : 'baru', m.src, m.to]))}`);
+    console.log(table(['ringkas', 'jumlah'], [['ke docs/topics atau docs/sessions (baru)', nT], ['ke docs/_legacy', nL], ['folder kosong buatan remap lama (dihapus)', nX], ['tidak disentuh', p.untouched.length], ['disarankan dihapus (skrip)', p.deletes.length]]));
+    if (p.moves.length) console.log(`\n${table(['ke', 'dari', 'tujuan'], p.moves.map((m) => [m.remove ? 'hapus' : m.legacy ? 'legacy' : 'baru', m.src, m.to || '-']))}`);
     if (p.untouched.length) console.log(`\nTidak disentuh: ${p.untouched.join(', ')}`);
     const s = remap.deleteScript(p);
     if (s) console.log(`\n### Skrip hapus (tidak dijalankan)\n\`\`\`bash\n${s}\n\`\`\``);
@@ -125,6 +126,6 @@ switch (cmd) {
     break;
   }
   default:
-    console.log('harness.mjs doctor | update [--all|--rollback] | topic new|list|close|active | remap [--apply] | git-auth [--apply] | git-auth which|repo <svc>');
+    console.log('harness.mjs doctor | update [--all|--rollback] | topic new|list|find|use|close|active | remap [--apply] | git-auth [--apply] | git-auth which|repo <svc>');
     if (cmd && cmd !== 'help') process.exit(1);
 }
