@@ -117,14 +117,17 @@ export function closeTopic(root, q, { date = today() } = {}) {
 // Dibaca bertahap (≤ READ_MAX per refresh, mulai dari ekor untuk sesi besar) agar status line tidak dibatalkan karena lambat.
 const TOPIC_PATH = /docs[\\/]+topics[\\/]+(\d{4}-\d{2}-\d{2})[\\/]+([a-z0-9][a-z0-9_-]*)/gi;
 const SVC_PATH = /source-code[\\/]+([A-Za-z0-9][\w.-]*)/g;
-const READ_MAX = 2 * 1024 * 1024;
+const READ_MAX = 1024 * 1024;
 function topicsIn(text) { const out = []; for (const m of String(text).matchAll(TOPIC_PATH)) out.push(`${m[1]}/${m[2].toLowerCase()}`); return out; }
 function evidence(line) {
-  const found = { topics: [], svcs: [] };
-  if (!line.includes('topics') && !line.includes('source-code')) return found;
+  const found = { topics: [], svcs: [], skills: [] };
+  if (!line.includes('topics') && !line.includes('source-code') && !line.includes('"Skill"') && !line.includes('command-name')) return found;
   let j; try { j = JSON.parse(line); } catch { return found; }
-  const content = j && j.message && Array.isArray(j.message.content) ? j.message.content : [];
+  const mc = j && j.message && j.message.content;
+  const content = Array.isArray(mc) ? mc : typeof mc === 'string' ? [{ type: 'text', text: mc }] : [];
   for (const c of content) {
+    if (c && c.type === 'tool_use' && c.name === 'Skill' && c.input && c.input.skill) found.skills.push(String(c.input.skill));
+    if (c && c.type === 'text' && typeof c.text === 'string') for (const m of c.text.matchAll(/<command-name>\/?([\w:.-]+)<\/command-name>/g)) found.skills.push(m[1]);
     if (c && c.type === 'tool_use') {
       const inp = JSON.stringify(c.input || {});
       found.topics.push(...topicsIn(inp));
@@ -135,6 +138,14 @@ function evidence(line) {
     }
   }
   return found;
+}
+// Tanggal terakhir tiap skill dipakai, untuk laporan growth (skill usang).
+export const skillUsagePath = (root) => path.join(root, '.claude', 'state', 'skill-usage.json');
+function recordSkillUse(root, names, date = today()) {
+  const f = skillUsagePath(root);
+  let u = {}; try { u = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { /* belum ada */ }
+  for (const n of names) u[n.replace(/^.*:/, '')] = date;
+  try { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(u)); } catch { /* cache saja */ }
 }
 export function sessionTopic(root, payload = {}) {
   const tp = payload.transcript_path;
@@ -159,11 +170,14 @@ export function sessionTopic(root, payload = {}) {
       const end = buf.lastIndexOf(10);
       if (end >= skip && (!st.lead || skip > 0)) {
         const svcs = new Set(st.svcs || []);
+        const used = new Set();
         for (const line of buf.subarray(skip, end).toString('utf8').split('\n')) {
           const f = evidence(line);
           if (f.topics.length) { st.id = f.topics[f.topics.length - 1]; svcs.clear(); }
           for (const sv of f.svcs) svcs.add(sv);
+          for (const sk of f.skills) used.add(sk);
         }
+        if (used.size) recordSkillUse(root, [...used]);
         st.svcs = [...svcs];
         st.offset += end + 1;
         st.lead = false;

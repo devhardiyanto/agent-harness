@@ -95,7 +95,7 @@ check('hook di settings.json ada dan sintaks Node valid', (bad) => {
 
 // 7. kernel lengkap untuk installer, dan template work item lengkap
 check('kernel lengkap (hook, skill topik/remap/summarize/bootstrap)', (bad) => {
-  for (const f of ['AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude/settings.json', '.claude/hooks/guard.mjs', '.claude/hooks/lib.mjs', '.claude/hooks/harness.mjs', '.claude/hooks/statusline.mjs', 'docs/_map.md', '.claude/skills/topic/SKILL.md', '.claude/skills/remap/SKILL.md', '.claude/skills/summarize/SKILL.md', '.claude/skills/bootstrap/SKILL.md']) {
+  for (const f of ['AGENTS.md', 'CLAUDE.md', 'harness.config.json', '.claude/settings.json', '.claude/hooks/guard.mjs', '.claude/hooks/lib.mjs', '.claude/hooks/harness.mjs', '.claude/hooks/statusline.mjs', 'docs/_map.md', '.claude/skills/topic/SKILL.md', '.claude/skills/belajar/SKILL.md', '.claude/hooks/knowledge.mjs', '.claude/skills/remap/SKILL.md', '.claude/skills/summarize/SKILL.md', '.claude/skills/bootstrap/SKILL.md']) {
     if (!has(`kernel/${f}`)) bad(`kernel/${f} tidak ada`);
   }
   for (const f of walk('kernel/.claude/rules')) if (!read(f).trim()) bad(`${f} kosong`);

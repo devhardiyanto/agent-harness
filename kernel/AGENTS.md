@@ -25,6 +25,11 @@ Bahasa Indonesia lugas. Istilah teknis tetap baku.
 | `docs/_map.md` | peta service dan relasinya |
 | `docs/_legacy/` | pekerjaan lama (skill `remap`). Dibaca hanya bila dirujuk |
 
+## Memori dan belajar
+- Memori project `docs/memory/MEMORY.md` dan profil user `~/.harness/USER.md` dimuat otomatis tiap sesi. Agent menulis sendiri lewat skill `belajar` (aturan `.claude/rules/belajar.md`): saat dikoreksi, saat topik ditutup, sebelum `/compact`.
+- Cara kerja berulang jadi skill proyek `.claude/skills/<nama>/` (`asal: belajar`).
+- Knowledge service dicek sebelum eksekusi (`harness.mjs knowledge <svc>`), diperbarui saat topik ditutup.
+
 ## Git dan akun
 - Root project memakai akun gh aktif. Repo di `source-code/` memakai akun dari `harness.config.json` → `git` (aturan `.claude/rules/git.md`). Jangan `gh auth switch`.
 - Kerja di branch kerja per service. Jangan commit/push ke branch dilindungi, jangan force push. Merge PR = keputusan user.

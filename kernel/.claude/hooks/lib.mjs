@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_CONFIG = {
-  harness_version: '2.0.6',
+  harness_version: '2.1.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single'
@@ -19,10 +19,12 @@ export const DEFAULT_CONFIG = {
   git: { host: 'github.com', default_account: null, services: {} },
   remap: { legacy_months: 2 },
   tui: { statusline: true, theme: 'kapsul', max_width: 120 }, // kapsul | tenang | kontras | mono
+  knowledge_check: { stale_commits: 30 },
+  learn: { memory_chars: 3000, user_chars: 1500, skill_unused_days: 60 },
   update: { autoPush: false },
 };
 
-const NESTED = ['git', 'remap', 'tui', 'update'];
+const NESTED = ['git', 'remap', 'tui', 'update', 'knowledge_check', 'learn'];
 
 // True bila modul dijalankan sebagai skrip. Gagal membandingkan = anggap skrip (gerbang tetap berlaku).
 export function isMain(metaUrl, argv1 = process.argv[1]) {

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.0
+Harness yang tumbuh (keputusan G1–G12, satu rilis). Diadaptasi dari learning loop Hermes Agent: memori dan skill dari pengalaman, plus pengetahuan service yang diperiksa sebelum eksekusi.
+- **Knowledge berbukti** (G1–G3): `harness.mjs knowledge [svc]` menampilkan status per service (belum ada / segar / usang N commit terhadap baseline) dan catatan `## Menunggu merge` beserta status merged-nya. Initialize otomatis: service yang belum punya knowledge di-bootstrap ringkas saat pertama disentuh topik (skill `bootstrap` kini bisa dipanggil agent). Update otomatis: saat topik ditutup, tiap service yang berubah dapat baris "menunggu merge" (`branch@sha`), lalu dijadikan fakta setelah terbukti masuk baseline. Status line menandai service topik dengan `?` (belum ada) atau `*` (usang). `doctor` melaporkannya.
+- **Label kepastian** (G2, aturan `O-07`): fakta (path:baris), dugaan, belum dicek; rencana dan eksekusi hanya dari fakta.
+- **Memori hidup** (G4–G6): `CLAUDE.md` mengimpor `docs/memory/MEMORY.md` dan `~/.harness/USER.md` (dibuat installer bila belum ada), sehingga dimuat tiap sesi tanpa hook. Agent menulis sendiri lewat skill `belajar` (aturan `B-01`–`B-05`: hanya yang ada buktinya, satu fakta satu tempat). Batas 3.000/1.500 karakter (`learn.*`); guard menolak tulisan yang melewati batas, berisi perintah tersembunyi, secret literal, atau karakter tak terlihat.
+- **Skill dari pengalaman** (G7–G9): skill `belajar` menyimpan cara kerja berulang dan koreksi user sebagai skill proyek `.claude/skills/<nama>/` (`asal: belajar`). Urutan: perbaiki skill yang ada, lalu skill payung, baru skill baru. Dijalankan saat topik ditutup, sebelum `/summarize`/`/compact`, dan langsung saat user mengoreksi. Guard melindungi skill bawaan harness.
+- **Ukur dan rawat** (G10–G11): `harness.mjs growth` menampilkan memori (fakta, karakter), skill hasil belajar dan kapan terakhir dipakai, knowledge service, jumlah topik, serta koreksi user per topik (`koreksi:` di `summary.md`). Skill yang tidak dipakai > 60 hari diusulkan diarsip: `growth --arsip <skill>` memindahkannya ke `docs/_legacy/_lama/skills/` (tidak dihapus). Pemakaian skill dicatat status line dari transcript.
+- **Status line**: membaca transcript ≤ 1 MB per refresh, selalu mencetak minimal nama root, dan mencatat durasi serta galat terakhir ke `.claude/state/statusline.log` untuk menyelidiki status line yang hilang.
+
 ## 2.0.6
 Review kode sejak 2.0.0, plugin hallmark untuk frontend, dan temuan remap di astra.
 - **remap**: berkas titik (`.gitkeep`, `.DS_Store`) tidak lagi dipindah. Sebelumnya `docs/topics/.gitkeep` menjadi topik palsu `<tgl>/tanpa-nama/lampiran/.gitkeep` di setiap update. Folder `tanpa-nama` sisa itu dihapus oleh remap berikutnya, dan kernel tidak lagi memasang `docs/topics/.gitkeep`.

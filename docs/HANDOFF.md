@@ -61,6 +61,9 @@ Jawab ringkas dan objektif (kernel/.claude/rules/output.md). Satu PR per rilis; 
 | T4 | `git-auth` di Windows belum diuji nyata; GitLab belum didukung |
 | T5 | bootstrap knowledge: format dan cakupan masih bisa didiskusikan |
 
+## 4b. Rencana tumbuh (2.1.0)
+Keputusan G1–G12 (form https://claude.ai/artifact/LejFMDEoTxUbbabVXAqHvg): knowledge berbukti, memori hidup, skill dari pengalaman, laporan growth. Diuji pertama di `event`.
+
 ## 5. Peta teknis
 | berkas | isi |
 |---|---|

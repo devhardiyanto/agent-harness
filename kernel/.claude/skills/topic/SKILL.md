@@ -36,9 +36,12 @@ Jangan meminta user menyebut slug.
    ## Rujukan
    (path berkas, PR, topik terkait)
    ```
+   Frontmatter `summary.md`: `koreksi: <jumlah koreksi user di topik ini>` (untuk laporan `growth`).
 2. `node .claude/hooks/harness.mjs topic close <tanggal/slug>` (status closed + baris di `docs/memory/INDEX.md`).
 3. Rangkuman sesi: jalankan skill `summarize` (keluaran ke `docs/sessions/YYYY-MM-DD/<slug-topik>.md`).
-4. Memori: tambahkan ke `docs/memory/MEMORY.md` hanya fakta awet dari topik ini (konvensi, jebakan, keputusan yang berlaku lintas topik). Satu baris per fakta, maks 3 baris baru. MEMORY.md > 40 baris → rapikan baris usang dulu.
-5. Balasan terakhir (3 baris): path `summary.md` · path rangkuman sesi · `siap /compact`.
+4. Knowledge: untuk tiap service yang kodenya berubah di topik ini, tambahkan baris ke `## Menunggu merge` di `docs/knowledge/<svc>/summary.md`:
+   `- YYYY-MM-DD · <slug-topik> · <branch>@<sha7> · <apa yang berubah, satu kalimat>` (sha = `git -C source-code/<svc> rev-parse --short HEAD`). Service tanpa summary.md → skill `bootstrap <svc>` (ringkas) dulu.
+5. Jalankan skill `belajar`.
+6. Balasan terakhir (3 baris): path `summary.md` · hasil `belajar` · `siap /compact`.
 
 Jangan commit; user yang memutuskan.

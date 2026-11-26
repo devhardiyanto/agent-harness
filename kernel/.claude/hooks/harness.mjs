@@ -5,11 +5,15 @@
 //   topic new "<judul>" [--ref <topik>] | list [--open] | find <kata> | use <topik> | close <topik> | active
 //   remap [--apply] [--json]       rencana merapikan docs/ lama (tanpa --apply = rencana saja)
 //   git-auth [--apply] | git-auth which <service> | git-auth repo <service>
+//   knowledge [service]            status pengetahuan service (ada, umur, menunggu merge)
+//   growth [--arsip <skill>]       laporan pertumbuhan: memori, skill hasil belajar, knowledge, koreksi per topik
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { loadConfig, readJson, globToRegex } from './lib.mjs';
-import { newTopic, listTopics, closeTopic, activeTopic, findTopics, useTopic } from './topics.mjs';
+import { newTopic, listTopics, closeTopic, activeTopic, findTopics, useTopic, readFm, skillUsagePath } from './topics.mjs';
+import * as knowledge from './knowledge.mjs';
 import * as remap from './remap.mjs';
 import * as gitauth from './gitauth.mjs';
 
@@ -72,6 +76,59 @@ switch (cmd) {
     if (!flag('apply') && rows.some((r) => r.status === 'belum terpasang')) console.log('\nPasang: node .claude/hooks/harness.mjs git-auth --apply');
     break;
   }
+  case 'knowledge': {
+    const svcs = args[0] ? [args[0]] : cfg.services;
+    if (args[0] && !cfg.services.includes(args[0])) die(`service ${args[0]} tidak ada di harness.config.json → services`);
+    const rows = svcs.map((s) => knowledge.serviceStatus(root, cfg, s));
+    if (!args[0]) knowledge.writeCache(root, rows);
+    else { const all = { ...knowledge.readCache(root) }; const r = rows[0]; all[r.svc] = r.state.startsWith('usang') ? 'usang' : r.state === 'belum ada' ? 'belum' : 'ok'; knowledge.writeCache(root, Object.entries(all).map(([svc, v]) => ({ svc, state: v === 'usang' ? 'usang' : v === 'belum' ? 'belum ada' : 'segar' }))); }
+    console.log(table(['service', 'status', 'diperbarui', 'baseline', 'menunggu merge'], rows.map((r) => [r.svc, r.state, r.updated || '-', r.base || '-', r.pending.length ? r.pending.map((p) => `${p.branch}@${p.sha} ${p.merged ? 'merged: ya' : 'belum merged'}`).join('; ') : '-'])));
+    const todo = rows.filter((r) => r.state === 'belum ada').map((r) => r.svc);
+    if (todo.length) console.log(`\nBelum ada knowledge: ${todo.join(', ')} → skill bootstrap (ringkas) sebelum topik menyentuhnya.`);
+    break;
+  }
+  case 'growth': {
+    const L = cfg.learn;
+    const userMd = path.join(process.env.HARNESS_HOME || path.join(os.homedir(), '.harness'), 'USER.md');
+    const mem = (f, limit) => { let t = ''; try { t = fs.readFileSync(f, 'utf8'); } catch { return '-'; } return `${t.split(/\r?\n/).filter((l) => /^-\s/.test(l)).length} fakta · ${t.length}/${limit} karakter`; };
+    const usage = readJson(skillUsagePath(root), {}) || {};
+    const skillsDir = path.join(root, '.claude', 'skills');
+    const learned = [];
+    try {
+      for (const d of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+        if (!d.isDirectory()) continue;
+        let t = ''; try { t = fs.readFileSync(path.join(skillsDir, d.name, 'SKILL.md'), 'utf8'); } catch { continue; }
+        const fm = readFm(t);
+        if (fm.asal === 'belajar') learned.push({ name: d.name, made: fm.dibuat || '-', used: usage[d.name] || null });
+      }
+    } catch { /* belum ada skill */ }
+    const ageDays = (iso) => (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? Math.floor((Date.now() - Date.parse(iso)) / 864e5) : null);
+    const stale = learned.filter((s) => { const a = ageDays(s.used || s.made); return a !== null && a > L.skill_unused_days; });
+    const arsip = opt('arsip');
+    if (arsip) {
+      if (!learned.some((s) => s.name === arsip)) die(`skill ${arsip} bukan skill hasil belajar (asal: belajar)`);
+      const to = path.join(root, 'docs', '_legacy', '_lama', 'skills', arsip);
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      fs.renameSync(path.join(skillsDir, arsip), to);
+      console.log(`diarsip: .claude/skills/${arsip} → docs/_legacy/_lama/skills/${arsip}`);
+      break;
+    }
+    const topics = listTopics(root);
+    const closed = topics.filter((t) => t.status === 'closed').sort((a, b) => (a.id < b.id ? 1 : -1));
+    const kor = closed.slice(0, 10).map((t) => { try { return Number(readFm(fs.readFileSync(path.join(t.dir, 'summary.md'), 'utf8')).koreksi); } catch { return NaN; } }).filter((n) => Number.isFinite(n));
+    const kn = cfg.services.map((s) => knowledge.serviceStatus(root, cfg, s));
+    knowledge.writeCache(root, kn);
+    console.log(table(['bagian', 'nilai'], [
+      ['memori project', mem(path.join(root, 'docs', 'memory', 'MEMORY.md'), L.memory_chars)],
+      ['profil user', mem(userMd, L.user_chars)],
+      ['skill hasil belajar', learned.length ? learned.map((s) => `${s.name} (dipakai ${s.used || 'belum'})`).join(', ') : '0'],
+      ['knowledge service', `${kn.filter((r) => r.state === 'segar').length} segar · ${kn.filter((r) => r.state.startsWith('usang')).length} usang · ${kn.filter((r) => r.state === 'belum ada').length} belum ada · ${kn.reduce((n, r) => n + r.pending.length, 0)} menunggu merge`],
+      ['topik', `${topics.length} total · ${closed.length} ditutup`],
+      ['koreksi user per topik (10 terakhir, baru → lama)', kor.length ? `${kor.join(', ')} · rata-rata ${(kor.reduce((a, b) => a + b, 0) / kor.length).toFixed(1)}` : 'belum ada data (frontmatter koreksi: di summary.md)'],
+    ]));
+    if (stale.length) console.log(`\nSkill tidak dipakai > ${L.skill_unused_days} hari: ${stale.map((s) => s.name).join(', ')} → arsip (tidak dihapus): harness.mjs growth --arsip <skill>`);
+    break;
+  }
   case 'update': {
     const home = process.env.HARNESS_HOME || path.join(process.env.USERPROFILE || process.env.HOME || '', '.harness');
     const inst = readJson(path.join(home, 'installer.json'), null);
@@ -119,6 +176,12 @@ switch (cmd) {
     }
     const prot = [cfg.root_branch, ...cfg.protected_branches].map(globToRegex);
     ok('root_branch dilindungi', prot.some((re) => re.test(cfg.root_branch)), '');
+    if (cfg.services.length) {
+      const kn = cfg.services.map((s) => knowledge.serviceStatus(root, cfg, s));
+      knowledge.writeCache(root, kn);
+      const miss = kn.filter((r) => r.state === 'belum ada').map((r) => r.svc); const old = kn.filter((r) => r.state.startsWith('usang')).map((r) => r.svc);
+      add('knowledge service', miss.length || old.length ? 'INFO' : 'OK', [miss.length ? `belum ada: ${miss.join(', ')}` : '', old.length ? `usang: ${old.join(', ')}` : ''].filter(Boolean).join(' · ').slice(0, 300));
+    }
     const leftovers = ['docs/work', 'docs/topik', 'docs/reports', '.harness'].filter((p) => fs.existsSync(path.join(root, p)));
     if (leftovers.length) add('sisa 1.x', 'INFO', `${leftovers.join(', ')} → skill remap`);
     console.log(table(['cek', 'hasil', 'catatan'], rows));
@@ -126,6 +189,6 @@ switch (cmd) {
     break;
   }
   default:
-    console.log('harness.mjs doctor | update [--all|--rollback] | topic new|list|find|use|close|active | remap [--apply] | git-auth [--apply] | git-auth which|repo <svc>');
+    console.log('harness.mjs doctor | update [--all|--rollback] | topic new|list|find|use|close|active | remap [--apply] | git-auth [--apply] | git-auth which|repo <svc> | knowledge [svc] | growth [--arsip <skill>]');
     if (cmd && cmd !== 'help') process.exit(1);
 }

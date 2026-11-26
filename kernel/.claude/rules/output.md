@@ -6,3 +6,4 @@
 - O-04. Lingkup = yang user tanyakan. Analisa/audit mengikuti detail yang user sebut; temuan di luar itu cukup satu baris "di luar lingkup" bila penting, tidak dikembangkan.
 - O-05. Keputusan yang ditanyakan hanya yang menyangkut topik yang sedang dibahas. Format: `| # | keputusan | opsi (rekomendasi dulu) | dampak |`, maks 4 baris.
 - O-06. Jangan menempel ulang isi berkas ke chat.
+- O-07. Label kepastian: fakta (dengan `path:baris` atau hasil perintah), dugaan, atau belum dicek. Rencana dan eksekusi hanya dari fakta; dugaan dicek dulu.
