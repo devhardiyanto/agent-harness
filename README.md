@@ -457,7 +457,7 @@ node ~/agent-harness/scripts/update-all.mjs --list
 | `/belajar` | otomatis / kamu | simpan memori dan skill |
 | `/bootstrap <svc>` | kamu / otomatis (ringkas) | knowledge service |
 | `/remap` | kamu | rapikan `docs/` lama |
-| `/antislop*` | hanya kamu | aturan kualitas UI dan tulisan |
+| `/antislop*` | hanya kamu | aturan kualitas UI dan tulisan; salinan dari [anti-slop](https://github.com/miqdadbadjuber/anti-slop) karya Miqdad Badjuber (bagian 14.5) |
 | `/harness:init` | kamu | cek pemasangan dan akun git |
 | `/harness:update` | kamu | perbarui harness |
 
@@ -483,6 +483,15 @@ node ~/agent-harness/scripts/update-all.mjs --list
 | `.claude/agents/`, `.claude/skills/`, `.claude/rules/` | tim, skill, aturan |
 | `.claude/state/` | cache status line, knowledge, pemakaian skill, log (tidak di-commit) |
 | `.claude/harness.version`, `.claude/harness.manifest.json` | versi dan daftar berkas milik harness |
+
+### 14.5 Kredit pihak ketiga
+
+| komponen | sumber | lisensi |
+|---|---|---|
+| skill `antislop`, `antislop-code`, `antislop-copywriting`, `antislop-human`, `antislop-layoutmobile`, `antislop-ui` | [miqdadbadjuber/anti-slop](https://github.com/miqdadbadjuber/anti-slop) v3.2.30 (`35b54dc`) oleh Miqdad Badjuber | MIT |
+| bahan di `antislop-ui` dan `antislop-human` | "web-quality-skills" oleh Addy Osmani | MIT |
+
+Teks aturan disalin (bukan plugin hulu) dengan sedikit penyesuaian; daftar perubahan dan teks lisensi lengkap di `THIRD_PARTY.md` dan `kernel/.claude/skills/antislop*/LICENSE*`.
 
 ---
 
@@ -516,4 +525,4 @@ node ~/agent-harness/scripts/update-all.mjs --list
 
 CI menjalankan test dan check-repo di Linux dan Windows. Rilis: bump → PR → merge → tag `v<versi>` pada commit merge. Riwayat: `CHANGELOG.md`.
 
-Lisensi: MIT. Atribusi: `THIRD_PARTY.md`.
+Lisensi: MIT. Komponen pihak ketiga: bagian 14.5 dan `THIRD_PARTY.md`.
