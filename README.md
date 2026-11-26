@@ -58,6 +58,17 @@ Tema `harness.config.json` → `tui.theme`: `kapsul` (bawaan), `tenang`, `kontra
 | ponytail | `claude plugin marketplace add DietrichGebert/ponytail` lalu `claude plugin install ponytail@ponytail --scope user` | badge status line; `/ponytail-review` sebelum `lucia-rv` (T-07) |
 | hallmark | `claude plugin marketplace add nutlope/hallmark` lalu `claude plugin install hallmark@hallmark --scope user` (tanpa hook edit-time) | `hana-fe` untuk halaman baru/redesign (T-08): `sloplint` tanpa `--render`, cek visual lewat Claude in Chrome bila ada |
 
+## Tumbuh seiring dipakai (2.1)
+
+| bagian | cara kerja |
+|---|---|
+| memori | `docs/memory/MEMORY.md` (project) dan `~/.harness/USER.md` (pribadi) dimuat tiap sesi lewat `CLAUDE.md`; ditulis agent lewat skill `belajar` |
+| skill dari pengalaman | cara kerja berulang dan koreksi user jadi `.claude/skills/<nama>/` (`asal: belajar`), dimuat Claude Code otomatis per deskripsi |
+| knowledge service | `harness.mjs knowledge [svc]`; bootstrap ringkas saat service pertama disentuh, catatan "menunggu merge" saat topik ditutup |
+| laporan | `harness.mjs growth` (memori, skill, knowledge, koreksi per topik); `growth --arsip <skill>` untuk skill usang |
+
+Status line: service topik bertanda `?` = knowledge belum ada, `*` = usang. Status line hilang → lihat `.claude/state/statusline.log`.
+
 ## Akun git per service
 
 `harness.config.json`:

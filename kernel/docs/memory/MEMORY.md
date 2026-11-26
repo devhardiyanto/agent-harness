@@ -1,4 +1,4 @@
 # Memori project
 
-Fakta awet (konvensi, jebakan, keputusan lintas topik). Satu baris per fakta, ≤ 40 baris. Ditambah saat topik ditutup.
+Fakta awet project (konvensi, jebakan, keputusan lintas topik). Satu baris per fakta, diawali "- ". Ditulis agent lewat skill `belajar`; batas 3.000 karakter.
 

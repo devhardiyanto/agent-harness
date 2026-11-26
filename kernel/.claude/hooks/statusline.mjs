@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { loadConfig, isMain } from './lib.mjs';
 import { sessionTopic, planServices } from './topics.mjs';
+import { readCache } from './knowledge.mjs';
 
 const width = (s) => [...s.replace(/\x1b\[[0-9;]*m/g, '')].length;
 const num = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
@@ -28,7 +29,12 @@ export function statusData(root, payload = {}, env = process.env) {
   if (payload.effort && payload.effort.level) d.effort = String(payload.effort.level);
   try {
     const t = sessionTopic(root, payload);
-    if (t) { d.topic = t.slug; d.services = [...new Set([...planServices(t.dir), ...t.services])]; }
+    if (t) {
+      d.topic = t.slug;
+      const kc = readCache(root);
+      // ? = knowledge belum ada, * = usang (dari hasil terakhir `harness.mjs knowledge`).
+      d.services = [...new Set([...planServices(t.dir), ...t.services])].map((s) => (kc[s] === 'belum' ? `${s}?` : kc[s] === 'usang' ? `${s}*` : s));
+    }
   } catch { /* abaikan */ }
   const cw = payload.context_window || {};
   const cu = cw.current_usage || {};
@@ -105,7 +111,17 @@ export function render(d, { theme = 'kapsul', max = 120 } = {}) {
   return lines.join('\n');
 }
 
+// Satu baris terakhir: durasi dan galat, untuk menyelidiki status line yang hilang.
+function logRun(root, ms, err) {
+  try {
+    const f = path.join(root, '.claude', 'state', 'statusline.log');
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f, `${new Date().toISOString()} ${ms}ms${err ? ` GALAT ${String(err && err.stack || err).split('\n').slice(0, 3).join(' | ')}` : ''}\n`);
+  } catch { /* abaikan */ }
+}
+
 async function main() {
+  const t0 = Date.now();
   let payload = {};
   try { const chunks = []; for await (const ch of process.stdin) chunks.push(ch); payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); } catch { /* bukan JSON */ }
   const root = path.resolve(process.env.CLAUDE_PROJECT_DIR || (payload.workspace && payload.workspace.project_dir) || payload.cwd || process.cwd());
@@ -115,7 +131,9 @@ async function main() {
     const theme = process.env.NO_COLOR ? 'mono' : cfg.tui.theme;
     const cols = Number(process.env.COLUMNS) || 0;
     const max = cols ? Math.max(20, Math.min(cfg.tui.max_width, cols - 4)) : cfg.tui.max_width;
-    process.stdout.write(`${render(statusData(root, payload), { theme, max })}\n`);
-  } catch { process.stdout.write(`▌${path.basename(root)}\n`); }
+    const out = render(statusData(root, payload), { theme, max });
+    process.stdout.write(`${out || `▌${path.basename(root)}`}\n`);
+    logRun(root, Date.now() - t0);
+  } catch (e) { process.stdout.write(`▌${path.basename(root)}\n`); logRun(root, Date.now() - t0, e); }
 }
 if (isMain(import.meta.url)) main();

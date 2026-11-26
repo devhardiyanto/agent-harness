@@ -1,5 +1,5 @@
 {
-  "harness_version": "2.0.6",
+  "harness_version": "2.1.0",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -31,5 +31,13 @@
   },
   "antislop": {
     "mode": "during"
+  },
+  "knowledge_check": {
+    "stale_commits": 30
+  },
+  "learn": {
+    "memory_chars": 3000,
+    "user_chars": 1500,
+    "skill_unused_days": 60
   }
 }
