@@ -2,6 +2,8 @@
 
 Harness untuk Claude Code di root project multi-repo (`source-code/<repo git>`). Versi **2.1.0**.
 
+> Sudah memakai versi sebelumnya? Update (bagian 13), lalu ikuti [13.4 langkah setelah update](#134-sudah-pakai-versi-sebelumnya-langkah-setelah-update).
+
 ## Daftar isi
 
 1. [Ringkasan](#1-ringkasan)
@@ -427,6 +429,36 @@ node ~/agent-harness/scripts/update-all.mjs --list
 `--scan /d/dev` mendaftarkan project yang sudah ber-harness; `--add` / `--remove` mengatur manual. Plugin global baru termuat di sesi berikutnya (atau `/reload-plugins`).
 
 ---
+
+### 13.4 Sudah pakai versi sebelumnya: langkah setelah update
+
+Update hanya mengganti berkas. Fitur 2.1 (memori, knowledge, skill hasil belajar) baru terasa setelah dipancing beberapa kali. Lakukan sekali per root, urut:
+
+| # | langkah | cara / kalimat pemicu | hasil |
+|---|---|---|---|
+| 1 | (dari 1.x saja) migrasi | bagian 12.2: isi `git` → `git-auth --apply` → `/remap` | data lama rapi, akun git per service |
+| 2 | buka sesi baru | tutup sesi lama, jalankan `claude` lagi | `CLAUDE.md` baru (import memori) termuat |
+| 3 | cek pemasangan | `/harness:init` | `doctor` tanpa GAGAL; baris knowledge per service terlihat |
+| 4 | cek memori termuat | `/memory` | `docs/memory/MEMORY.md` dan `~/.harness/USER.md` tercantum |
+| 5 | isi profil kamu | *"catat di USER.md: jawab bahasa Indonesia, ringkas, keputusan pakai tabel rekomendasi dulu"* | `USER.md` berisi preferensi; berlaku di semua project |
+| 6 | isi memori project | *"ingat untuk project ini: docs di-commit di main, service X pakai akun Y"* lalu `/belajar` | `MEMORY.md` berisi fakta lintas topik |
+| 7 | knowledge service utama | `node .claude/hooks/harness.mjs knowledge`, lalu untuk yang "belum ada": *"bootstrap <svc> lengkap"* | `docs/knowledge/<svc>/summary.md` + `patterns.md`; status line tanpa `?` |
+| 8 | commit `docs/` | commit sendiri di `main` | memori dan knowledge tersimpan di repo |
+
+Service lain tidak perlu di-bootstrap manual: versi ringkas dibuat otomatis saat topik pertama menyentuhnya.
+
+**Pemicu harian agar harness makin pintar:**
+
+| kalimat / perintah | yang terjadi |
+|---|---|
+| koreksi langsung: *"jangan begitu, harusnya …"*, *"lain kali …"* | `belajar` jalan di giliran itu; jadi memori atau skill |
+| *"topik selesai"* | summary, rangkuman sesi, catatan menunggu merge, `belajar` |
+| `/summarize` sebelum `/compact` | rangkuman sesi + `belajar` |
+| *"PR-nya sudah merge"* atau `/bootstrap <svc>` | catatan menunggu merge dipindah jadi fakta knowledge |
+| *"bootstrap <svc> lengkap"* saat status line menunjukkan `*` | knowledge usang disegarkan |
+| `node .claude/hooks/harness.mjs growth` (mis. tiap minggu) | lihat apa yang sudah dipelajari; arsip skill yang tidak terpakai |
+
+Topik lama dari 2.0 tetap bisa dilanjutkan dengan kalimat biasa (bagian 5.7). Topik yang ditutup sebelum 2.1 tidak punya `koreksi:`; itu normal.
 
 ## 14. Referensi
 
