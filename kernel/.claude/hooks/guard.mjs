@@ -1,16 +1,15 @@
-// PreToolUse: guard keamanan saja (2.0, K4). Tidak ada gerbang alur kerja.
-// Bash/PowerShell: perintah destruktif, force push, commit/push di branch dilindungi, baca secret, dump env.
-// Edit/Write: menulis berkas secret. Guardrail best-effort (regex), bukan sandbox. Exit 2 = blokir.
+// PreToolUse, keamanan saja: perintah destruktif, force push, commit/push di branch dilindungi, secret, env, token.
+// Best-effort (regex), bukan sandbox. Exit 2 = blokir.
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { readStdinJson, projectRoot, loadConfig, globToRegex, posix, deny, SECRET_FILE, isMain } from './lib.mjs';
 
-// Direktori tempat git benar-benar jalan: `git -C <dir>` atau `cd <dir> &&` di awal.
+// `git -C <dir>` atau `cd <dir> &&|;` di awal menentukan repo tempat git jalan.
 export function gitDir(flat, cwd) {
   const strip = (d) => d.replace(/^["']|["']$/g, '');
   const c = /\bgit\s+-C\s+(\S+)/.exec(flat);
   if (c) return path.resolve(cwd, strip(c[1]));
-  const d = /^\s*cd\s+(\S+)\s*&&/.exec(flat);
+  const d = /^\s*cd\s+(\S+)\s*(?:&&|;)/.exec(flat);
   return d ? path.resolve(cwd, strip(d[1])) : cwd;
 }
 
@@ -41,7 +40,7 @@ export function evaluateBash(root, cfg, payload) {
   }
   if (/\bgit\b[^;&|]*\bcommit\b/.test(flat)) {
     const dir = gitDir(flat, cwd);
-    // Root project (catatan kerja di docs/) boleh commit di root_branch; yang dilindungi adalah repo service.
+    // Root (catatan di docs/) boleh commit di root_branch; yang dilindungi repo service.
     const isRoot = path.resolve(dir) === path.resolve(root);
     const b = currentBranch(dir);
     if (!isRoot && isProtected(cfg, b)) return fail(`commit langsung di ${b} dilarang. Buat branch kerja dulu.`);

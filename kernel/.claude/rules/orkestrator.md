@@ -6,4 +6,5 @@
 - T-04. Tugas yang tidak menyentuh berkas yang sama boleh paralel. Migrasi (`freya-dba`) selalu lebih dulu.
 - T-05. Setelah agent selesai: baca laporannya dan diff-nya, perbarui status tugas dan bukti di `plan.md`. Klaim tanpa bukti = belum selesai.
 - T-06. Sesi utama boleh menulis `docs/` (topik, sesi, memori, knowledge) langsung.
+- T-08. Halaman web baru atau redesign → `hana-fe` dengan skill hallmark bila terpasang (lihat agent `hana-fe`); sebut di prompt bahwa ini halaman baru/redesign.
 - T-07. Bila plugin ponytail terpasang (badge `ponytail:` di status line), jalankan `/ponytail-review` atas diff sebelum memanggil `lucia-rv`; temuannya ikut dinilai `lucia-rv`. Tanpa ponytail, langsung `lucia-rv`.

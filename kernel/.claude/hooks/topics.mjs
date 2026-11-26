@@ -1,5 +1,4 @@
-// Topik (2.0, K7–K11): satu folder per topik, docs/topics/YYYY-MM-DD/<slug>/{topic.md, plan.md, summary.md, lampiran/}.
-// Menggantikan work item. Status ada di frontmatter topic.md: open | closed.
+// Satu folder per topik: docs/topics/YYYY-MM-DD/<slug>/{topic.md, plan.md, summary.md, lampiran/}. Status di frontmatter topic.md.
 import fs from 'node:fs';
 import path from 'node:path';
 import { slugify, today } from './lib.mjs';
@@ -52,6 +51,7 @@ export function activeTopic(root) {
 export function findTopic(root, q) {
   const all = listTopics(root);
   const s = String(q || '').replace(/^docs\/topics\//, '').replace(/\/$/, '');
+  if (!s) return null;
   return all.find((t) => t.id === s) || all.find((t) => t.slug === s) || (() => { const m = all.filter((t) => t.slug.includes(s)); return m.length === 1 ? m[0] : null; })();
 }
 
@@ -98,7 +98,7 @@ export function newTopic(root, title, { ref = '', date = today() } = {}) {
   return { created: true, rel, dir, slug };
 }
 
-// Menutup topik: status closed + baris di docs/memory/INDEX.md. summary.md ditulis agent (skill topic).
+// summary.md ditulis agent (skill topic) sebelum ini dipanggil.
 export function closeTopic(root, q, { date = today() } = {}) {
   const t = findTopic(root, q);
   if (!t) return { ok: false, reason: `topik "${q}" tidak ditemukan atau ambigu` };
@@ -113,11 +113,8 @@ export function closeTopic(root, q, { date = today() } = {}) {
   return { ok: true, topic: t, summary: fs.existsSync(path.join(t.dir, 'summary.md')) };
 }
 
-// 2.0.3 (T1 a): topik milik SESI ini, dari transcript. Hanya bukti kerja yang dihitung: input tool (path berkas,
-// perintah) dan keluaran `topic new`/`topic use` ("dibuat:"/"sudah ada:"/"dipakai:"). Teks chat dan keluaran lain diabaikan.
-// 2.0.5 (F1): baris tanpa kata kunci dilewati tanpa JSON.parse; tiap refresh membaca paling banyak READ_MAX; sesi lama yang
-// besar (mis. hasil resume) mulai dibaca dari READ_MAX terakhir, agar status line tidak dibatalkan karena lambat.
-// 2.0.5 (F2): service di source-code/ yang disentuh input tool sesi ini ikut dicatat.
+// Topik sesi = path topik terakhir di input tool atau keluaran topic new/use; teks chat tidak dihitung.
+// Dibaca bertahap (≤ READ_MAX per refresh, mulai dari ekor untuk sesi besar) agar status line tidak dibatalkan karena lambat.
 const TOPIC_PATH = /docs[\\/]+topics[\\/]+(\d{4}-\d{2}-\d{2})[\\/]+([a-z0-9][a-z0-9_-]*)/gi;
 const SVC_PATH = /source-code[\\/]+([A-Za-z0-9][\w.-]*)/g;
 const READ_MAX = 2 * 1024 * 1024;
@@ -157,19 +154,18 @@ export function sessionTopic(root, payload = {}) {
       const len = Math.min(size - st.offset, READ_MAX);
       const buf = Buffer.alloc(len);
       fs.readSync(fd, buf, 0, len, st.offset);
-      let text = buf.toString('utf8');
-      let skip = 0;
-      if (st.lead) { const nl = text.indexOf('\n'); skip = nl >= 0 ? nl + 1 : 0; } // awal ekor = potongan baris
-      const end = text.lastIndexOf('\n');
-      if (end >= skip) {
+      // Batas baris dicari di byte, bukan teks: ekor bisa terpotong di tengah karakter UTF-8.
+      const skip = st.lead ? buf.indexOf(10) + 1 : 0;
+      const end = buf.lastIndexOf(10);
+      if (end >= skip && (!st.lead || skip > 0)) {
         const svcs = new Set(st.svcs || []);
-        for (const line of text.slice(skip, end).split('\n')) {
+        for (const line of buf.subarray(skip, end).toString('utf8').split('\n')) {
           const f = evidence(line);
           if (f.topics.length) { st.id = f.topics[f.topics.length - 1]; svcs.clear(); }
           for (const sv of f.svcs) svcs.add(sv);
         }
         st.svcs = [...svcs];
-        st.offset += Buffer.byteLength(text.slice(0, end + 1));
+        st.offset += end + 1;
         st.lead = false;
         try { fs.mkdirSync(stateDir, { recursive: true }); fs.writeFileSync(sf, JSON.stringify(st)); } catch { /* cache saja */ }
       } else if (len === READ_MAX) { st.offset += len; try { fs.writeFileSync(sf, JSON.stringify(st)); } catch { /* abaikan */ } } // satu baris > READ_MAX
@@ -181,7 +177,7 @@ export function sessionTopic(root, payload = {}) {
   return fs.existsSync(dir) ? { date, slug, id: st.id, dir, services: st.svcs || [] } : null;
 }
 
-// Service dari tabel tugas plan.md topik (kolom "service"), untuk lingkup topik di status line.
+// Kolom "service" di tabel tugas plan.md.
 export function planServices(dir) {
   let t = ''; try { t = fs.readFileSync(path.join(dir, 'plan.md'), 'utf8'); } catch { return []; }
   const lines = t.split(/\r?\n/).filter((l) => /^\|/.test(l));
@@ -197,7 +193,7 @@ export function planServices(dir) {
   return out;
 }
 
-// 2.0.5 (U1): cari topik dari kalimat biasa, di docs/topics dan docs/_legacy. Skor: kata di slug/judul ×3, di isi ×1.
+// Skor: kata di slug/judul ×3, di isi ×1.
 const STOP = new Set(['yang', 'dan', 'di', 'ke', 'dari', 'untuk', 'mengenai', 'tentang', 'topik', 'lanjut', 'bagian', 'itu', 'ini', 'aja', 'ya', 'the', 'of']);
 export function findTopics(root, query, { limit = 5 } = {}) {
   const words = String(query || '').toLowerCase().split(/[^a-z0-9_]+/).filter((w) => w.length > 1 && !STOP.has(w));
@@ -221,7 +217,7 @@ export function findTopics(root, query, { limit = 5 } = {}) {
   return scored.sort((a, b) => b.score - a.score || (a.id < b.id ? 1 : -1)).slice(0, limit);
 }
 
-// 2.0.5 (U1): pakai topik yang sudah ada di docs/topics untuk sesi ini. Topik closed dibuka lagi.
+// Topik closed dibuka lagi.
 export function useTopic(root, q) {
   const t = findTopic(root, q);
   if (!t) return { ok: false, reason: `topik "${q}" tidak ada di docs/topics (atau ambigu). Cari: harness.mjs topic find <kata>` };

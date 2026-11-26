@@ -326,3 +326,43 @@ test('2.0.5: topic find/use dari kalimat biasa, lingkup service, +/- hanya denga
   fs.appendFileSync(big, L([{ type: 'tool_use', input: { file_path: `docs/topics/${t}/promo-invitation-code/plan.md` } }]));
   assert.equal(sessionTopic(root, { session_id: 'big', transcript_path: big }).slug, 'promo-invitation-code', 'baris baru setelahnya terbaca');
 });
+
+test('2.0.6: perbaikan hasil review', async () => {
+  const { sessionTopic, findTopic } = await import('../kernel/.claude/hooks/topics.mjs');
+  const root = legacyRoot();
+  // remap: berkas titik dilewati; folder "tanpa-nama" sisa remap lama dibersihkan
+  wr(root, 'docs/topics/.gitkeep', '');
+  wr(root, 'docs/topics/2026-11-25/tanpa-nama/lampiran/.gitkeep', '');
+  wr(root, 'docs/sessions/.gitkeep', '');
+  const p = remap.plan(root, { remap: { legacy_months: 2 } }, { now: new Date(2026, 10, 25) });
+  assert.ok(!p.moves.some((m) => m.name === '.gitkeep'), 'tidak ada .gitkeep yang dipindah');
+  const junk = p.moves.find((m) => m.src === 'docs/topics/2026-11-25/tanpa-nama');
+  assert.ok(junk && junk.remove);
+  remap.apply(root, p);
+  assert.equal(fs.existsSync(path.join(root, 'docs/topics/2026-11-25/tanpa-nama')), false);
+  assert.ok(fs.existsSync(path.join(root, 'docs/topics/.gitkeep')));
+  // findTopic tanpa kata kunci tidak memilih topik apa pun
+  assert.equal(findTopic(root, ''), null);
+  // transcript: ekor terpotong di tengah karakter UTF-8 tidak menggeser posisi baca
+  fs.mkdirSync(path.join(root, 'docs/topics/2026-11-25/utf'), { recursive: true });
+  const tr = path.join(root, 'u.jsonl');
+  const L = (o) => JSON.stringify(o) + '\n';
+  const filler = L({ message: { content: [{ type: 'text', text: '✓'.repeat(400000) }] } });
+  fs.writeFileSync(tr, filler + L({ message: { content: [{ type: 'text', text: 'é✓🙂'.repeat(200000) }] } }));
+  assert.equal(sessionTopic(root, { session_id: 'u', transcript_path: tr }), null);
+  fs.appendFileSync(tr, L({ message: { content: [{ type: 'tool_use', input: { file_path: 'docs/topics/2026-11-25/utf/plan.md' } }] } }));
+  assert.equal(sessionTopic(root, { session_id: 'u', transcript_path: tr }).slug, 'utf');
+  const st = JSON.parse(fs.readFileSync(path.join(root, '.claude/state/topic-u.json'), 'utf8'));
+  assert.equal(st.offset, fs.statSync(tr).size, 'posisi baca tepat di akhir berkas');
+});
+
+test('2.0.6: CLI, guard, status line sempit', () => {
+  const root = project({ v1: true });
+  const c = hx(root, 'topic', 'close');
+  assert.notEqual(c.status, 0); assert.match(c.stderr, /topic close <tanggal\/slug>/);
+  const bash = (command, cwd = root) => hook(root, 'guard.mjs', { tool_name: 'Bash', cwd, tool_input: { command } }).status;
+  assert.equal(bash('cd source-code/api; git commit -m x'), 2, 'cd ...; juga dikenali');
+  assert.equal(bash('gh pr merge 12 --merge'), 2, 'merge PR = keputusan user');
+  const s = spawnSync('node', [path.join(root, '.claude/hooks/statusline.mjs')], { input: '{}', env: { ...process.env, CLAUDE_PROJECT_DIR: root, NO_COLOR: '1', COLUMNS: '10' }, encoding: 'utf8' });
+  assert.match(s.stdout, /▌proj/, 'terminal sempit tetap mencetak root');
+});

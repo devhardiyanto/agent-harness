@@ -1,9 +1,6 @@
 #!/usr/bin/env node
-// Status line 2.0.2: dua baris.
-//   1: root · topik sesi ini (2.0.3: dari transcript, bukan topik terbuka terakhir di project) · model · effort · badge ponytail
-//   2: konteks % + token · batas 5 jam / 7 hari · +/- baris
-// Angka konteks = respons API terakhir (context_window.*); `/context` bisa sedikit lebih tinggi sampai respons berikutnya.
-// Tema: kapsul (bawaan, xterm-256), tenang, kontras, mono (NO_COLOR). Tidak pernah gagal keras: galat → nama root saja.
+// Baris 1: root · topik sesi · service · model · effort · ponytail. Baris 2: konteks · batas 5j/7h · +/- baris.
+// Konteks dari respons API terakhir, jadi `/context` bisa sedikit lebih tinggi sampai respons berikutnya.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -16,7 +13,7 @@ const kfmt = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1
 const hhmm = (sec) => { const d = new Date(sec * 1000); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 export const level = (p) => (p >= 85 ? 'bad' : p >= 60 ? 'warn' : 'ok');
 
-// Badge ponytail (plugin global terpisah): berkas penanda mode yang ditulis ponytail. Tidak ada / "off" → tanpa badge.
+// Berkas penanda mode yang ditulis plugin ponytail; tidak ada atau "off" = tanpa badge.
 export function ponytailMode(env = process.env) {
   const dir = env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
   try {
@@ -45,12 +42,11 @@ export function statusData(root, payload = {}, env = process.env) {
     if (p !== null) d.limits.push({ label, pct: Math.round(p), reset: num(rl[key].resets_at) });
   }
   const c = payload.cost || {};
-  // 2.0.5 (U2 b): baris +/- hanya bila sesi sudah punya topik
+  // Tanpa topik, +/- adalah total sesi (termasuk sebelum resume) dan menyesatkan.
   if (d.topic && (num(c.total_lines_added) || 0) + (num(c.total_lines_removed) || 0) > 0) d.lines = { add: num(c.total_lines_added) || 0, del: num(c.total_lines_removed) || 0 };
   return d;
 }
 
-// Segmen netral tema: { t: teks, k: peran }. Peran: root, topic, dim, ctx-ok|warn|bad, add, del.
 function segments(d) {
   const topic = d.topic ? (d.topic.length > 40 ? `${d.topic.slice(0, 39)}…` : d.topic) : null;
   const l1 = [{ t: d.root, k: 'root', pill: true }, topic ? { t: topic, k: 'topic', pill: true } : { t: 'belum ada topik', k: 'dim' }];
@@ -118,7 +114,7 @@ async function main() {
     if (cfg.tui.statusline === false) return;
     const theme = process.env.NO_COLOR ? 'mono' : cfg.tui.theme;
     const cols = Number(process.env.COLUMNS) || 0;
-    const max = cols ? Math.min(cfg.tui.max_width, cols - 4) : cfg.tui.max_width;
+    const max = cols ? Math.max(20, Math.min(cfg.tui.max_width, cols - 4)) : cfg.tui.max_width;
     process.stdout.write(`${render(statusData(root, payload), { theme, max })}\n`);
   } catch { process.stdout.write(`▌${path.basename(root)}\n`); }
 }

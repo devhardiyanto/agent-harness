@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.0.6
+Review kode sejak 2.0.0, plugin hallmark untuk frontend, dan temuan remap di astra.
+- **remap**: berkas titik (`.gitkeep`, `.DS_Store`) tidak lagi dipindah. Sebelumnya `docs/topics/.gitkeep` menjadi topik palsu `<tgl>/tanpa-nama/lampiran/.gitkeep` di setiap update. Folder `tanpa-nama` sisa itu dihapus oleh remap berikutnya, dan kernel tidak lagi memasang `docs/topics/.gitkeep`.
+- **Status line, transcript UTF-8**: batas baris dicari di level byte. Sebelumnya ekor transcript yang terpotong di tengah karakter multibyte (✓, emoji) menggeser posisi baca, sehingga baris berikutnya bisa gagal dibaca.
+- **Status line, terminal sempit**: lebar minimum 20 kolom, sehingga `COLUMNS` kecil tidak lagi membuat status line kosong.
+- **`topic close` wajib menyebut topik**. Sebelumnya tanpa argumen ia menutup topik terbuka terakhir di project, yang bisa milik sesi lain. `findTopic('')` tidak lagi memilih apa pun.
+- **Guard**: `cd <dir>; git commit` dikenali seperti `cd <dir> && …`. `gh pr merge` kembali masuk `deny_commands` bawaan (merge = keputusan user). Root lama yang config-nya masih memuat daftar 1.x sudah punya aturan ini.
+- **hallmark** (H1–H3): plugin global terpisah. `hana-fe` memakainya untuk halaman baru/redesign: Floor wajib, `sloplint` tanpa `--render`, cek visual lewat Claude in Chrome bila tersedia, foto eksternal ditanyakan dulu. Aturan `T-08`, README bagian "Plugin pendamping". antislop tetap manual.
+- Komentar kode di hooks dirapikan (antislop-code): tanpa riwayat versi atau keputusan, cukup alasan/batasan.
+
 ## 2.0.5
 Temuan pemakaian di astra (sesi lanjutan yang besar).
 - **Lanjut topik dengan kalimat biasa** (U1 a): `harness.mjs topic find <kata>` mencari di `docs/topics` dan `docs/_legacy` (skor: slug/judul ×3, isi ×1); `topic use <topik>` mengaktifkan topik untuk sesi ini (`dipakai: …`, topik `closed` dibuka lagi). Skill `topic`: satu kandidat jelas langsung dipakai, beberapa → satu pertanyaan, hanya di legacy → topik baru dengan `--ref`. User tidak perlu menyebut slug.

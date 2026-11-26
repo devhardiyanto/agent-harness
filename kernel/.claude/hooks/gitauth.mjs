@@ -1,7 +1,5 @@
-// Akun git per service (2.0, K13) tanpa `gh auth switch`.
-// Remote HTTPS: credential helper lokal per repo meminta token akunnya ke gh (`gh auth token --user <akun>`).
-// Remote SSH (alias per akun): git sudah memakai kunci yang benar; helper tidak dipasang.
-// Perintah gh selalu memakai GH_TOKEN akun service + `-R owner/repo` (gh tidak mengenali alias SSH). Token tidak pernah ditulis atau dicetak.
+// Akun git per service tanpa `gh auth switch`: remote HTTPS memakai credential helper lokal yang meminta token ke gh;
+// remote SSH beralias sudah memisahkan akun lewat kuncinya.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -59,7 +57,7 @@ export function plan(root, cfg) {
 }
 
 export function tokenAvailable(account) {
-  // HARNESS_GH: gh tiruan (sandbox/test), skrip Node yang dijalankan langsung.
+  // HARNESS_GH = gh tiruan (sandbox/test) berupa skrip Node.
   const fake = process.env.HARNESS_GH;
   const r = fake ? spawnSync(process.execPath, [fake, 'auth', 'token', '--user', account], { encoding: 'utf8' }) : spawnSync('gh', ['auth', 'token', '--user', account], { encoding: 'utf8' });
   return r.status === 0 && !!String(r.stdout).trim();
