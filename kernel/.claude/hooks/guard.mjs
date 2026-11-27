@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { userMdPath } from './memory.mjs';
 import { readStdinJson, projectRoot, loadConfig, globToRegex, posix, deny, SECRET_FILE, isMain } from './lib.mjs';
 
 // Path dari perintah shell ke path OS: Git Bash `/c/x` → `C:/x`, `~` → home.
@@ -173,7 +174,7 @@ export function evaluateEdit(root, payload, cfg = loadConfig(root), env = proces
   if (!raw) return { ok: true };
   const abs = path.resolve(root, raw);
   const rel = posix(path.relative(root, abs));
-  const userMd = path.join(env.HARNESS_HOME || path.join(os.homedir(), '.harness'), 'USER.md');
+  const userMd = userMdPath(env);
   const isMemory = same(abs, path.join(root, 'docs', 'memory', 'MEMORY.md')) || same(abs, userMd);
   const isSkill = /^\.claude\/skills\/[^/]+\//.test(rel);
   if (isSkill) {

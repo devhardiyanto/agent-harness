@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { readFm } from './topics.mjs';
+import { writeAtomic } from './lib.mjs';
 
 const git = (cwd, args) => { const r = spawnSync('git', args, { cwd, encoding: 'utf8' }); return r.status === 0 ? r.stdout.trim() : null; };
 
@@ -47,7 +48,7 @@ export function writeCache(root, rows) {
   try {
     const f = path.join(root, '.claude', 'state', 'knowledge.json');
     fs.mkdirSync(path.dirname(f), { recursive: true });
-    fs.writeFileSync(f, JSON.stringify(Object.fromEntries(rows.map((r) => [r.svc, r.state.startsWith('usang') ? 'usang' : r.state === 'belum ada' ? 'belum' : 'ok']))));
+    writeAtomic(f, JSON.stringify(Object.fromEntries(rows.map((r) => [r.svc, r.state.startsWith('usang') ? 'usang' : r.state === 'belum ada' ? 'belum' : 'ok']))));
   } catch { /* cache saja */ }
 }
 export function readCache(root) {

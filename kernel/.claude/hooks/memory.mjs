@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { writeAtomic } from './lib.mjs';
 
 export const HEADER = {
   project: '# Memori project\n\nFakta awet project (konvensi, jebakan, keputusan lintas topik). Satu baris per fakta, diawali "- ". Ditulis agent lewat skill `belajar` ("ingat: …", "lupakan …"); batas 3.000 karakter.\n\n',
@@ -50,7 +51,7 @@ export function apply(rows) {
     const bak = r.kind === 'user' ? `${r.file}.bak` : path.join(path.dirname(r.file), '..', '..', '.claude', 'state', 'MEMORY.md.bak');
     fs.mkdirSync(path.dirname(bak), { recursive: true });
     fs.copyFileSync(r.file, bak);
-    fs.writeFileSync(r.file, r.next);
+    writeAtomic(r.file, r.next);
     done.push(r.file);
   }
   return done;

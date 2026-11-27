@@ -12,8 +12,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { loadConfig, readJson, globToRegex } from './lib.mjs';
-import { newTopic, listTopics, closeTopic, activeTopic, findTopics, useTopic, readFm, skillUsagePath, staleTopics, junkTopics } from './topics.mjs';
+import { loadConfig, readJson } from './lib.mjs';
+import { newTopic, listTopics, closeTopic, activeTopic, findTopics, useTopic, readFm, skillUsagePath, staleTopics, junkTopics, misnamedTopics } from './topics.mjs';
 import * as memory from './memory.mjs';
 import * as knowledge from './knowledge.mjs';
 import * as remap from './remap.mjs';
@@ -148,7 +148,7 @@ switch (cmd) {
     break;
   }
   case 'update': {
-    const home = process.env.HARNESS_HOME || path.join(process.env.USERPROFILE || process.env.HOME || '', '.harness');
+    const home = process.env.HARNESS_HOME || path.join(os.homedir(), '.harness');
     const inst = readJson(path.join(home, 'installer.json'), null);
     const script = inst && inst.path ? path.join(inst.path, 'scripts', 'harness-update.mjs') : null;
     if (!script || !fs.existsSync(script)) die('lokasi installer belum tercatat (~/.harness/installer.json). Jalankan sekali: node <agent-harness>/install.mjs <root> --update', 2);
@@ -192,8 +192,6 @@ switch (cmd) {
         if (other.length) add('service di luar git-auth', 'INFO', other.map((r) => `${r.svc}: ${r.status}`).join(' | ').slice(0, 300));
       }
     }
-    const prot = [cfg.root_branch, ...cfg.protected_branches].map(globToRegex);
-    ok('root_branch dilindungi', prot.some((re) => re.test(cfg.root_branch)), '');
     if (cfg.services.length) {
       const kn = cfg.services.map((s) => knowledge.serviceStatus(root, cfg, s));
       knowledge.writeCache(root, kn);
@@ -205,10 +203,13 @@ switch (cmd) {
     const legacyMem = memory.plan(root, cfg).filter((r) => r.legacy).map((r) => (r.kind === 'user' ? '~/.harness/USER.md' : 'docs/memory/MEMORY.md'));
     if (legacyMem.length) add('format memori', 'PERINGATAN', `${legacyMem.join(', ')} masih format 1.x (§) → node .claude/hooks/harness.mjs memori --rapikan`);
     const junk = junkTopics(root);
-    if (junk.length) add('topik sampah', 'INFO', `${junk.map((t) => t.rel).join(', ')} → periksa lalu hapus sendiri`.slice(0, 400));
+    if (junk.length) add('topik kosong', 'INFO', `${junk.map((t) => t.rel).join(', ')} → tanpa berkas berisi, boleh dihapus`.slice(0, 400));
+    const misnamed = misnamedTopics(root);
+    if (misnamed.length) add('topik salah nama', 'INFO', `${misnamed.map((t) => t.rel).join(', ')} → berisi berkas; ganti nama sesuai isinya (git mv), jangan dihapus`.slice(0, 400));
     const leftovers = ['docs/work', 'docs/topik', 'docs/reports', '.harness'].filter((p) => fs.existsSync(path.join(root, p)));
     if (leftovers.length) add('sisa 1.x', 'INFO', `${leftovers.join(', ')} → skill remap`);
-    console.log(table(['cek', 'hasil', 'catatan'], rows));
+    // --json: dibaca harness-update.mjs (tanpa mencocokkan teks tabel).
+    console.log(flag('json') ? JSON.stringify(rows.map(([cek, hasil, catatan]) => ({ cek, hasil, catatan }))) : table(['cek', 'hasil', 'catatan'], rows));
     if (rows.some((r) => r[1] === 'GAGAL')) process.exit(2);
     break;
   }

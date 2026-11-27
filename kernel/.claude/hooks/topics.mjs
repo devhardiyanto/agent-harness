@@ -1,9 +1,10 @@
 // Satu folder per topik: docs/topics/YYYY-MM-DD/<slug>/{topic.md, plan.md, summary.md, lampiran/}. Status di frontmatter topic.md.
 import fs from 'node:fs';
 import path from 'node:path';
-import { slugify, today } from './lib.mjs';
+import { slugify, today, writeAtomic } from './lib.mjs';
 
 export const TOPICS_DIR = 'docs/topics';
+const DONE_1X = new Set(['closed', 'promoted', 'merged', 'done']);
 const DATE_DIR = /^\d{4}-\d{2}-\d{2}$/;
 
 export function readFm(text) {
@@ -36,8 +37,11 @@ export function listTopics(root) {
       try { text = fs.readFileSync(f, 'utf8'); mtime = fs.statSync(f).mtimeMs; } catch { /* folder tanpa topic.md */ }
       const fm = readFm(text);
       const title = (/^#\s+(.+)$/m.exec(text) || [])[1] || s.name;
-      // promoted (1.x) = selesai; tanpa frontmatter status = hasil impor remap, bukan topik terbuka.
-      const status = fm.status === 'promoted' ? 'closed' : fm.status || 'impor';
+      // Status 1.x selesai (promoted, merged, done) dihitung ditutup, juga bila hanya tercatat di summary.md.
+      // Tanpa status sama sekali = hasil impor remap, bukan topik terbuka.
+      let st = fm.status;
+      if (!st) { try { st = readFm(fs.readFileSync(path.join(dir, 'summary.md'), 'utf8')).status; } catch { /* tanpa summary */ } }
+      const status = DONE_1X.has(st) ? 'closed' : st === 'open' || st === 'closed' ? st : fm.status || 'impor';
       out.push({ date: day, slug: s.name, id: `${day}/${s.name}`, dir, rel: `${TOPICS_DIR}/${day}/${s.name}`, status, ref: fm.ref || '', title, mtime });
     }
   }
@@ -50,12 +54,14 @@ export function staleTopics(root, days = 7, now = Date.now()) {
   return listTopics(root).filter((t) => t.status === 'open' && now - Math.max(t.mtime, mt(path.join(t.dir, 'plan.md'))) > days * 864e5);
 }
 
-// Folder topik tanpa isi berarti: "tanpa-nama", slug dari path (c-users-…-appdata-…), atau hanya dotfile.
+// Folder topik tanpa berkas berisi (kosong, hanya dotfile, atau subfolder kosong) = sampah.
+const hasFiles = (dir) => { try { return fs.readdirSync(dir, { withFileTypes: true }).some((e) => !e.name.startsWith('.') && (e.isFile() || (e.isDirectory() && hasFiles(path.join(dir, e.name))))); } catch { return false; } };
 export function junkTopics(root) {
-  return listTopics(root).filter((t) => {
-    if (t.slug === 'tanpa-nama' || /^[a-z]-users-|appdata/.test(t.slug)) return true;
-    try { return !fs.readdirSync(t.dir).some((f) => !f.startsWith('.')); } catch { return false; }
-  });
+  return listTopics(root).filter((t) => !hasFiles(t.dir));
+}
+// Topik berisi tapi bernama dari path (c-users-…-appdata-…) atau "tanpa-nama": perlu ganti nama, bukan dihapus.
+export function misnamedTopics(root) {
+  return listTopics(root).filter((t) => hasFiles(t.dir) && (t.slug === 'tanpa-nama' || /^[a-z]-users-|-appdata-/.test(t.slug)));
 }
 
 // Topik aktif = topik terbuka yang topic.md-nya paling baru diubah.
@@ -125,7 +131,7 @@ export function closeTopic(root, q, { date = today() } = {}) {
   const idx = path.join(root, 'docs', 'memory', 'INDEX.md');
   fs.mkdirSync(path.dirname(idx), { recursive: true });
   let cur = ''; try { cur = fs.readFileSync(idx, 'utf8'); } catch { cur = '# Indeks topik selesai\n\n| ditutup | topik | judul |\n|---|---|---|\n'; }
-  if (!cur.includes(`| ${t.rel} |`)) fs.writeFileSync(idx, `${cur.replace(/\n*$/, '\n')}| ${date} | ${t.rel} | ${t.title.replace(/\|/g, '/')} |\n`);
+  if (!cur.includes(`| ${t.rel} |`)) writeAtomic(idx, `${cur.replace(/\n*$/, '\n')}| ${date} | ${t.rel} | ${t.title.replace(/\|/g, '/')} |\n`);
   return { ok: true, topic: t, summary: fs.existsSync(path.join(t.dir, 'summary.md')) };
 }
 
@@ -161,7 +167,7 @@ function recordSkillUse(root, names, date = today()) {
   const f = skillUsagePath(root);
   let u = {}; try { u = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { /* belum ada */ }
   for (const n of names) u[n.replace(/^.*:/, '')] = date;
-  try { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(u)); } catch { /* cache saja */ }
+  try { writeAtomic(f, JSON.stringify(u)); } catch { /* cache saja */ }
 }
 export function sessionTopic(root, payload = {}) {
   const tp = payload.transcript_path;
@@ -197,8 +203,8 @@ export function sessionTopic(root, payload = {}) {
         st.svcs = [...svcs];
         st.offset += end + 1;
         st.lead = false;
-        try { fs.mkdirSync(stateDir, { recursive: true }); fs.writeFileSync(sf, JSON.stringify(st)); } catch { /* cache saja */ }
-      } else if (len === READ_MAX) { st.offset += len; try { fs.writeFileSync(sf, JSON.stringify(st)); } catch { /* abaikan */ } } // satu baris > READ_MAX
+        try { writeAtomic(sf, JSON.stringify(st)); } catch { /* cache saja */ }
+      } else if (len === READ_MAX) { st.offset += len; st.lead = buf[len - 1] !== 10; try { writeAtomic(sf, JSON.stringify(st)); } catch { /* abaikan */ } } // satu baris > READ_MAX
     } finally { fs.closeSync(fd); }
   }
   if (!st.id) return null;
