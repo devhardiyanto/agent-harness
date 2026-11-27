@@ -387,7 +387,7 @@ try { setInstaller(HERE); } catch { /* opsional */ }
 // Profil user (per orang, di luar repo) diimpor CLAUDE.md; dibuat kosong sekali agar impor tidak menunjuk berkas yang hilang.
 try {
   const userMd = path.join(process.env.HARNESS_HOME || path.join(os.homedir(), '.harness'), 'USER.md');
-  if (!DRY && !fs.existsSync(userMd)) { fs.mkdirSync(path.dirname(userMd), { recursive: true }); fs.writeFileSync(userMd, '# Profil user\n\nCara kerja dan preferensi user (bahasa, gaya jawab, format). Satu baris per fakta, diawali "- ". Ditulis agent lewat skill `belajar`; batas 1.500 karakter.\n\n'); }
+  if (!DRY && !fs.existsSync(userMd)) { fs.mkdirSync(path.dirname(userMd), { recursive: true }); fs.writeFileSync(userMd, '# Profil user\n\nCara kerja dan preferensi user (bahasa, gaya jawab, format). Satu baris per fakta, diawali "- ". Ditulis agent lewat skill `belajar` ("ingat user: …"); batas 1.500 karakter.\n\n'); }
 } catch { /* opsional */ }
 try { addProject(target); } catch (e) { warnings.push(`gagal mendaftarkan project di ~/.harness: ${e.message}`); }
 log('\n## Selesai');

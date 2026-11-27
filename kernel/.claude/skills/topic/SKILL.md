@@ -10,6 +10,7 @@ argument-hint: "[judul | selesai]"
 2. `node .claude/hooks/harness.mjs topic new "<judul pendek dari tujuan user>"` (tambah `--ref <topik lama>` bila merujuk). Judul ≤ 6 kata, tanpa kata kerja pengisi.
 3. Isi `topic.md`: `## Tujuan` (kalimat user, dirapikan) dan `## Lingkup` (dibahas / di luar lingkup, dari detail yang user sebut saja).
 4. Balas: path topik + pertanyaan klarifikasi bila tujuan belum jelas (maks 3). Lalu mulai analisa.
+5. `node .claude/hooks/harness.mjs topic list --stale 7`. Ada hasil → satu baris di akhir balasan: "Topik terbuka > 7 hari: <slug>, … Tutup?" (maks 5 slug). User setuju → tutup tiap topik dengan bagian "Tutup" mode ringkas: `summary.md` dari isi `topic.md`/`plan.md` (tanpa bertanya), `topic close`, catatan menunggu merge bila ada branch, satu kali `belajar` di akhir untuk semuanya; tanpa `summarize` per topik. Tidak dijawab → jangan tanya lagi di sesi ini.
 
 ## Lanjut pekerjaan lama (user bicara biasa, tanpa slug)
 Contoh: "lanjut topik feedback microservices-go bagian booking_service".

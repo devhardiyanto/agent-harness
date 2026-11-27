@@ -1,6 +1,6 @@
 ---
 name: belajar
-description: Review belajar dari sesi ini — simpan fakta awet ke memori, perbaiki atau buat skill dari cara kerja yang berhasil dan koreksi user. Pakai saat menutup topik, sebelum /compact atau /summarize, dan langsung setelah user mengoreksi cara kerja agent.
+description: Review belajar dari sesi ini — simpan fakta awet ke memori, perbaiki atau buat skill dari cara kerja yang berhasil dan koreksi user. Pakai saat menutup topik, sebelum /compact atau /summarize, langsung setelah user mengoreksi cara kerja agent, dan saat user menulis "ingat: …", "ingat user: …", atau "lupakan …".
 ---
 # Belajar dari sesi
 
@@ -15,6 +15,8 @@ Tinjau percakapan sesi ini. Simpan hanya yang **ada buktinya** di percakapan (pe
 | fakta kode satu service | `docs/knowledge/<svc>/` (skill `bootstrap`) |
 
 ## 2. Memori
+- Pemicu langsung: "ingat: <fakta>" → `MEMORY.md`, "ingat user: <fakta>" → `USER.md`, "lupakan <kata>" → hapus baris yang cocok (lebih dari satu → tanya). Tidak perlu meninjau sesi; tulis lalu balas satu baris.
+- Berkas masih format 1.x (entri dipisah `§`) → `node .claude/hooks/harness.mjs memori --rapikan` dulu (aturan B-07).
 - Satu baris per fakta, diawali `- `. Tanpa tanggal, tanpa cerita.
 - Fakta lama yang salah: **ubah di tempat**, jangan tambah baris "UPDATE".
 - Batas `MEMORY.md` 3.000 dan `USER.md` 1.500 karakter (guard menolak bila lewat). Penuh: gabungkan atau hapus baris usang dulu.
