@@ -1,6 +1,6 @@
 # agent-harness
 
-Harness untuk Claude Code di root project multi-repo (`source-code/<repo git>`). Versi **2.1.2**.
+Harness untuk Claude Code di root project multi-repo (`source-code/<repo git>`). Versi **2.1.3**.
 
 > Sudah memakai versi sebelumnya? Update (bagian 13), lalu ikuti [13.4 langkah setelah update](#134-sudah-pakai-versi-sebelumnya-langkah-setelah-update).
 
@@ -419,7 +419,7 @@ Alurnya: pindah ke `main` bila bersih → `pull --ff-only` → update di tempat 
 - Hanya berkas milik harness yang diganti; rule/agent buatan kamu di `.claude/` dibiarkan.
 - Berkas harness usang dibuang menurut `.claude/harness.manifest.json`.
 - `harness.config.json` digabung: nilai kamu menang, kunci baru ditambahkan, kunci 1.x dibuang.
-- `settings.json`: izin dan kunci milik kamu dibawa; hook kustom dilaporkan, tidak dibawa.
+- `settings.json`: `model`, `effortLevel`, `outputStyle`, atribusi, statusLine kustom, dan semua `permissions` milik kamu dibawa; hook kustom dilaporkan, tidak dibawa.
 - Versi sama → tidak berubah; versi terpasang lebih baru → ditolak (`--force` untuk keduanya).
 - Pohon kotor → berhenti; commit dulu atau `--allow-dirty`.
 

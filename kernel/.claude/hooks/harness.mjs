@@ -140,7 +140,7 @@ switch (cmd) {
     if (!legacy.length) { console.log('\nTidak ada yang perlu dirapikan.'); break; }
     if (!flag('apply')) {
       for (const r of legacy) console.log(`\n### ${r.file} (setelah rapikan)\n${r.next.split('\n').slice(0, 12).join('\n')}${r.next.split('\n').length > 12 ? '\n…' : ''}`);
-      console.log('\nTerapkan: node .claude/hooks/harness.mjs memori --rapikan --apply (USER.md dicadangkan ke USER.md.bak)');
+      console.log('\nTerapkan: node .claude/hooks/harness.mjs memori --rapikan --apply (cadangan: ~/.harness/USER.md.bak, .claude/state/MEMORY.md.bak)');
       break;
     }
     for (const f of memory.apply(rows)) console.log(`dirapikan: ${f}`);
@@ -200,6 +200,8 @@ switch (cmd) {
       const miss = kn.filter((r) => r.state === 'belum ada').map((r) => r.svc); const old = kn.filter((r) => r.state.startsWith('usang')).map((r) => r.svc);
       add('knowledge service', miss.length || old.length ? 'INFO' : 'OK', [miss.length ? `belum ada: ${miss.join(', ')}` : '', old.length ? `usang: ${old.join(', ')}` : ''].filter(Boolean).join(' · ').slice(0, 300));
     }
+    const badRe = cfg.deny_commands.filter((re) => { try { new RegExp(re); return false; } catch { return true; } });
+    if (badRe.length) add('deny_commands valid', 'PERINGATAN', `pola rusak (dilewati guard): ${badRe.join(', ')}`);
     const legacyMem = memory.plan(root, cfg).filter((r) => r.legacy).map((r) => (r.kind === 'user' ? '~/.harness/USER.md' : 'docs/memory/MEMORY.md'));
     if (legacyMem.length) add('format memori', 'PERINGATAN', `${legacyMem.join(', ')} masih format 1.x (§) → node .claude/hooks/harness.mjs memori --rapikan`);
     const junk = junkTopics(root);

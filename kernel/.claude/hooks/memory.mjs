@@ -19,7 +19,7 @@ export function entries(text) {
   const t = String(text || '').replace(/<!--[\s\S]*?-->/g, '');
   if (isLegacy(t)) {
     return t.split(/^\s*§\s*$/m)
-      .map((b) => b.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !/^#/.test(l)).map((l) => l.replace(/^[-*]\s+/, '')).join(' ').trim())
+      .map((b) => b.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !/^#{1,6}\s/.test(l)).map((l) => l.replace(/^[-*]\s+/, '')).join(' ').trim())
       .filter(Boolean);
   }
   return t.split(/\r?\n/).filter((l) => /^-\s/.test(l)).map((l) => l.replace(/^-\s+/, '').trim()).filter(Boolean);
@@ -30,7 +30,7 @@ export function tidy(text, kind) {
   return { list, text: HEADER[kind] + list.map((e) => `- ${e}`).join('\n') + (list.length ? '\n' : '') };
 }
 
-// Rencana/terapkan untuk kedua berkas. Cadangan: MEMORY.md ada di git; USER.md di luar repo → USER.md.bak.
+// Rencana/terapkan untuk kedua berkas. Cadangan: ~/.harness/USER.md.bak dan .claude/state/MEMORY.md.bak.
 export function plan(root, cfg, env = process.env) {
   const rows = [];
   for (const [kind, file, limit] of [['project', projectMdPath(root), cfg.learn.memory_chars], ['user', userMdPath(env), cfg.learn.user_chars]]) {
@@ -46,7 +46,10 @@ export function apply(rows) {
   const done = [];
   for (const r of rows) {
     if (!r.legacy) continue;
-    if (r.kind === 'user') fs.copyFileSync(r.file, `${r.file}.bak`);
+    // Cadangan: USER.md di sebelahnya; MEMORY.md di .claude/state/ (tidak di-commit, tidak dimuat sesi).
+    const bak = r.kind === 'user' ? `${r.file}.bak` : path.join(path.dirname(r.file), '..', '..', '.claude', 'state', 'MEMORY.md.bak');
+    fs.mkdirSync(path.dirname(bak), { recursive: true });
+    fs.copyFileSync(r.file, bak);
     fs.writeFileSync(r.file, r.next);
     done.push(r.file);
   }

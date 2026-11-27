@@ -512,3 +512,66 @@ test('2.1.2: memori format 1.x dirapikan, pemicu ingat/lupakan, status topik imp
   assert.match(rd(root, 'docs/topics/2026-11-20/lama-tanpa-fm/topic.md'), /^---\nstatus: closed/);
   assert.match(rd(root, '.claude/skills/topic/SKILL.md'), /topic list --stale 7/);
 });
+
+test('2.1.3: guard per segmen (tabel perintah)', async () => {
+  const { evaluateBash, nativePath, segments } = await import('../kernel/.claude/hooks/guard.mjs');
+  const { loadConfig } = await import('../kernel/.claude/hooks/lib.mjs');
+  const root = project({ v1: true });
+  const cfg = loadConfig(root);
+  const ok = (command, cwd = root) => evaluateBash(root, cfg, { cwd, tool_input: { command } }).ok;
+  const BLOCK = [
+    'pushd source-code/api && git commit -m x', '(cd source-code/api; git commit -m x)', 'cd "source-code/api" && git commit -m x',
+    'cd source-code/api\ngit commit -m x', 'git -C source-code/api commit -m x',
+    'git push origin :main', "git push origin 'main'", 'git push origin feature main', 'git push origin --all', 'git push -uf origin feat', 'git push origin +feat',
+    'echo "$(gh auth token)"', 'echo $GH_TOKEN', 'rm -rf ./', 'rm -rf ~/', 'rm -rf /*', 'rm --recursive --force /',
+    'echo "- fakta" >> docs/memory/MEMORY.md', 'git clean -fd', 'git branch -D x', 'git commit --no-verify -m x',
+  ];
+  const ALLOW = [
+    'git push origin feat && rm -f tmp.txt', 'git push origin feat && npm i --force', 'git log --grep push', 'git stash push',
+    'cd source-code/api && git log --grep commit', 'git commit -m "catatan"', 'GH_TOKEN="$(gh auth token --user a)" gh pr create -R a/b',
+    'git status 2>&1 | head', 'rm -rf node_modules', 'cat docs/memory/MEMORY.md',
+  ];
+  for (const c of BLOCK) assert.equal(ok(c), false, `harus diblokir: ${c}`);
+  for (const c of ALLOW) assert.equal(ok(c), true, `harus boleh: ${c}`);
+  assert.equal(evaluateBash(root, { ...cfg, deny_commands: ['(['] }, { cwd: root, tool_input: { command: 'ls' } }).ok, true, 'pola deny rusak tidak memblokir semua perintah');
+  assert.equal(nativePath('/c/proj/x', 'win32'), 'C:/proj/x');
+  assert.equal(nativePath('/c/proj/x', 'linux'), '/c/proj/x');
+  assert.deepEqual(segments('a && b; c | d 2>&1\n(e)'), ['a', 'b', 'c', 'd 2>&1', 'e']);
+});
+
+test('2.1.3: memori, remap, installer, secret example', async () => {
+  const mem = await import('../kernel/.claude/hooks/memory.mjs');
+  assert.deepEqual(mem.entries('<!-- x §-->\nsatu\n#123 harus dicek\n§\n# Judul\ndua\n§\n'), ['satu #123 harus dicek', 'dua'], '#123 tidak hilang, heading markdown dibuang');
+  const root = project({ v1: true });
+  wr(root, 'docs/memory/MEMORY.md', 'a\n§\nb\n');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'hh-'));
+  spawnSync('node', [path.join(root, '.claude/hooks/harness.mjs'), 'memori', '--rapikan', '--apply'], { cwd: root, env: { ...process.env, CLAUDE_PROJECT_DIR: root, HARNESS_HOME: home }, encoding: 'utf8' });
+  assert.equal(rd(root, '.claude/state/MEMORY.md.bak'), 'a\n§\nb\n', 'MEMORY.md dicadangkan');
+  // remap: topik 2.x terbuka tidak dipindah; README.md di docs/topics bukan topik
+  wr(root, 'docs/topics/2025-01-01/masih-jalan/topic.md', '---\nstatus: open\n---\n# x\n');
+  wr(root, 'docs/topics/2025-01-01/sudah/topic.md', '---\nstatus: closed\n---\n# y\n');
+  wr(root, 'docs/topics/README.md', '# info');
+  const p = remap.plan(root, { remap: { legacy_months: 2 } });
+  const srcs = (p.moves || p.rows || p).map((m) => m.src || m.from).join(' ');
+  assert.doesNotMatch(srcs, /masih-jalan|README/); assert.match(srcs, /sudah/);
+  // berkas contoh .env boleh ditulis
+  assert.equal(evaluateEdit(root, { tool_input: { file_path: '.env.production.example', content: 'X=' } }).ok, true);
+  assert.equal(evaluateEdit(root, { tool_input: { file_path: '.env.production', content: 'X=' } }).ok, false);
+});
+
+test('2.1.3: install --update membawa setelan user', () => {
+  const root = project({ v1: true });
+  const st = jr(root, '.claude/settings.json');
+  st.model = 'claude-sonnet-5-5'; st.permissions = { ...(st.permissions || {}), defaultMode: 'acceptEdits' };
+  st.hooks.PostToolUse = [{ hooks: [{ type: 'command', command: 'node', args: ['scripts/x.mjs'] }] }];
+  wr(root, '.claude/settings.json', JSON.stringify(st, null, 2));
+  wr(root, '.claude/rules/svc-shared.md', '# aturan bersama');
+  commitAll(root, 'setelan user');
+  const r = install(root, '--update', '--force', '--yes');
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  const after = jr(root, '.claude/settings.json');
+  assert.equal(after.model, 'claude-sonnet-5-5');
+  assert.equal(after.permissions.defaultMode, 'acceptEdits');
+  assert.match(r.stdout, /hook kustom/);
+  assert.ok(fs.existsSync(path.join(root, '.claude/rules/svc-shared.md')), 'rule svc-* buatan user tidak dibuang');
+});

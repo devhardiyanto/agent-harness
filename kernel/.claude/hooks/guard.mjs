@@ -6,13 +6,58 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { readStdinJson, projectRoot, loadConfig, globToRegex, posix, deny, SECRET_FILE, isMain } from './lib.mjs';
 
-// `git -C <dir>` atau `cd <dir> &&|;` di awal menentukan repo tempat git jalan.
-export function gitDir(flat, cwd) {
-  const strip = (d) => d.replace(/^["']|["']$/g, '');
-  const c = /\bgit\s+-C\s+(\S+)/.exec(flat);
-  if (c) return path.resolve(cwd, strip(c[1]));
-  const d = /^\s*cd\s+(\S+)\s*(?:&&|;)/.exec(flat);
-  return d ? path.resolve(cwd, strip(d[1])) : cwd;
+// Path dari perintah shell ke path OS: Git Bash `/c/x` → `C:/x`, `~` → home.
+export function nativePath(p, platform = process.platform) {
+  let x = String(p);
+  if (x === '~' || x.startsWith('~/')) x = path.join(os.homedir(), x.slice(1));
+  else if (/^\$\{?HOME\}?(\/|$)/.test(x)) x = path.join(os.homedir(), x.replace(/^\$\{?HOME\}?/, ''));
+  if (platform === 'win32') { const m = /^\/([a-zA-Z])(\/.*)?$/.exec(x); if (m) x = `${m[1].toUpperCase()}:${m[2] || '/'}`; }
+  return x;
+}
+
+// Pecah perintah menjadi segmen (&&, ||, ;, |, &, baris baru, subshell), menghormati kutip. `2>&1` dan `&>` bukan pemisah.
+export function segments(cmd) {
+  const out = []; let cur = ''; let q = null;
+  const s = String(cmd);
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) { cur += c; if (c === q) q = null; else if (c === '\\' && q === '"' && i + 1 < s.length) cur += s[++i]; continue; }
+    if (c === '"' || c === "'") { q = c; cur += c; continue; }
+    if (c === '\\' && i + 1 < s.length) { cur += c + s[++i]; continue; }
+    const amp = c === '&' && (s[i - 1] === '>' || s[i + 1] === '>');
+    if (!amp && (c === ';' || c === '\n' || c === '|' || c === '&' || c === '(' || c === ')')) { if (cur.trim()) out.push(cur.trim()); cur = ''; continue; }
+    cur += c;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+// Kata dalam satu segmen, kutip dibuang. Awalan VAR=x, sudo, command, exec, time dilewati.
+export function words(seg) {
+  const out = []; let cur = ''; let q = null; let has = false;
+  for (let i = 0; i < seg.length; i++) {
+    const c = seg[i];
+    if (q) { if (c === q) q = null; else cur += c; continue; }
+    if (c === '"' || c === "'") { q = c; has = true; continue; }
+    if (/\s/.test(c)) { if (cur || has) out.push(cur); cur = ''; has = false; continue; }
+    cur += c;
+  }
+  if (cur || has) out.push(cur);
+  while (out.length && (/^[A-Za-z_]\w*=/.test(out[0]) || ['sudo', 'command', 'exec', 'time', 'nohup'].includes(out[0]))) out.shift();
+  return out;
+}
+
+// Perintah git di satu segmen: direktori kerja (-C), subcommand, argumen.
+function gitCall(w, cwd, platform) {
+  if (w[0] !== 'git') return null;
+  let dir = cwd; let i = 1;
+  for (; i < w.length; i++) {
+    if (w[i] === '-C') { dir = path.resolve(dir, nativePath(w[++i] || '.', platform)); continue; }
+    if (w[i] === '-c' || w[i] === '--git-dir' || w[i] === '--work-tree') { i++; continue; }
+    if (w[i].startsWith('-')) continue;
+    break;
+  }
+  return { dir, sub: w[i] || '', args: w.slice(i + 1) };
 }
 
 function currentBranch(cwd) {
@@ -20,32 +65,65 @@ function currentBranch(cwd) {
   return r.status === 0 ? r.stdout.trim() : null;
 }
 const isProtected = (cfg, b) => !!b && [cfg.root_branch, ...cfg.protected_branches].some((g) => globToRegex(g).test(b));
+const shortFlag = (a, ch) => /^-[a-zA-Z]+$/.test(a) && a.includes(ch);
+const DANGER_RM = new Set(['/', '/*', '~', '~/', '~/*', '$HOME', '$HOME/', '$HOME/*', '${HOME}', '..', '../', '../*', '.', './', './*', '*']);
+const MEMORY_PATH = /(^|[\\/])(docs[\\/]+memory[\\/]+MEMORY\.md|\.harness[\\/]+USER\.md)$/i;
 
-export function evaluateBash(root, cfg, payload) {
-  const cmd = String(payload.tool_input?.command || '');
-  const cwd = payload.cwd || root;
-  const flat = cmd.replace(/\s+/g, ' ');
-  const fail = (reason) => ({ ok: false, reason });
-
-  for (const re of cfg.deny_commands) if (new RegExp(re, 'i').test(flat)) return fail(`perintah cocok dengan daftar larangan (${re}). Lakukan manual.`);
-  if (/\bgit\s+(-C\s+\S+\s+)?reset\s+--hard\b/.test(flat) || /\bgit\s+(-C\s+\S+\s+)?clean\s+-[a-z]*f/.test(flat) || /\bgit\s+(-C\s+\S+\s+)?branch\s+-D\b/.test(flat)) return fail('git reset --hard / clean -f / branch -D dilarang. Minta user.');
-  if (/\brm\s+(-[a-zA-Z]*[rf][a-zA-Z]*\s+)+(\/|~|\$HOME|\.\.|\*|\.)(\s|$)/.test(flat)) return fail('rm rekursif pada root/home/parent/wildcard dilarang.');
-  if (/\b(curl|wget)\b[^|;]*\|\s*(sudo\s+)?(ba|z)?sh\b/.test(flat)) return fail('pipe unduhan langsung ke shell dilarang.');
-  if (/--no-verify\b/.test(flat) && /\bgit\b/.test(flat)) return fail('--no-verify dilarang.');
-
-  if (/\bgit\b[^;&|]*\bpush\b/.test(flat)) {
-    if (/(--force\b|--force-with-lease|\s-f(\s|$)|\s\+\S)/.test(flat.replace(/git\s+push/, 'git push '))) return fail('force push dilarang.');
-    const t = /push\s+(?:-\S+\s+)*\S+\s+(?:\S+:)?(\S+)/.exec(flat);
-    const named = t ? t[1].replace(/^refs\/heads\//, '') : null;
-    if (named && isProtected(cfg, named)) return fail(`push langsung ke ${named} dilarang. Push branch kerja lalu buka PR.`);
-    if (!named || named === 'HEAD') { const b = currentBranch(gitDir(flat, cwd)); if (isProtected(cfg, b)) return fail(`sedang di ${b}; push dari branch ini dilarang. Buat branch kerja.`); }
+function checkGit(g, cfg, root, flagsAll) {
+  const { dir, sub, args } = g;
+  if (args.includes('--no-verify') || flagsAll.includes('--no-verify')) return 'git --no-verify dilarang.';
+  if (sub === 'reset' && args.includes('--hard')) return 'git reset --hard dilarang. Minta user.';
+  if (sub === 'clean' && args.some((a) => a === '--force' || shortFlag(a, 'f'))) return 'git clean -f dilarang. Minta user.';
+  if (sub === 'branch' && (args.some((a) => shortFlag(a, 'D')) || (args.includes('--delete') && args.includes('--force')))) return 'git branch -D dilarang. Minta user.';
+  if (sub === 'push') {
+    if (args.some((a) => a === '--force' || a.startsWith('--force-with-lease') || a === '--force-if-includes' || shortFlag(a, 'f'))) return 'force push dilarang.';
+    if (args.includes('--all') || args.includes('--mirror')) return 'push semua branch (--all/--mirror) dilarang. Push branch kerja saja.';
+    const pos = []; for (let i = 0; i < args.length; i++) { const a = args[i]; if (a === '-o' || a === '--push-option' || a === '--repo') { i++; continue; } if (!a.startsWith('-')) pos.push(a); }
+    const refs = pos.slice(1);
+    if (refs.some((r) => r.startsWith('+'))) return 'force push (+refspec) dilarang.';
+    for (const r of refs) {
+      const dst = (r.includes(':') ? r.slice(r.indexOf(':') + 1) : r).replace(/^refs\/heads\//, '');
+      if (dst === 'HEAD' || !dst) continue;
+      if (isProtected(cfg, dst)) return r.startsWith(':') ? `menghapus branch ${dst} di remote dilarang.` : `push langsung ke ${dst} dilarang. Push branch kerja lalu buka PR.`;
+    }
+    if (!refs.length || refs.includes('HEAD')) {
+      const b = currentBranch(dir);
+      if (isProtected(cfg, b)) return `sedang di ${b}; push dari branch ini dilarang. Buat branch kerja.`;
+    }
   }
-  if (/\bgit\b[^;&|]*\bcommit\b/.test(flat)) {
-    const dir = gitDir(flat, cwd);
+  if (sub === 'commit') {
     // Root (catatan di docs/) boleh commit di root_branch; yang dilindungi repo service.
     const isRoot = path.resolve(dir) === path.resolve(root);
     const b = currentBranch(dir);
-    if (!isRoot && isProtected(cfg, b)) return fail(`commit langsung di ${b} dilarang. Buat branch kerja dulu.`);
+    if (!isRoot && isProtected(cfg, b)) return `commit langsung di ${b} dilarang. Buat branch kerja dulu.`;
+  }
+  return null;
+}
+
+export function evaluateBash(root, cfg, payload, { platform = process.platform } = {}) {
+  const cmd = String(payload.tool_input?.command || '');
+  let cwd = payload.cwd || root;
+  const flat = cmd.replace(/\s+/g, ' ');
+  const fail = (reason) => ({ ok: false, reason });
+
+  for (const re of cfg.deny_commands) {
+    let rx; try { rx = new RegExp(re, 'i'); } catch { continue; } // pola rusak dilewati (doctor melaporkannya)
+    if (rx.test(flat)) return fail(`perintah cocok dengan daftar larangan (${re}). Lakukan manual.`);
+  }
+  if (/\b(curl|wget)\b[^|;]*\|\s*(sudo\s+)?(ba|z)?sh\b/.test(flat)) return fail('pipe unduhan langsung ke shell dilarang.');
+
+  for (const seg of segments(cmd)) {
+    const w = words(seg);
+    if (!w.length) continue;
+    if ((w[0] === 'cd' || w[0] === 'pushd') && w[1] && !w[1].startsWith('-')) { cwd = path.resolve(cwd, nativePath(w[1], platform)); continue; }
+    if (w[0] === 'rm') {
+      const flags = w.slice(1).filter((a) => a.startsWith('-'));
+      const rec = flags.some((a) => a === '--recursive' || a === '--force' || shortFlag(a, 'r') || shortFlag(a, 'R') || shortFlag(a, 'f'));
+      if (rec && w.slice(1).some((a) => DANGER_RM.has(a))) return fail('rm rekursif pada root/home/parent/wildcard dilarang.');
+    }
+    if (/(^|\s)(>>?|tee(\s+-a)?|sed\s+-i\S*)\s*\S*/.test(seg) && w.some((a) => MEMORY_PATH.test(a.replace(/^>+/, '')))) return fail('memori ditulis lewat Edit/Write (dicek batas dan isinya), bukan lewat shell.');
+    const g = gitCall(w, cwd, platform);
+    if (g) { const why = checkGit(g, cfg, root, w); if (why) return fail(why); }
   }
 
   const readRe = /\b(cat|less|more|head|tail|bat|grep|rg|awk|sed|cp|source|xxd|strings|base64|type|Get-Content|gc)\b[^|;&]*?(\S*\.env(\.[\w.-]+)?|\S+\.pem|\S*id_(rsa|ed25519)\S*)/g;
@@ -53,8 +131,12 @@ export function evaluateBash(root, cfg, payload) {
     const f = m[2];
     if (SECRET_FILE.test(posix(f).replace(/^.*\//, '')) && !/\.(example|sample|template)$/.test(f)) return fail(`membaca ${f} (berkas rahasia) dilarang.`);
   }
-  if (/\b(printenv|env)\s*(\||$|;)/.test(flat) || /\bcat\s+\/proc\/\S*environ/.test(flat) || /\bgh\s+auth\s+token\b(?![^|;&]*\))/.test(flat.replace(/\$\(\s*gh\s+auth\s+token[^)]*\)/g, '').replace(/\bgh\s+auth\s+token\b[^|;&>]*(?:&>|(?<![0-9])1?>)\s*(?:\/dev\/null|nul)\b/gi, ''))) {
-    return fail('mencetak environment atau token dilarang. Token gh hanya boleh dipakai di dalam $(...) atau dibuang ke /dev/null, mis. GH_TOKEN="$(gh auth token --user <akun>)" gh pr create ..., atau gh auth token --user <akun> >/dev/null && echo ADA');
+  // Token gh boleh hanya sebagai nilai variabel (VAR="$(gh auth token …)") atau dibuang ke /dev/null.
+  const tok = flat
+    .replace(/\b[A-Za-z_]\w*=(["']?)\$\(\s*gh\s+auth\s+token[^)]*\)\1/g, '')
+    .replace(/\bgh\s+auth\s+token\b[^|;&>]*(?:&>|(?<![0-9])1?>)\s*(?:\/dev\/null|nul)\b/gi, '');
+  if (/\b(printenv|env)\s*(\||$|;)/.test(flat) || /\bcat\s+\/proc\/\S*environ/.test(flat) || /\bgh\s+auth\s+token\b/.test(tok) || /\b(echo|printf)\b[^|;&]*\$\{?(GH_TOKEN|GITHUB_TOKEN)\b/.test(flat)) {
+    return fail('mencetak environment atau token dilarang. Token gh hanya boleh jadi nilai variabel, mis. GH_TOKEN="$(gh auth token --user <akun>)" gh pr create ..., atau dibuang: gh auth token --user <akun> >/dev/null && echo ADA');
   }
   return { ok: true };
 }
@@ -92,7 +174,7 @@ export function evaluateEdit(root, payload, cfg = loadConfig(root), env = proces
   const abs = path.resolve(root, raw);
   const rel = posix(path.relative(root, abs));
   const userMd = path.join(env.HARNESS_HOME || path.join(os.homedir(), '.harness'), 'USER.md');
-  const isMemory = rel === 'docs/memory/MEMORY.md' || same(abs, userMd);
+  const isMemory = same(abs, path.join(root, 'docs', 'memory', 'MEMORY.md')) || same(abs, userMd);
   const isSkill = /^\.claude\/skills\/[^/]+\//.test(rel);
   if (isSkill) {
     let owned = [];
