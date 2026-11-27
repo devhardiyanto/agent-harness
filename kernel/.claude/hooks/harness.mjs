@@ -7,12 +7,14 @@
 //   git-auth [--apply] | git-auth which <service> | git-auth repo <service>
 //   knowledge [service]            status pengetahuan service (ada, umur, menunggu merge)
 //   growth [--arsip <skill>]       laporan pertumbuhan: memori, skill hasil belajar, knowledge, koreksi per topik
+//   memori [--rapikan [--apply]]   status memori; rapikan format 1.x (§) ke baris "- "
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { loadConfig, readJson, globToRegex } from './lib.mjs';
-import { newTopic, listTopics, closeTopic, activeTopic, findTopics, useTopic, readFm, skillUsagePath } from './topics.mjs';
+import { newTopic, listTopics, closeTopic, activeTopic, findTopics, useTopic, readFm, skillUsagePath, staleTopics, junkTopics } from './topics.mjs';
+import * as memory from './memory.mjs';
 import * as knowledge from './knowledge.mjs';
 import * as remap from './remap.mjs';
 import * as gitauth from './gitauth.mjs';
@@ -34,7 +36,8 @@ switch (cmd) {
       const r = newTopic(root, words.join(' '), { ref: opt('ref') || '' });
       console.log(`${r.created ? 'dibuat' : 'sudah ada'}: ${r.rel}/`);
     } else if (sub === 'list') {
-      const ts = listTopics(root).filter((t) => !flag('open') || t.status !== 'closed');
+      const stale = opt('stale');
+      const ts = stale !== null ? staleTopics(root, Number(stale) || 7) : listTopics(root).filter((t) => !flag('open') || t.status === 'open');
       console.log(ts.length ? table(['tanggal', 'topik', 'status', 'judul'], ts.map((t) => [t.date, t.slug, t.status, t.title])) : 'belum ada topik');
     } else if (sub === 'close') {
       if (!args[1]) die('pakai: harness.mjs topic close <tanggal/slug>');
@@ -51,7 +54,7 @@ switch (cmd) {
     } else if (sub === 'active') {
       const t = activeTopic(root);
       console.log(t ? `${t.rel}/` : '');
-    } else die('pakai: harness.mjs topic new|list|find|use|close|active');
+    } else die('pakai: harness.mjs topic new|list [--open|--stale <hari>]|find|use|close|active');
     break;
   }
   case 'remap': {
@@ -89,8 +92,8 @@ switch (cmd) {
   }
   case 'growth': {
     const L = cfg.learn;
-    const userMd = path.join(process.env.HARNESS_HOME || path.join(os.homedir(), '.harness'), 'USER.md');
-    const mem = (f, limit) => { let t = ''; try { t = fs.readFileSync(f, 'utf8'); } catch { return '-'; } return `${t.split(/\r?\n/).filter((l) => /^-\s/.test(l)).length} fakta · ${t.length}/${limit} karakter`; };
+    const userMd = memory.userMdPath();
+    const mem = (f, limit) => { let t = ''; try { t = fs.readFileSync(f, 'utf8'); } catch { return '-'; } return `${memory.entries(t).length} fakta · ${t.length}/${limit} karakter${memory.isLegacy(t) ? ' · format 1.x → harness.mjs memori --rapikan' : ''}`; };
     const usage = readJson(skillUsagePath(root), {}) || {};
     const skillsDir = path.join(root, '.claude', 'skills');
     const learned = [];
@@ -123,10 +126,25 @@ switch (cmd) {
       ['profil user', mem(userMd, L.user_chars)],
       ['skill hasil belajar', learned.length ? learned.map((s) => `${s.name} (dipakai ${s.used || 'belum'})`).join(', ') : '0'],
       ['knowledge service', `${kn.filter((r) => r.state === 'segar').length} segar · ${kn.filter((r) => r.state.startsWith('usang')).length} usang · ${kn.filter((r) => r.state === 'belum ada').length} belum ada · ${kn.reduce((n, r) => n + r.pending.length, 0)} menunggu merge`],
-      ['topik', `${topics.length} total · ${closed.length} ditutup`],
+      ['topik', `${topics.length} total · ${topics.filter((t) => t.status === 'open').length} terbuka · ${topics.filter((t) => t.status === 'impor').length} impor (tanpa frontmatter) · ${closed.length} ditutup`],
       ['koreksi user per topik (10 terakhir, baru → lama)', kor.length ? `${kor.join(', ')} · rata-rata ${(kor.reduce((a, b) => a + b, 0) / kor.length).toFixed(1)}` : 'belum ada data (frontmatter koreksi: di summary.md)'],
     ]));
     if (stale.length) console.log(`\nSkill tidak dipakai > ${L.skill_unused_days} hari: ${stale.map((s) => s.name).join(', ')} → arsip (tidak dihapus): harness.mjs growth --arsip <skill>`);
+    break;
+  }
+  case 'memori': {
+    const rows = memory.plan(root, cfg);
+    console.log(table(['berkas', 'status', 'fakta', 'karakter sekarang → setelah rapikan'], rows.map((r) => [r.file, r.state, r.entries ?? '-', r.before === undefined ? '-' : `${r.before} → ${r.after} / ${r.limit}`])));
+    const legacy = rows.filter((r) => r.legacy);
+    if (!flag('rapikan')) { if (legacy.length) console.log('\nFormat 1.x: node .claude/hooks/harness.mjs memori --rapikan'); break; }
+    if (!legacy.length) { console.log('\nTidak ada yang perlu dirapikan.'); break; }
+    if (!flag('apply')) {
+      for (const r of legacy) console.log(`\n### ${r.file} (setelah rapikan)\n${r.next.split('\n').slice(0, 12).join('\n')}${r.next.split('\n').length > 12 ? '\n…' : ''}`);
+      console.log('\nTerapkan: node .claude/hooks/harness.mjs memori --rapikan --apply (USER.md dicadangkan ke USER.md.bak)');
+      break;
+    }
+    for (const f of memory.apply(rows)) console.log(`dirapikan: ${f}`);
+    for (const r of legacy) if (r.after > r.limit) console.log(`peringatan: ${r.file} ${r.after}/${r.limit} karakter → gabungkan atau hapus fakta usang (skill belajar)`);
     break;
   }
   case 'update': {
@@ -182,6 +200,10 @@ switch (cmd) {
       const miss = kn.filter((r) => r.state === 'belum ada').map((r) => r.svc); const old = kn.filter((r) => r.state.startsWith('usang')).map((r) => r.svc);
       add('knowledge service', miss.length || old.length ? 'INFO' : 'OK', [miss.length ? `belum ada: ${miss.join(', ')}` : '', old.length ? `usang: ${old.join(', ')}` : ''].filter(Boolean).join(' · ').slice(0, 300));
     }
+    const legacyMem = memory.plan(root, cfg).filter((r) => r.legacy).map((r) => (r.kind === 'user' ? '~/.harness/USER.md' : 'docs/memory/MEMORY.md'));
+    if (legacyMem.length) add('format memori', 'PERINGATAN', `${legacyMem.join(', ')} masih format 1.x (§) → node .claude/hooks/harness.mjs memori --rapikan`);
+    const junk = junkTopics(root);
+    if (junk.length) add('topik sampah', 'INFO', `${junk.map((t) => t.rel).join(', ')} → periksa lalu hapus sendiri`.slice(0, 400));
     const leftovers = ['docs/work', 'docs/topik', 'docs/reports', '.harness'].filter((p) => fs.existsSync(path.join(root, p)));
     if (leftovers.length) add('sisa 1.x', 'INFO', `${leftovers.join(', ')} → skill remap`);
     console.log(table(['cek', 'hasil', 'catatan'], rows));
@@ -189,6 +211,6 @@ switch (cmd) {
     break;
   }
   default:
-    console.log('harness.mjs doctor | update [--all|--rollback] | topic new|list|find|use|close|active | remap [--apply] | git-auth [--apply] | git-auth which|repo <svc> | knowledge [svc] | growth [--arsip <skill>]');
+    console.log('harness.mjs doctor | update [--all|--rollback] | topic new|list|find|use|close|active | remap [--apply] | git-auth [--apply] | git-auth which|repo <svc> | knowledge [svc] | growth [--arsip <skill>] | memori [--rapikan [--apply]]');
     if (cmd && cmd !== 'help') process.exit(1);
 }

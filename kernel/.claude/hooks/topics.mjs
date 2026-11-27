@@ -36,15 +36,31 @@ export function listTopics(root) {
       try { text = fs.readFileSync(f, 'utf8'); mtime = fs.statSync(f).mtimeMs; } catch { /* folder tanpa topic.md */ }
       const fm = readFm(text);
       const title = (/^#\s+(.+)$/m.exec(text) || [])[1] || s.name;
-      out.push({ date: day, slug: s.name, id: `${day}/${s.name}`, dir, rel: `${TOPICS_DIR}/${day}/${s.name}`, status: fm.status || 'open', ref: fm.ref || '', title, mtime });
+      // promoted (1.x) = selesai; tanpa frontmatter status = hasil impor remap, bukan topik terbuka.
+      const status = fm.status === 'promoted' ? 'closed' : fm.status || 'impor';
+      out.push({ date: day, slug: s.name, id: `${day}/${s.name}`, dir, rel: `${TOPICS_DIR}/${day}/${s.name}`, status, ref: fm.ref || '', title, mtime });
     }
   }
   return out.sort((a, b) => (a.id < b.id ? 1 : -1));
 }
 
+// Topik 2.x terbuka yang topic.md dan plan.md-nya tidak diubah > days hari.
+export function staleTopics(root, days = 7, now = Date.now()) {
+  const mt = (f) => { try { return fs.statSync(f).mtimeMs; } catch { return 0; } };
+  return listTopics(root).filter((t) => t.status === 'open' && now - Math.max(t.mtime, mt(path.join(t.dir, 'plan.md'))) > days * 864e5);
+}
+
+// Folder topik tanpa isi berarti: "tanpa-nama", slug dari path (c-users-…-appdata-…), atau hanya dotfile.
+export function junkTopics(root) {
+  return listTopics(root).filter((t) => {
+    if (t.slug === 'tanpa-nama' || /^[a-z]-users-|appdata/.test(t.slug)) return true;
+    try { return !fs.readdirSync(t.dir).some((f) => !f.startsWith('.')); } catch { return false; }
+  });
+}
+
 // Topik aktif = topik terbuka yang topic.md-nya paling baru diubah.
 export function activeTopic(root) {
-  return listTopics(root).filter((t) => t.status !== 'closed').sort((a, b) => b.mtime - a.mtime)[0] || null;
+  return listTopics(root).filter((t) => t.status === 'open').sort((a, b) => b.mtime - a.mtime)[0] || null;
 }
 
 // Cari topik dari slug, potongan slug, atau "YYYY-MM-DD/slug".
@@ -103,7 +119,7 @@ export function closeTopic(root, q, { date = today() } = {}) {
   const t = findTopic(root, q);
   if (!t) return { ok: false, reason: `topik "${q}" tidak ditemukan atau ambigu` };
   const f = path.join(t.dir, 'topic.md');
-  let text = fs.readFileSync(f, 'utf8');
+  let text = ''; try { text = fs.readFileSync(f, 'utf8'); } catch { text = `# ${t.title}\n`; }
   text = setFm(setFm(text, 'status', 'closed'), 'closed', date);
   fs.writeFileSync(f, text);
   const idx = path.join(root, 'docs', 'memory', 'INDEX.md');

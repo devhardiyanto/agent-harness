@@ -1,6 +1,6 @@
 # agent-harness
 
-Harness untuk Claude Code di root project multi-repo (`source-code/<repo git>`). Versi **2.1.1**.
+Harness untuk Claude Code di root project multi-repo (`source-code/<repo git>`). Versi **2.1.2**.
 
 > Sudah memakai versi sebelumnya? Update (bagian 13), lalu ikuti [13.4 langkah setelah update](#134-sudah-pakai-versi-sebelumnya-langkah-setelah-update).
 
@@ -236,6 +236,8 @@ Agent menjalankan `belajar` sendiri saat:
 
 Yang disimpan hanya yang ada buktinya di percakapan. Bisa juga dipanggil manual: `/belajar`.
 
+Pemicu langsung: *"ingat: …"* (memori project), *"ingat user: …"* (profil), *"lupakan …"* (hapus baris). Memori format 1.x (entri dipisah `§`) dirapikan dulu dengan `node .claude/hooks/harness.mjs memori --rapikan`.
+
 ### 7.3 Skill hasil belajar
 
 Cara kerja berulang jadi `.claude/skills/<nama>/SKILL.md` dengan frontmatter `asal: belajar` dan `dibuat`. Claude Code memuatnya otomatis menurut deskripsi. Skill milik harness tidak boleh diubah agent (dijaga guard lewat `.claude/harness.manifest.json`).
@@ -441,8 +443,9 @@ Update hanya mengganti berkas. Fitur 2.1 (memori, knowledge, skill hasil belajar
 | 2 | buka sesi baru | tutup sesi lama, jalankan `claude` lagi | `CLAUDE.md` baru (import memori) termuat |
 | 3 | cek pemasangan | `/harness:init` | `doctor` tanpa GAGAL; baris knowledge per service terlihat |
 | 4 | cek memori termuat | `/memory` | `docs/memory/MEMORY.md` dan `~/.harness/USER.md` tercantum |
-| 5 | isi profil kamu | *"catat di USER.md: jawab bahasa Indonesia, ringkas, keputusan pakai tabel rekomendasi dulu"* | `USER.md` berisi preferensi; berlaku di semua project |
-| 6 | isi memori project | *"ingat untuk project ini: docs di-commit di main, service X pakai akun Y"* lalu `/belajar` | `MEMORY.md` berisi fakta lintas topik |
+| 4b | (dari 1.x) rapikan memori `§` | `node .claude/hooks/harness.mjs memori --rapikan`, tinjau, lalu `--apply` | satu baris `- ` per fakta; `growth` menghitung benar |
+| 5 | isi profil kamu | *"ingat user: jawab bahasa Indonesia, ringkas, keputusan pakai tabel rekomendasi dulu"* | `USER.md` berisi preferensi; berlaku di semua project |
+| 6 | isi memori project | *"ingat: docs di-commit di main, service X pakai akun Y"* | `MEMORY.md` berisi fakta lintas topik |
 | 7 | knowledge service utama | `node .claude/hooks/harness.mjs knowledge`, lalu untuk yang "belum ada": *"bootstrap <svc> lengkap"* | `docs/knowledge/<svc>/summary.md` + `patterns.md`; status line tanpa `?` |
 | 8 | commit `docs/` | commit sendiri di `main` | memori dan knowledge tersimpan di repo |
 
@@ -453,6 +456,8 @@ Service lain tidak perlu di-bootstrap manual: versi ringkas dibuat otomatis saat
 | kalimat / perintah | yang terjadi |
 |---|---|
 | koreksi langsung: *"jangan begitu, harusnya …"*, *"lain kali …"* | `belajar` jalan di giliran itu; jadi memori atau skill |
+| *"ingat: …"*, *"ingat user: …"*, *"lupakan …"* | tulis/hapus baris di `MEMORY.md` / `USER.md` |
+| *"tutup"* saat agent menawarkan topik terbuka > 7 hari | topik lama ditutup ringkas; summary, catatan merge, `belajar` ikut jalan |
 | *"topik selesai"* | summary, rangkuman sesi, catatan menunggu merge, `belajar` |
 | `/summarize` sebelum `/compact` | rangkuman sesi + `belajar` |
 | *"PR-nya sudah merge"* atau `/bootstrap <svc>` | catatan menunggu merge dipindah jadi fakta knowledge |
@@ -469,7 +474,7 @@ Topik lama dari 2.0 tetap bisa dilanjutkan dengan kalimat biasa (bagian 5.7). To
 |---|---|
 | `doctor` | cek pemasangan, versi, knowledge, sisa 1.x |
 | `topic new "<judul>" [--ref <topik>]` | buat topik |
-| `topic list [--open]` | daftar topik |
+| `topic list [--open] [--stale <hari>]` | daftar topik; `--stale` = terbuka dan tidak disentuh > N hari |
 | `topic find <kata>` | cari di topik, sesi, dan `_legacy` |
 | `topic use <tanggal/slug>` | jadikan aktif (buka lagi bila tertutup) |
 | `topic close <tanggal/slug>` | tutup (butuh `summary.md`) |
@@ -478,7 +483,8 @@ Topik lama dari 2.0 tetap bisa dilanjutkan dengan kalimat biasa (bagian 5.7). To
 | `git-auth [--apply]` | status / pasang akun git per service |
 | `git-auth which <svc>`, `git-auth repo <svc>` | akun dan `owner/repo` service |
 | `knowledge [svc]` | status knowledge dan catatan menunggu merge |
-| `growth [--arsip <skill>]` | laporan memori, skill, knowledge; arsip skill |
+| `growth [--arsip <skill>]` | laporan memori, skill, knowledge, topik (terbuka · impor · ditutup); arsip skill |
+| `memori [--rapikan [--apply]]` | status memori; rapikan format 1.x (`§`) ke baris `- ` |
 | `update [--all] [--rollback] [--dry-run] [--push]` | jalankan updater |
 
 ### 14.2 Skill
@@ -539,6 +545,8 @@ Teks aturan disalin (bukan plugin hulu) dengan sedikit penyesuaian; daftar perub
 | `doctor` GAGAL | ikuti perbaikan di kolom keterangan, lalu jalankan lagi |
 | USER.md tidak termuat | cek `/memory`; pastikan `~/.harness/USER.md` ada |
 | update ditolak "pohon kotor" | commit dulu atau `--allow-dirty` |
+| `growth` 0 fakta padahal memori berisi | format 1.x (`§`): `memori --rapikan` |
+| `doctor` menyebut topik sampah | periksa foldernya, hapus sendiri |
 | perintah diblokir guard | baca alasan `[harness] DIBLOKIR: …`; tindakan berisiko dilakukan sendiri |
 
 ### Belum teruji

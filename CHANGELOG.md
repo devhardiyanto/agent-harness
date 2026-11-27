@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.2
+Hasil review `growth` di astra, event, yhpa.
+- **Memori 1.x**: `MEMORY.md`/`USER.md` dengan entri dipisah `§` kini terbaca (`growth` tidak lagi 0 fakta). Perintah baru `harness.mjs memori --rapikan [--apply]` mengubahnya ke satu baris `- ` per fakta dengan header 2.1 (USER.md dicadangkan ke `USER.md.bak`). `doctor` memberi PERINGATAN selama format 1.x masih ada.
+- **Pemicu memori** (aturan B-06, B-07): "ingat: …" → `MEMORY.md`, "ingat user: …" → `USER.md`, "lupakan …" → hapus baris, lewat skill `belajar` di giliran itu juga.
+- **Status topik**: `promoted` (1.x) dihitung ditutup; folder tanpa frontmatter `status` (hasil remap) = `impor`, bukan terbuka. `growth` menampilkan terbuka · impor · ditutup; topik aktif hanya dari topik terbuka; topik impor tanpa `topic.md` bisa ditutup.
+- **Topik lama dan sampah**: `topic list --stale <hari>`; skill `topic` menawarkan menutup topik terbuka > 7 hari (mode ringkas) saat topik baru dibuat. `doctor` menyebut topik sampah (`tanpa-nama`, slug dari path, folder kosong) untuk dihapus sendiri.
+
 ## 2.1.1
 Perbaikan status line dari uji di `astra`.
 - **Konteks terhadap jendela auto-compact**: JSON status line hanya memberi jendela model (`context_window_size`, mis. 1M), sedangkan compact bisa diatur lebih kecil (`/autocompact 400k`). Status line kini membaca `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, lalu `modelSettings.<model>.autoCompactWindow` / `autoCompactWindow` di settings (local → project → user), dan menghitung `konteks %` serta `208k/400k` terhadap jendela itu bila lebih kecil. Angkanya kini sama dengan `/context`.

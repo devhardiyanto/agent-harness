@@ -468,3 +468,47 @@ test('2.1.0: pemasangan (impor memori, USER.md), pemakaian skill, growth, arsip'
   assert.match(hx(root, 'growth', '--arsip', 'rilis-cepat').stdout, /diarsip/);
   assert.ok(fs.existsSync(path.join(root, 'docs/_legacy/_lama/skills/rilis-cepat/SKILL.md')));
 });
+
+test('2.1.2: memori format 1.x dirapikan, pemicu ingat/lupakan, status topik impor/promoted, topik lama dan sampah', async () => {
+  const mem = await import('../kernel/.claude/hooks/memory.mjs');
+  const root = project({ v1: true });
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'hh-'));
+  const run = (...a) => spawnSync('node', [path.join(root, '.claude/hooks/harness.mjs'), ...a], { cwd: root, env: { ...process.env, CLAUDE_PROJECT_DIR: root, HARNESS_HOME: home }, encoding: 'utf8' });
+  const legacy = '<!-- Memori project (harness). Entri dipisah baris "§". Ubah lewat: node .claude/hooks/harness.mjs memory ... -->\n2026-11-09 · seed tanpa `city_id`.\n§\nBaseline 2027\nlanjutan baris kedua.\n§\n';
+  wr(root, 'docs/memory/MEMORY.md', legacy);
+  fs.writeFileSync(path.join(home, 'USER.md'), '<!-- Profil user. Entri dipisah "§". -->\nJawab ringkas.\n§\nCommit tanpa atribusi AI.\n');
+  assert.deepEqual(mem.entries(legacy), ['2026-11-09 · seed tanpa `city_id`.', 'Baseline 2027 lanjutan baris kedua.']);
+  assert.equal(mem.entries('# x\n\npengantar\n- a\n- b\n').length, 2);
+  let g = run('growth');
+  assert.match(g.stdout, /memori project \| 2 fakta · \d+\/3000 karakter · format 1\.x/);
+  assert.match(g.stdout, /profil user \| 2 fakta/);
+  assert.match(run('doctor').stdout, /format memori \| PERINGATAN \| docs\/memory\/MEMORY\.md, ~\/\.harness\/USER\.md/);
+  const dry = run('memori', '--rapikan');
+  assert.match(dry.stdout, /- Baseline 2027 lanjutan baris kedua\./);
+  assert.equal(rd(root, 'docs/memory/MEMORY.md'), legacy, 'tanpa --apply tidak menulis');
+  run('memori', '--rapikan', '--apply');
+  assert.match(rd(root, 'docs/memory/MEMORY.md'), /^# Memori project\n[\s\S]*"ingat: …"[\s\S]*\n- 2026-11-09 · seed tanpa `city_id`\.\n- Baseline 2027 lanjutan baris kedua\.\n$/);
+  assert.ok(fs.existsSync(path.join(home, 'USER.md.bak')));
+  assert.match(fs.readFileSync(path.join(home, 'USER.md'), 'utf8'), /\n- Jawab ringkas\.\n- Commit tanpa atribusi AI\.\n$/);
+  assert.doesNotMatch(run('doctor').stdout, /format memori/);
+  assert.match(rd(root, '.claude/rules/belajar.md'), /B-06\. .*"ingat: <fakta>".*"ingat user: <fakta>".*"lupakan/);
+  // status topik: promoted = ditutup, tanpa frontmatter = impor, sampah dilaporkan
+  const t = today();
+  wr(root, 'docs/topics/2026-11-22/titik-rawan/topic.md', '---\nstatus: promoted\n---\n# titik rawan\n');
+  wr(root, 'docs/topics/2026-11-20/lama-tanpa-fm/plan.md', 'catatan lama');
+  wr(root, 'docs/topics/2026-11-20/c-users-devha-appdata-local-temp-claude/topic.md', '# x');
+  fs.mkdirSync(path.join(root, 'docs/topics/2026-11-25/tanpa-nama'), { recursive: true });
+  hx(root, 'topic', 'new', 'baru hari ini');
+  hx(root, 'topic', 'new', 'lama terbuka');
+  const old = new Date(Date.now() - 10 * 864e5);
+  for (const f of ['topic.md', 'plan.md']) fs.utimesSync(path.join(root, `docs/topics/${t}/lama-terbuka/${f}`), old, old);
+  g = run('growth');
+  assert.match(g.stdout, /topik \| 6 total · 2 terbuka · 3 impor \(tanpa frontmatter\) · 1 ditutup/);
+  const st = run('topic', 'list', '--stale', '7').stdout;
+  assert.match(st, /lama-terbuka/); assert.doesNotMatch(st, /baru-hari-ini|lama-tanpa-fm/);
+  assert.doesNotMatch(run('topic', 'list', '--open').stdout, /lama-tanpa-fm|titik-rawan/);
+  assert.match(run('doctor').stdout, /topik sampah \| INFO \| .*tanpa-nama.*c-users-devha-appdata-local-temp-claude/);
+  assert.match(run('topic', 'close', 'lama-tanpa-fm').stdout, /^ditutup: /, 'topik impor tanpa topic.md bisa ditutup');
+  assert.match(rd(root, 'docs/topics/2026-11-20/lama-tanpa-fm/topic.md'), /^---\nstatus: closed/);
+  assert.match(rd(root, '.claude/skills/topic/SKILL.md'), /topic list --stale 7/);
+});
