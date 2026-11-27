@@ -1,6 +1,6 @@
 # agent-harness
 
-Harness untuk Claude Code di root project multi-repo (`source-code/<repo git>`). Versi **2.1.0**.
+Harness untuk Claude Code di root project multi-repo (`source-code/<repo git>`). Versi **2.1.1**.
 
 > Sudah memakai versi sebelumnya? Update (bagian 13), lalu ikuti [13.4 langkah setelah update](#134-sudah-pakai-versi-sebelumnya-langkah-setelah-update).
 
@@ -307,7 +307,8 @@ Saat topik ditutup, perubahan yang belum merged dicatat di `summary.md` service:
 | service | service yang disentuh topik; `?` knowledge belum ada, `*` usang |
 | model · effort | Claude Code |
 | `ponytail:<mode>` | `~/.claude/.ponytail-active`, bila plugin terpasang |
-| konteks, 5j, 7h | respons API terakhir (`/context` bisa sedikit lebih tinggi) |
+| konteks | token respons API terakhir dibagi jendela auto-compact (`/autocompact`, `autoCompactWindow`, `CLAUDE_CODE_AUTO_COMPACT_WINDOW`) bila diatur, selain itu jendela model |
+| 5j, 7h | batas pemakaian dari respons API terakhir |
 | `+N −M` | baris berubah; hanya bila sesi punya topik |
 
 Tema (`tui.theme`): `kapsul` (bawaan), `tenang`, `kontras`, `mono` (otomatis bila `NO_COLOR`). Tiap jalan dicatat di `.claude/state/statusline.log`.

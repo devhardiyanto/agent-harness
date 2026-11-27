@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.1
+Perbaikan status line dari uji di `astra`.
+- **Konteks terhadap jendela auto-compact**: JSON status line hanya memberi jendela model (`context_window_size`, mis. 1M), sedangkan compact bisa diatur lebih kecil (`/autocompact 400k`). Status line kini membaca `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, lalu `modelSettings.<model>.autoCompactWindow` / `autoCompactWindow` di settings (local → project → user), dan menghitung `konteks %` serta `208k/400k` terhadap jendela itu bila lebih kecil. Angkanya kini sama dengan `/context`.
+- **Service di status line**: hanya nama yang ada di `services` config atau folder `source-code/`; teks bebas di kolom service `plan.md` (mis. "keduanya") tidak lagi tampil.
+
 ## 2.1.0
 Harness yang tumbuh (keputusan G1–G12, satu rilis). Diadaptasi dari learning loop Hermes Agent: memori dan skill dari pengalaman, plus pengetahuan service yang diperiksa sebelum eksekusi.
 - **Knowledge berbukti** (G1–G3): `harness.mjs knowledge [svc]` menampilkan status per service (belum ada / segar / usang N commit terhadap baseline) dan catatan `## Menunggu merge` beserta status merged-nya. Initialize otomatis: service yang belum punya knowledge di-bootstrap ringkas saat pertama disentuh topik (skill `bootstrap` kini bisa dipanggil agent). Update otomatis: saat topik ditutup, tiap service yang berubah dapat baris "menunggu merge" (`branch@sha`), lalu dijadikan fakta setelah terbukti masuk baseline. Status line menandai service topik dengan `?` (belum ada) atau `*` (usang). `doctor` melaporkannya.
