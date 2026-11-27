@@ -313,10 +313,11 @@ test('2.0.5: topic find/use dari kalimat biasa, lingkup service, +/- hanya denga
   assert.equal(d.topic, null); assert.equal(d.lines, null, 'U2 b: tanpa topik, +/- disembunyikan');
   fs.appendFileSync(tr, L([{ type: 'tool_result', content: u.stdout }]));
   fs.appendFileSync(tr, L([{ type: 'tool_use', name: 'Bash', input: { command: 'git -C source-code/ce-microservices-go status' } }]));
-  wr(root, `docs/topics/${t}/feedback-microservices-go-booking-service/plan.md`, '| # | tugas | service | agent | status |\n|---|---|---|---|---|\n| 1 | a | ce-console-api, ce-microservices-go | nikola-be | rencana |\n');
+  wr(root, `docs/topics/${t}/feedback-microservices-go-booking-service/plan.md`, '| # | tugas | service | agent | status |\n|---|---|---|---|---|\n| 1 | a | ce-console-api, ce-microservices-go | nikola-be | rencana |\n| 2 | b | keduanya + frontend | hana-fe | rencana |\n');
+  for (const s of ['ce-console-api', 'ce-microservices-go']) fs.mkdirSync(path.join(root, 'source-code', s), { recursive: true });
   d = statusData(root, P, { CLAUDE_CONFIG_DIR: root });
   assert.equal(d.topic, 'feedback-microservices-go-booking-service');
-  assert.deepEqual(d.services, ['ce-console-api', 'ce-microservices-go'], 'plan + transcript, tanpa duplikat; service sebelum topik tidak dihitung');
+  assert.deepEqual(d.services, ['ce-console-api', 'ce-microservices-go'], 'plan + transcript, tanpa duplikat; service sebelum topik dan teks bebas (keduanya) tidak dihitung');
   assert.deepEqual(d.lines, { add: 730, del: 18 });
   assert.match(render(d, { theme: 'mono' }), /feedback-microservices-go-booking-servi… · ce-console-api, ce-microservices-go\n▌\+730 −18$/);
   // transcript besar (resume sesi lama): pertama kali hanya ekor 2 MB yang dibaca
@@ -325,6 +326,23 @@ test('2.0.5: topic find/use dari kalimat biasa, lingkup service, +/- hanya denga
   assert.equal(sessionTopic(root, { session_id: 'big', transcript_path: big }), null, 'bukti di luar ekor 2 MB tidak dibaca');
   fs.appendFileSync(big, L([{ type: 'tool_use', input: { file_path: `docs/topics/${t}/promo-invitation-code/plan.md` } }]));
   assert.equal(sessionTopic(root, { session_id: 'big', transcript_path: big }).slug, 'promo-invitation-code', 'baris baru setelahnya terbaca');
+});
+
+test('2.1.1: konteks terhadap jendela auto-compact', async () => {
+  const { statusData, parseWindow, compactWindow } = await import('../kernel/.claude/hooks/statusline.mjs');
+  assert.deepEqual(['400k', '1M', 400, 400000, '500', 'auto', 'x'].map(parseWindow), [400000, 1e6, 400000, 400000, 500000, null, null]);
+  const root = project({ v1: true });
+  const home = path.join(root, 'home'); fs.mkdirSync(home);
+  const P = { model: { id: 'claude-opus-5-5[1m]' }, context_window: { total_input_tokens: 208800, context_window_size: 1000000, used_percentage: 21 } };
+  assert.equal(statusData(root, P, { CLAUDE_CONFIG_DIR: home }).ctx.pct, 21, 'tanpa setelan: jendela model');
+  fs.writeFileSync(path.join(home, 'settings.json'), JSON.stringify({ autoCompactWindow: 600000, modelSettings: { 'claude-opus-5-5': { autoCompactWindow: '400k' } } }));
+  let d = statusData(root, P, { CLAUDE_CONFIG_DIR: home });
+  assert.deepEqual([d.ctx.pct, d.ctx.size], [52, 400000], 'modelSettings per model menang atas top-level');
+  assert.equal(compactWindow(root, 'claude-sonnet-5-5', { CLAUDE_CONFIG_DIR: home }), 600000);
+  wr(root, '.claude/settings.local.json', JSON.stringify({ autoCompactWindow: 'auto' }));
+  assert.equal(statusData(root, P, { CLAUDE_CONFIG_DIR: home }).ctx.pct, 21, 'file lebih tinggi "auto" = jendela model');
+  d = statusData(root, P, { CLAUDE_CONFIG_DIR: home, CLAUDE_CODE_AUTO_COMPACT_WINDOW: '300k' });
+  assert.equal(d.ctx.size, 300000, 'env menang');
 });
 
 test('2.0.6: perbaikan hasil review', async () => {

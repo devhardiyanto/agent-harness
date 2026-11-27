@@ -23,6 +23,39 @@ export function ponytailMode(env = process.env) {
   } catch { return null; }
 }
 
+// Nilai jendela auto-compact: angka, "400k", "1M", atau 100..1000 (= ribuan). "auto"/tidak valid = null.
+export function parseWindow(v) {
+  if (typeof v === 'number') return Number.isFinite(v) && v > 0 ? (v <= 1000 ? v * 1000 : v) : null;
+  const m = String(v ?? '').trim().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*([km]?)$/);
+  if (!m) return null;
+  const n = Number(m[1]) * (m[2] === 'm' ? 1e6 : m[2] === 'k' ? 1e3 : 1);
+  return m[2] ? n : n <= 1000 ? n * 1000 : n;
+}
+
+// Jendela auto-compact (bukan jendela model): env, lalu settings local → project → user.
+// Per file, modelSettings.<model>.autoCompactWindow menang atas autoCompactWindow top-level.
+// JSON status line tidak memuatnya, jadi `konteks %` dihitung terhadap jendela ini bila lebih kecil.
+export function compactWindow(root, modelId, env = process.env) {
+  if (env.CLAUDE_CODE_AUTO_COMPACT_WINDOW) return parseWindow(env.CLAUDE_CODE_AUTO_COMPACT_WINDOW);
+  const key = String(modelId || '').replace(/\[[^\]]*\]$/, '').replace(/-\d{8}$/, '');
+  const home = env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
+  for (const f of [path.join(root, '.claude', 'settings.local.json'), path.join(root, '.claude', 'settings.json'), path.join(home, 'settings.json')]) {
+    let j; try { j = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { continue; }
+    const ms = j && j.modelSettings && key ? j.modelSettings[key] : null;
+    const v = ms && ms.autoCompactWindow !== undefined ? ms.autoCompactWindow : j && j.autoCompactWindow;
+    if (v !== undefined) return parseWindow(v);
+  }
+  return null;
+}
+
+// Service yang benar-benar ada (config atau folder repo); teks bebas di kolom service plan.md dibuang.
+function knownServices(root) {
+  const cfg = loadConfig(root);
+  const out = new Set(cfg.services.map((s) => (typeof s === 'string' ? s : s && s.name)).filter(Boolean));
+  try { for (const e of fs.readdirSync(path.join(root, cfg.services_dir), { withFileTypes: true })) if (e.isDirectory() && !e.name.startsWith('.')) out.add(e.name); } catch { /* abaikan */ }
+  return out;
+}
+
 export function statusData(root, payload = {}, env = process.env) {
   const d = { root: path.basename(root), topic: null, model: null, effort: null, ctx: null, limits: [], lines: null, ponytail: ponytailMode(env) };
   if (payload.model) d.model = String(payload.model.display_name || payload.model.id || '').trim() || null;
@@ -33,14 +66,17 @@ export function statusData(root, payload = {}, env = process.env) {
       d.topic = t.slug;
       const kc = readCache(root);
       // ? = knowledge belum ada, * = usang (dari hasil terakhir `harness.mjs knowledge`).
-      d.services = [...new Set([...planServices(t.dir), ...t.services])].map((s) => (kc[s] === 'belum' ? `${s}?` : kc[s] === 'usang' ? `${s}*` : s));
+      const known = knownServices(root);
+      d.services = [...new Set([...planServices(t.dir), ...t.services])].filter((s) => !known.size || known.has(s)).map((s) => (kc[s] === 'belum' ? `${s}?` : kc[s] === 'usang' ? `${s}*` : s));
     }
   } catch { /* abaikan */ }
   const cw = payload.context_window || {};
   const cu = cw.current_usage || {};
   const tokens = num(cw.total_input_tokens) ?? (cw.current_usage ? (num(cu.input_tokens) || 0) + (num(cu.cache_creation_input_tokens) || 0) + (num(cu.cache_read_input_tokens) || 0) : null);
-  const size = num(cw.context_window_size);
-  const pct = num(cw.used_percentage) ?? (tokens !== null && size ? (tokens * 100) / size : null);
+  const model = num(cw.context_window_size);
+  const win = compactWindow(root, payload.model && payload.model.id, env);
+  const size = win && (!model || win < model) ? win : model;
+  const pct = size !== model && tokens !== null ? (tokens * 100) / size : num(cw.used_percentage) ?? (tokens !== null && size ? (tokens * 100) / size : null);
   if (pct !== null) d.ctx = { pct: Math.round(pct), tokens, size };
   const rl = payload.rate_limits || {};
   for (const [key, label] of [['five_hour', '5j'], ['seven_day', '7h']]) {
