@@ -53,8 +53,15 @@ export function collect(root) {
     for (const e of ls(D(top))) {
       const rel = `${top}/${e.name}`;
       if (top === 'docs/topics' && e.isDirectory() && DATE_DIR.test(e.name)) {
-        for (const s of ls(D(rel))) if (s.isDirectory()) units.push({ src: `${rel}/${s.name}`, kind: s.name === 'tanpa-nama' && onlyDotfiles(D(`${rel}/${s.name}`)) ? 'sampah' : 'topic-dir', name: s.name, date: e.name, slug: s.name });
-      } else if (e.isDirectory()) add(rel, top === 'docs/topik' ? 'topic-dir-lama' : 'lama');
+        for (const s of ls(D(rel))) {
+          if (!s.isDirectory()) continue;
+          // Topik 2.x yang masih terbuka tidak dipindah ke _legacy walau tanggalnya lama.
+          let tm = ''; try { tm = fs.readFileSync(D(`${rel}/${s.name}/topic.md`), 'utf8'); } catch { /* impor tanpa topic.md */ }
+          if (/^---\r?\n[\s\S]*?^status:\s*open\s*$/m.test(tm)) continue;
+          units.push({ src: `${rel}/${s.name}`, kind: s.name === 'tanpa-nama' && onlyDotfiles(D(`${rel}/${s.name}`)) ? 'sampah' : 'topic-dir', name: s.name, date: e.name, slug: s.name });
+        }
+      } else if (top === 'docs/topics' && /^readme\.md$/i.test(e.name)) continue;
+      else if (e.isDirectory()) add(rel, top === 'docs/topik' ? 'topic-dir-lama' : 'lama');
       else if (/\.md$/i.test(e.name)) add(rel, 'topic-file');
       else add(rel, 'topic-attach');
     }

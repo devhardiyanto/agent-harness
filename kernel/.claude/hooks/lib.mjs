@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_CONFIG = {
-  harness_version: '2.1.2',
+  harness_version: '2.1.3',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single'
@@ -72,7 +72,7 @@ export function globToRegex(glob) {
   return new RegExp(`^${re}$`);
 }
 
-export const SECRET_FILE = /(^|\/)(\.env(\.(?!example$|sample$|template$)[^/]*)?|[^/]*\.pem|[^/]*\.p12|[^/]*\.pfx|id_(rsa|ed25519|ecdsa)|credentials(\.json)?|\.npmrc|\.netrc)$/;
+export const SECRET_FILE = /(^|\/)(\.env(\.(?![^/]*(example|sample|template)$)[^/]*)?|[^/]*\.pem|[^/]*\.p12|[^/]*\.pfx|id_(rsa|ed25519|ecdsa)|credentials(\.json)?|\.npmrc|\.netrc)$/;
 
 export function deny(reason) {
   process.stderr.write(`[harness] DIBLOKIR: ${reason}\n`);

@@ -199,16 +199,21 @@ function render(det, mode) {
     // Pengaturan user di settings.json dibawa: kunci lain di luar kernel, dan izin (allow/ask/deny) digabung. Hook kustom tidak dibawa (dilaporkan).
     let oldSt = {}; try { oldSt = JSON.parse(fs.readFileSync(path.join(target, '.claude', 'settings.json'), 'utf8')); } catch { /* abaikan */ }
     for (const k of Object.keys(oldSt)) if (!(k in st)) st[k] = oldSt[k];
+    // Preferensi pribadi milik user menang atas bawaan kernel. statusLine kustom (bukan statusline harness) juga dipertahankan.
+    for (const k of ['model', 'effortLevel', 'outputStyle', 'includeCoAuthoredBy', 'attribution']) if (k in oldSt) st[k] = oldSt[k];
+    if (oldSt.statusLine && !JSON.stringify(oldSt.statusLine).includes('.claude/hooks/statusline')) st.statusLine = oldSt.statusLine;
     // Pendaftaran plugin tingkat project dari versi lama dibuang agar tidak ada salinan project yang tertinggal versinya.
     for (const [k, id] of [['enabledPlugins', 'harness@harness-marketplace'], ['extraKnownMarketplaces', 'harness-marketplace']]) {
       if (st[k] && id in st[k]) { delete st[k][id]; if (!Object.keys(st[k]).length) delete st[k]; }
     }
+    if (oldSt.permissions) st.permissions = { ...oldSt.permissions, ...(st.permissions || {}) };
     for (const k of ['allow', 'ask', 'deny']) {
       const u = [...(st.permissions?.[k] || []), ...(oldSt.permissions?.[k] || [])];
       if (u.length) { st.permissions = st.permissions || {}; st.permissions[k] = [...new Set(u)]; }
     }
-    const custom = JSON.stringify(oldSt.hooks || {}).match(/"(?:command|args)":\s*"[^"]*"/g) || [];
-    if (custom.some((c) => !/\.claude\/hooks\/|"node"/.test(c))) warnings.push('settings.json lama memuat hook kustom; tidak dibawa. Lihat tag/branch cadangan bila perlu.');
+    // Hook milik harness = entri yang merujuk .claude/hooks/; selain itu (termasuk bentuk command + args) dilaporkan.
+    const entries = Object.values(oldSt.hooks || {}).flat().flatMap((m) => (m && Array.isArray(m.hooks) ? m.hooks : [m]));
+    if (entries.some((h) => h && !JSON.stringify(h).includes('.claude/hooks/'))) warnings.push('settings.json lama memuat hook kustom; tidak dibawa. Lihat tag/branch cadangan bila perlu.');
   }
   // Layout multi-repo: root selalu di main. Sesi background Claude Code (`claude --bg`, agent view) secara bawaan pindah ke worktree di .claude/worktrees/ sebelum mengedit;
   // matikan isolasi itu di root. Nilai yang sudah dipilih user tidak ditimpa.
@@ -294,7 +299,8 @@ const obsoleteOwned = () => {
   const now = ownedNow();
   let old = [];
   try { old = JSON.parse(fs.readFileSync(path.join(target, '.claude', 'harness.manifest.json'), 'utf8')).files || []; } catch { /* instalasi 1.2.0 belum punya manifest */ }
-  try { for (const f of fs.readdirSync(path.join(target, '.claude', 'rules'))) if (/^svc-.+\.md$/.test(f)) old.push(`.claude/rules/${f}`); } catch { /* abaikan */ }
+  // Tanpa manifest (1.2.0): hanya svc-<service>.md untuk service di config lama; rule svc-* buatan user lain tidak disentuh.
+  if (!old.length) for (const n of (oldCfg.services || [])) old.push(`.claude/rules/svc-${typeof n === 'string' ? n : n && n.name}.md`);
   return [...new Set(old)].filter((f) => !now.has(f) && exists(f));
 };
 const removable = hadV1 ? obsoleteOwned() : existing.filter((p) => !PRESERVE.includes(p));
@@ -369,7 +375,8 @@ try {
   applyGitignore(isGit);
   fs.rmSync(path.join(target, '.harness-staging'), { recursive: true, force: true });
 } catch (e) {
-  die(`penerapan gagal: ${e.message}. Staging ada di ${stage}; pulihkan dengan ${tag ? `git switch - && git branch -D ${branch}` : 'salinan .harness-backup-*'}.`);
+  const undo = tag ? (IN_PLACE ? `git reset --hard ${tag}` : `git switch - && git branch -D ${branch}`) : isGit ? 'git checkout -- . (repo tanpa commit)' : 'salinan .harness-backup-*';
+  die(`penerapan gagal: ${e.message}. Staging ada di ${stage}; pulihkan dengan: ${undo}`);
 }
 
 let committed = false;

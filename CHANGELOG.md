@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.3
+Perbaikan bug dari review logika (sub agent).
+- **Guard per segmen**: perintah dipecah per `&&`, `||`, `;`, `|`, baris baru, dan subshell (kutip dihormati); `cd`/`pushd` diikuti antar segmen, `git -C` dan path Git Bash `/c/...` dikenali. Tertutup: commit di branch dilindungi lewat `pushd`, `( … )`, path berkutip, atau baris baru; `git push origin :main`, `'main'`, beberapa refspec, `--all`/`--mirror`, `+refspec`, `-uf`; `echo "$(gh auth token)"` dan `echo $GH_TOKEN`; `rm -rf ./`, `~/`, `/*`, `--recursive --force`; menulis `MEMORY.md`/`USER.md` lewat shell. Tidak lagi salah blokir `git push feat && npm i --force`, `git log --grep push`, `git stash push`. Pola `deny_commands` rusak dilewati (dilaporkan `doctor`), tidak lagi memblokir semua perintah. Pembanding path MEMORY.md tidak peka huruf besar di Windows.
+- **Memori**: `memori --rapikan` tidak lagi membuang baris berawalan `#` (mis. `#123`) di entri 1.x; MEMORY.md dicadangkan ke `.claude/state/MEMORY.md.bak`.
+- **install --update**: `model`, `effortLevel`, `outputStyle`, `attribution`, `includeCoAuthoredBy`, statusLine kustom, dan semua kunci `permissions` milik user dipertahankan; hook kustom bentuk `command` + `args` dilaporkan; rule `svc-*.md` buatan user tidak dibuang; pesan pemulihan `--in-place` = `git reset --hard <tag>`.
+- **Remap**: topik 2.x yang masih `open` tidak dipindah ke `_legacy`; `docs/topics/README.md` bukan topik.
+- Berkas contoh seperti `.env.production.example` boleh ditulis.
+
 ## 2.1.2
 Hasil review `growth` di astra, event, yhpa.
 - **Memori 1.x**: `MEMORY.md`/`USER.md` dengan entri dipisah `§` kini terbaca (`growth` tidak lagi 0 fakta). Perintah baru `harness.mjs memori --rapikan [--apply]` mengubahnya ke satu baris `- ` per fakta dengan header 2.1 (USER.md dicadangkan ke `USER.md.bak`). `doctor` memberi PERINGATAN selama format 1.x masih ada.
