@@ -24,7 +24,7 @@ test('topic new/list/close: folder per hari, INDEX.md, status line', () => {
   const tr = path.join(root, 'transcript.jsonl');
   fs.writeFileSync(tr, JSON.stringify({ message: { content: [{ type: 'tool_result', content: `dibuat: ${rel}/` }] } }) + '\n');
   const s = spawnSync('node', [path.join(root, '.claude/hooks/statusline.mjs')], { input: JSON.stringify({ session_id: 's1', transcript_path: tr, model: { display_name: 'Opus 5.5' }, effort: { level: 'medium' }, context_window: { used_percentage: 41 } }), env: { ...process.env, CLAUDE_PROJECT_DIR: root, NO_COLOR: '1' }, encoding: 'utf8' });
-  assert.match(s.stdout, /analisa-fitur-promo-invitation-code · Opus 5\.5 · medium/);
+  assert.match(s.stdout, /\[analisa-fitur-promo-invitation-code\] Opus 5\.5 · medium/);
   assert.match(s.stdout, /\n.*\[konteks 41%\]/, '2.0.2 (D1): konteks tampil di baris 2');
   const c = hx(root, 'topic', 'close', 'promo');
   assert.equal(c.status, 0, c.stderr);
@@ -37,7 +37,8 @@ test('topic new/list/close: folder per hari, INDEX.md, status line', () => {
 });
 
 test('status line tanpa topik', () => {
-  assert.equal(render({ root: 'event', topic: null, model: null, limits: [], ctx: null, lines: null }, { theme: 'mono' }), '▌event · belum ada topik');
+  assert.equal(render({ root: 'event', topic: null, model: null, limits: [], ctx: null, lines: null }, { theme: 'mono' }), '[event] belum ada topik\n[konteks ?]', '2.2.1 (8): baris 2 tetap ada sebelum respons API');
+  assert.equal(render({ root: 'event', topic: 'x', model: null, limits: [], ctx: null, lines: null, error: true }, { theme: 'mono' }).split('\n')[1], 'status line galat: lihat .claude/state/statusline.log');
 });
 
 function legacyRoot() {
@@ -218,13 +219,16 @@ test('status line 2.0.2: kapsul, konteks + token, batas, +/- baris, badge ponyta
   assert.deepEqual(d.ctx, { pct: 72, tokens: 144000, size: 200000 });
   assert.equal(d.ponytail, null);
   const mono = r(d, { theme: 'mono' });
-  assert.match(mono, /^▌proj · belum ada topik · Opus 5\.5 · medium\n▌\[konteks 72%\] · 144k\/200k · 5j 88% \(reset \d\d:\d\d\) · 7h 30%$/, 'U2 b: tanpa topik, +/- tidak tampil');
+  assert.match(mono, /^\[proj\] belum ada topik · Opus 5\.5 · medium\n\[konteks 72% !\] 144k\/200k · 5j 88% !! \(reset \d\d:\d\d\) · 7h 30%$/, 'U2 b: tanpa topik, +/- tidak tampil; 2.2.1 (7): penanda ! dan !! per batas');
   fs.writeFileSync(path.join(cfgDir, '.ponytail-active'), 'ultra\n');
   d = statusData(root, payload, { CLAUDE_CONFIG_DIR: cfgDir });
   assert.equal(d.ponytail, 'ultra');
   const k = r(d, { theme: 'kapsul' });
-  assert.match(k, /\x1b\[48;5;30;38;5;255;1mproj/, 'root = kapsul');
-  assert.match(k, /\x1b\[48;5;178;38;5;16;1mkonteks 72%/, '72% = kuning');
+  assert.match(k, /\x1b\[48;5;23;38;5;255;1mproj/, 'root = kapsul (latar 23, kontras 6.9:1)');
+  assert.match(k, /\x1b\[48;5;178;38;5;16;1mkonteks 72% !/, '72% = kuning');
+  assert.match(k, /\x1b\[38;5;167m5j 88% !!/, 'batas kritis berwarna sendiri');
+  assert.match(k, /\x1b\[38;5;245m7h 30%/, 'batas aman tidak ikut merah');
+  assert.match(r(d, { theme: 'kapsul', background: 'light' }), /\x1b\[38;5;160m5j 88% !!/, 'tui.background light');
   assert.match(k, /ponytail:ultra/);
   fs.writeFileSync(path.join(cfgDir, '.ponytail-active'), 'off');
   assert.equal(statusData(root, payload, { CLAUDE_CONFIG_DIR: cfgDir }).ponytail, null);
@@ -232,7 +236,14 @@ test('status line 2.0.2: kapsul, konteks + token, batas, +/- baris, badge ponyta
   // tanpa used_percentage: dihitung dari token / ukuran; lebar sempit memotong segmen, bukan galat
   const d2 = statusData(root, { context_window: { total_input_tokens: 50000, context_window_size: 200000 } }, { CLAUDE_CONFIG_DIR: cfgDir });
   assert.equal(d2.ctx.pct, 25);
-  assert.equal(r(d, { theme: 'mono', max: 20 }).split('\n')[0], '▌proj');
+  assert.equal(r(d, { theme: 'mono', max: 20 }).split('\n')[0], '[proj]');
+  // 2.2.1 (5): lebar sempit membuang segmen berprioritas rendah dulu; topik dipersingkat, batas kritis + reset tetap
+  const dn = { ...d, topic: 'integrasi-md10-homi-h3-phase-3-di-ce-share-api', services: ['a', 'b'], lines: { add: 12, del: 3 } };
+  const n40 = r(dn, { theme: 'mono', max: 40 }).split('\n');
+  assert.match(n40[0], /^\[proj\] \[integrasi-md10-homi-h3-[^\]]*…\]$/);
+  assert.ok(n40[0].length <= 40 && n40[1].length <= 40, n40.join('|'));
+  assert.match(n40[1], /^\[konteks 72% !\] 5j 88% !! \(reset \d\d:\d\d\)$/);
+  assert.match(r(dn, { theme: 'mono', max: 200 }), /\+12 −3$/, '+/- satu segmen');
   assert.equal(jr(root, '.claude/settings.json').statusLine.refreshInterval, undefined, 'D4: tanpa refreshInterval');
   assert.equal(jr(root, 'harness.config.json').tui.theme, 'kapsul');
 });
@@ -269,7 +280,7 @@ test('status line 2.0.3: topik per sesi dari transcript, bertahap, abaikan teks 
   const d = statusData(root, { cost: { total_lines_added: 0, total_lines_removed: 0 }, model: { display_name: 'M' }, effort: { level: 'low' } }, { CLAUDE_CONFIG_DIR: root });
   assert.equal(d.lines, null, '+0 −0 disembunyikan');
   d.ponytail = 'full';
-  assert.match(render(d, { theme: 'kapsul' }), /M · low\x1b\[0m · \x1b\[38;5;244mponytail:full/, 'pemisah · sebelum badge');
+  assert.match(render(d, { theme: 'kapsul' }), /M · low\x1b\[0m · \x1b\[38;5;245mponytail:full/, 'pemisah · sebelum badge');
 });
 
 test('2.0.4: agent bernama orang; berkas agent lama dibuang saat update', () => {
@@ -319,7 +330,7 @@ test('2.0.5: topic find/use dari kalimat biasa, lingkup service, +/- hanya denga
   assert.equal(d.topic, 'feedback-microservices-go-booking-service');
   assert.deepEqual(d.services, ['ce-console-api', 'ce-microservices-go'], 'plan + transcript, tanpa duplikat; service sebelum topik dan teks bebas (keduanya) tidak dihitung');
   assert.deepEqual(d.lines, { add: 730, del: 18 });
-  assert.match(render(d, { theme: 'mono' }), /feedback-microservices-go-booking-servi… · ce-console-api, ce-microservices-go\n▌\+730 −18$/);
+  assert.match(render(d, { theme: 'mono' }), /\[feedback-microservices-go-booking-servi…\] ce-console-api, ce-microservices-go\n\[konteks \?\] \+730 −18$/);
   // transcript besar (resume sesi lama): pertama kali hanya ekor 2 MB yang dibaca
   const big = path.join(root, 'big.jsonl');
   fs.writeFileSync(big, L([{ type: 'tool_use', input: { file_path: `docs/topics/${t}/promo-invitation-code/topic.md` } }]) + `${'x'.repeat(1000)}\n`.repeat(3000));
@@ -382,7 +393,7 @@ test('2.0.6: CLI, guard, status line sempit', () => {
   assert.equal(bash('cd source-code/api; git commit -m x'), 2, 'cd ...; juga dikenali');
   assert.equal(bash('gh pr merge 12 --merge'), 2, 'merge PR = keputusan user');
   const s = spawnSync('node', [path.join(root, '.claude/hooks/statusline.mjs')], { input: '{}', env: { ...process.env, CLAUDE_PROJECT_DIR: root, NO_COLOR: '1', COLUMNS: '10' }, encoding: 'utf8' });
-  assert.match(s.stdout, /▌proj/, 'terminal sempit tetap mencetak root');
+  assert.match(s.stdout, /^\[proj\]\n/, 'terminal sempit tetap mencetak root');
 });
 
 // ---------- 2.1.0: harness yang tumbuh ----------
@@ -418,7 +429,7 @@ test('2.1.0: knowledge status, menunggu merge, cache untuk status line', () => {
   const tr = path.join(root, 't.jsonl');
   fs.writeFileSync(tr, JSON.stringify({ message: { content: [{ type: 'tool_result', content: `dibuat: docs/topics/${t}/uji-knowledge/` }] } }) + '\n');
   const out = spawnSync('node', [path.join(root, '.claude/hooks/statusline.mjs')], { input: JSON.stringify({ session_id: 'k1', transcript_path: tr }), env: { ...process.env, CLAUDE_PROJECT_DIR: root, NO_COLOR: '1' }, encoding: 'utf8' });
-  assert.match(out.stdout, /uji-knowledge · api, web\?/);
+  assert.match(out.stdout, /\[uji-knowledge\] api, web\?/);
   assert.match(rd(root, '.claude/state/statusline.log'), /^\S+ \d+ms\n$/, 'durasi dicatat, tanpa galat');
   assert.match(hx(root, 'doctor').stdout, /knowledge service \| INFO \| belum ada: web/);
 });

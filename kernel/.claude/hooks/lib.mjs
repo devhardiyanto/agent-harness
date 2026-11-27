@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_CONFIG = {
-  harness_version: '2.2.0',
+  harness_version: '2.2.1',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single'
@@ -18,7 +18,7 @@ export const DEFAULT_CONFIG = {
   // Root memakai akun gh aktif; services = pengecualian per service.
   git: { host: 'github.com', default_account: null, services: {} },
   remap: { legacy_months: 2 },
-  tui: { statusline: true, theme: 'kapsul', max_width: 120 }, // kapsul | tenang | kontras | mono
+  tui: { statusline: true, theme: 'kapsul', max_width: 120, background: 'dark' }, // theme: kapsul | tenang | kontras | mono; background: dark | light
   knowledge_check: { stale_commits: 30 },
   learn: { memory_chars: 3000, user_chars: 1500, skill_unused_days: 60 },
   update: { autoPush: false },

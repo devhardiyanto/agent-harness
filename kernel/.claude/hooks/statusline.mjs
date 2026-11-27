@@ -89,62 +89,89 @@ export function statusData(root, payload = {}, env = process.env) {
   return d;
 }
 
+// Penanda level selain warna (terbaca di mono, NO_COLOR, dan bagi pembaca buta warna).
+const mark = (lv) => (lv === 'bad' ? ' !!' : lv === 'warn' ? ' !' : '');
+
+// Segmen + prioritas (1 = paling penting, dipertahankan paling akhir saat baris terlalu lebar).
 function segments(d) {
-  const topic = d.topic ? (d.topic.length > 40 ? `${d.topic.slice(0, 39)}…` : d.topic) : null;
-  const l1 = [{ t: d.root, k: 'root', pill: true }, topic ? { t: topic, k: 'topic', pill: true } : { t: 'belum ada topik', k: 'dim' }];
-  if (d.services && d.services.length) l1.push({ t: d.services.length > 3 ? `${d.services.slice(0, 3).join(', ')} +${d.services.length - 3}` : d.services.join(', '), k: 'svc' });
-  if (d.model) l1.push({ t: d.effort ? `${d.model} · ${d.effort}` : d.model, k: 'dim' });
-  if (d.ponytail) l1.push({ t: `ponytail:${d.ponytail}`, k: 'dim' });
+  const l1 = [{ t: d.root, k: 'root', pill: true, p: 1 }];
+  l1.push(d.topic ? { t: d.topic.length > 40 ? `${d.topic.slice(0, 39)}…` : d.topic, k: 'topic', pill: true, p: 1, shrink: true } : { t: 'belum ada topik', k: 'dim', p: 2 });
+  if (d.services && d.services.length) l1.push({ t: d.services.length > 3 ? `${d.services.slice(0, 3).join(', ')} +${d.services.length - 3}` : d.services.join(', '), k: 'svc', p: 3 });
+  if (d.model) l1.push({ t: d.effort ? `${d.model} · ${d.effort}` : d.model, k: 'dim', p: 4 });
+  if (d.ponytail) l1.push({ t: `ponytail:${d.ponytail}`, k: 'dim', p: 5 });
   const l2 = [];
-  if (d.ctx) {
+  if (d.error) l2.push({ t: 'status line galat: lihat .claude/state/statusline.log', k: 'ctx-bad', p: 1 });
+  else if (d.ctx) {
     const lv = level(d.ctx.pct);
-    l2.push({ t: `konteks ${d.ctx.pct}%`, k: `ctx-${lv}`, pill: true });
-    if (d.ctx.tokens !== null) l2.push({ t: d.ctx.size ? `${kfmt(d.ctx.tokens)}/${kfmt(d.ctx.size)}` : kfmt(d.ctx.tokens), k: 'dim' });
+    l2.push({ t: `konteks ${d.ctx.pct}%${mark(lv)}`, k: `ctx-${lv}`, pill: true, p: 1 });
+    if (d.ctx.tokens !== null) l2.push({ t: d.ctx.size ? `${kfmt(d.ctx.tokens)}/${kfmt(d.ctx.size)}` : kfmt(d.ctx.tokens), k: 'dim', p: 3 });
+  } else l2.push({ t: 'konteks ?', k: 'dim', pill: true, p: 1 }); // sebelum respons API pertama: tinggi status line tetap 2 baris
+  for (const x of d.limits) {
+    const lv = level(x.pct);
+    l2.push({ t: `${x.label} ${x.pct}%${mark(lv)}${lv === 'bad' && x.reset ? ` (reset ${hhmm(x.reset)})` : ''}`, k: lv === 'ok' ? 'dim' : `lim-${lv}`, p: lv === 'ok' ? 4 : 2 });
   }
-  if (d.limits.length) {
-    const worst = Math.max(...d.limits.map((x) => x.pct));
-    const txt = d.limits.map((x) => `${x.label} ${x.pct}%${x.pct >= 85 && x.reset ? ` (reset ${hhmm(x.reset)})` : ''}`).join(' · ');
-    l2.push({ t: txt, k: worst >= 85 ? 'ctx-bad' : 'dim' });
-  }
-  if (d.lines) l2.push({ t: `+${d.lines.add}`, k: 'add', join: true }, { t: `−${d.lines.del}`, k: 'del' });
+  if (d.lines) l2.push({ t: `+${d.lines.add} −${d.lines.del}`, k: 'dim', p: 5 });
   return [l1, l2];
 }
 
+// Alasan tiap warna (R-31). Kontras dihitung terhadap latar terminal gelap #0c0c0c; tui.background "light" memakai kolom kedua.
+// kapsul (xterm-256):
+//   root  latar 23 #005f5f, teks 255: 6.9:1; pembeda project, satu-satunya warna non-status di baris 1.
+//   topic latar 240 #585858, teks 255: 6.3:1; latar cukup terang agar bentuk kapsul terlihat di terminal gelap.
+//   svc   warna teks bawaan terminal: selalu terbaca, tidak bersaing dengan kuning peringatan.
+//   dim   245 (gelap, 5.9:1) / 240 (terang, 6.6:1): info sekunder.
+//   ctx   hijau 71 / kuning 178 dengan teks hitam, merah 124 #af0000 dengan teks 255 (6.0:1): hanya untuk status.
+//   lim   kuning 178 / merah 167 (gelap), 136 / 160 (terang): batas 5j/7h yang ≥ 60%, per batas.
+// tenang dan kontras: kode ANSI 16 warna, mengikuti skema warna terminal. kontras dirancang untuk terminal gelap.
 const PALETTE = {
-  kapsul: { root: [30, 255], topic: [238, 255], svc: 179, 'ctx-ok': [71, 16], 'ctx-warn': [178, 16], 'ctx-bad': [167, 255], dim: 244, add: 71, del: 167 },
-  tenang: { root: '36', topic: '1', svc: '33', dim: '2', 'ctx-ok': '32', 'ctx-warn': '33', 'ctx-bad': '31', add: '32', del: '31' },
-  kontras: { root: '1;96', topic: '1;97', svc: '1;93', dim: '37', 'ctx-ok': '1;92', 'ctx-warn': '1;93', 'ctx-bad': '1;91', add: '1;92', del: '1;91' },
+  kapsul: {
+    dark: { root: [23, 255], topic: [240, 255], svc: null, dim: 245, 'ctx-ok': [71, 16], 'ctx-warn': [178, 16], 'ctx-bad': [124, 255], 'lim-warn': 178, 'lim-bad': 167 },
+    light: { root: [23, 255], topic: [240, 255], svc: null, dim: 240, 'ctx-ok': [28, 255], 'ctx-warn': [136, 255], 'ctx-bad': [124, 255], 'lim-warn': 136, 'lim-bad': 160 },
+  },
+  tenang: { root: '36', topic: '1', svc: null, dim: '90', 'ctx-ok': '32', 'ctx-warn': '33', 'ctx-bad': '1;31', 'lim-warn': '33', 'lim-bad': '1;31' },
+  kontras: { root: '1', topic: '1;4', svc: null, dim: '37', 'ctx-ok': '1;92', 'ctx-warn': '1;93', 'ctx-bad': '1;91', 'lim-warn': '1;93', 'lim-bad': '1;91' },
 };
 
-function paint(seg, theme) {
-  const P = PALETTE[theme];
-  if (!P) return seg.pill && seg.k.startsWith('ctx-') ? `[${seg.t}]` : seg.t;
+function paint(seg, theme, bg) {
+  if (theme === 'mono') return seg.pill ? `[${seg.t}]` : seg.t;
   if (theme === 'kapsul') {
-    const v = P[seg.k];
+    const v = PALETTE.kapsul[bg][seg.k];
     if (seg.pill && Array.isArray(v)) return `\x1b[38;5;${v[0]}m▐\x1b[0m\x1b[48;5;${v[0]};38;5;${v[1]};1m${seg.t}\x1b[0m\x1b[38;5;${v[0]}m▌\x1b[0m`;
     const fg = Array.isArray(v) ? v[0] : v;
     return fg ? `\x1b[38;5;${fg}m${seg.t}\x1b[0m` : seg.t;
   }
-  return P[seg.k] ? `\x1b[${P[seg.k]}m${seg.t}\x1b[0m` : seg.t;
+  const c = PALETTE[theme][seg.k];
+  return c ? `\x1b[${c}m${seg.t}\x1b[0m` : seg.t;
 }
 
-export function render(d, { theme = 'kapsul', max = 120 } = {}) {
+// Satu aturan untuk semua tema: pemisah " · " di antara teks biasa, spasi di samping kapsul; tema hanya mengganti warna.
+// Baris terlalu lebar: buang segmen berprioritas terendah dulu, lalu persingkat topik dengan "…".
+export function render(d, { theme = 'kapsul', max = 120, background = 'dark' } = {}) {
   const th = theme in PALETTE || theme === 'mono' ? theme : 'kapsul';
-  const sep = th === 'kapsul' ? ' ' : th === 'mono' ? ' · ' : '  ';
-  const lines = segments(d).map((segs) => {
+  const bg = background === 'light' ? 'light' : 'dark';
+  const join = (segs) => {
     let out = '';
-    for (let i = 0; i < segs.length; i++) {
-      const s = segs[i];
-      const piece = paint(s, th);
+    segs.forEach((s, i) => {
       const prev = segs[i - 1];
-      const glue = !out ? '' : prev && prev.join ? ' ' : th === 'kapsul' && prev && !prev.pill && !s.pill ? ' · ' : sep;
-      const next = out + glue + piece;
-      if (width(next) > max) break;
-      out = next;
+      const pill = th === 'kapsul' || th === 'mono';
+      const glue = !prev ? '' : pill && (s.pill || prev.pill) ? ' ' : ' · ';
+      out += glue + paint(s, th, bg);
+    });
+    return out;
+  };
+  return segments(d).map((orig) => {
+    const segs = orig.map((s) => ({ ...s }));
+    while (width(join(segs)) > max && segs.some((s) => s.p > 1)) {
+      const worst = Math.max(...segs.map((s) => s.p));
+      const i = segs.map((s) => s.p).lastIndexOf(worst);
+      segs.splice(i, 1);
     }
-    return th === 'kapsul' || !out ? out : `${paint({ t: '▌', k: 'root' }, th)}${out}`;
-  }).filter(Boolean);
-  return lines.join('\n');
+    const sh = segs.find((s) => s.shrink);
+    if (sh) {
+      while (width(join(segs)) > max && sh.t.length > 6) sh.t = `${sh.t.slice(0, -2)}…`;
+    }
+    return join(segs);
+  }).filter(Boolean).join('\n');
 }
 
 // Satu baris terakhir: durasi dan galat, untuk menyelidiki status line yang hilang.
@@ -165,11 +192,11 @@ async function main() {
     const cfg = loadConfig(root);
     if (cfg.tui.statusline === false) return;
     const theme = process.env.NO_COLOR ? 'mono' : cfg.tui.theme;
-    const cols = Number(process.env.COLUMNS) || 0;
+    const cols = Number(process.stdout.columns) || Number(process.env.COLUMNS) || 0;
     const max = cols ? Math.max(20, Math.min(cfg.tui.max_width, cols - 4)) : cfg.tui.max_width;
-    const out = render(statusData(root, payload), { theme, max });
-    process.stdout.write(`${out || `▌${path.basename(root)}`}\n`);
+    const out = render(statusData(root, payload), { theme, max, background: cfg.tui.background });
+    process.stdout.write(`${out || path.basename(root)}\n`);
     logRun(root, Date.now() - t0);
-  } catch (e) { process.stdout.write(`▌${path.basename(root)}\n`); logRun(root, Date.now() - t0, e); }
+  } catch (e) { process.stdout.write(`${path.basename(root)} · status line galat: lihat .claude/state/statusline.log\n`); logRun(root, Date.now() - t0, e); }
 }
 if (isMain(import.meta.url)) main();
