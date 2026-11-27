@@ -86,7 +86,7 @@ export function collect(root) {
       const r = `${rel}/${f.name}`;
       add(r, 'report');
       const u = units[units.length - 1];
-      if (!DATED.exec(f.name) || !/^\d{4}/.test(f.name)) u.slug = clean(`${c.name}-${u.slug}`);
+      if (!/^\d{4}-\d{2}-\d{2}/.test(f.name)) u.slug = clean(`${c.name}-${u.slug}`);
     }
   }
   // arsip lama dan sisa memori 1.x

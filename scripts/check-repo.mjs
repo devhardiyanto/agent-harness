@@ -37,10 +37,11 @@ check('JSON valid', (bad) => {
 });
 
 // 2. versi konsisten
-check('versi konsisten (VERSION, package.json, config kernel, plugin.json)', (bad) => {
+check('versi konsisten (VERSION, package.json, config kernel, plugin.json, lib.mjs)', (bad) => {
   const v = read('VERSION').trim();
   const vals = { 'package.json': json('package.json').version, 'kernel/harness.config.json': json('kernel/harness.config.json').harness_version, 'plugin/.claude-plugin/plugin.json': json('plugin/.claude-plugin/plugin.json').version };
   if (!/^\d+\.\d+\.\d+$/.test(v)) bad(`VERSION bukan semver: "${v}"`);
+  vals['kernel/.claude/hooks/lib.mjs'] = (/harness_version:\s*'([^']+)'/.exec(read('kernel/.claude/hooks/lib.mjs')) || [])[1];
   for (const [f, x] of Object.entries(vals)) if (x !== v) bad(`${f} = ${x}, VERSION = ${v}`);
 });
 
@@ -87,7 +88,7 @@ check('hook di settings.json ada dan sintaks Node valid', (bad) => {
   const names = new Set([...st.matchAll(/\.claude\/hooks\/([A-Za-z0-9_.-]+\.mjs)/g)].map((m) => m[1]));
   if (!names.size) bad('settings.json tidak merujuk hook apa pun');
   for (const n of names) if (!has(`kernel/.claude/hooks/${n}`)) bad(`hook ${n} dirujuk tetapi tidak ada`);
-  for (const f of [...walk('kernel/.claude/hooks'), 'install.mjs', 'scripts/check-repo.mjs', 'scripts/harness-update.mjs', 'scripts/projects.mjs'].filter((x) => x.endsWith('.mjs'))) {
+  for (const f of [...walk('kernel/.claude/hooks'), 'install.mjs', ...walk('scripts')].filter((x) => x.endsWith('.mjs'))) {
     const r = spawnSync(process.execPath, ['--check', path.join(ROOT, f)], { encoding: 'utf8' });
     if (r.status !== 0) bad(`${f}: ${(r.stderr || '').split('\n')[0]}`);
   }
@@ -160,8 +161,7 @@ check('agent: frontmatter valid dan routing model sesuai', (bad) => {
   }
 });
 
-// 12. tidak ada penanda "v1" pada nama produk/skill yang tampil ke user
-// 13. salinan antislop (1.19.0): hanya teks aturan; tanpa perintah unduh/jaringan, tanpa izin Bash, lisensi ikut, tercatat di THIRD_PARTY.md
+// 12. salinan antislop (1.19.0): hanya teks aturan; tanpa perintah unduh/jaringan, tanpa izin Bash, lisensi ikut, tercatat di THIRD_PARTY.md
 check('salinan antislop bersih dan berlisensi', (bad) => {
   const dirs = fs.existsSync(path.join(ROOT, 'kernel/.claude/skills')) ? fs.readdirSync(path.join(ROOT, 'kernel/.claude/skills')).filter((d) => d.startsWith('antislop')) : [];
   if (!dirs.length) return;
@@ -177,6 +177,7 @@ check('salinan antislop bersih dan berlisensi', (bad) => {
   if (!/antislop[\s\S]*MIT[\s\S]*35b54dc/i.test(fs.existsSync(path.join(ROOT, 'THIRD_PARTY.md')) ? read('THIRD_PARTY.md') : '')) bad('THIRD_PARTY.md tidak mencatat antislop (MIT, commit)');
 });
 
+// 13. tidak ada penanda "v1" pada nama produk/skill yang tampil ke user
 check('tanpa penanda "v1" pada nama plugin, judul, dan skill', (bad) => {
   for (const f of ['plugin/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'kernel/AGENTS.md', 'README.md']) {
     const first = f.endsWith('.md') ? read(f).split('\n')[0] : read(f);

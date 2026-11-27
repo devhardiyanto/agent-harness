@@ -11,7 +11,9 @@ const script = path.join(here, '..', 'scripts', 'update-all.mjs');
 const VERSION = fs.readFileSync(path.join(here, '..', 'VERSION'), 'utf8').trim();
 const run = (home, ...a) => spawnSync('node', [script, '--no-pull', ...a], { encoding: 'utf8', env: { ...process.env, HARNESS_HOME: home } });
 const homeDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'hh-'));
-const old = (root, v = '1.0.0') => { const f = '.claude/harness.version'; wr(root, f, JSON.stringify({ ...jr(root, f), version: v })); commitAll(root, 'turunkan versi uji'); };
+// Fixture install memakai branch harness-v1; harness-update bekerja di root_branch (main).
+const onMain = (root) => sh('git', ['branch', '-M', 'main'], root);
+const old = (root, v = '1.0.0') => { onMain(root); const f = '.claude/harness.version'; wr(root, f, JSON.stringify({ ...jr(root, f), version: v })); commitAll(root, 'turunkan versi uji'); };
 
 test('install mendaftarkan project; --list menampilkannya', () => {
   const root = project({ v1: true });
@@ -23,40 +25,41 @@ test('install mendaftarkan project; --list menampilkannya', () => {
   assert.match(l.stdout, new RegExp(VERSION.replace(/\./g, '\\.')));
 });
 
-test('update-all: project lama diperbarui di branch harness-update; yang terbaru dilewati', () => {
+test('update-all = harness-update --all: project lama diperbarui di main (satu commit); yang terbaru dilewati', () => {
   const a = project({ v1: true, name: 'a' });
   const b = project({ v1: true, name: 'b' });
-  old(a);
+  old(a); onMain(b);
   const home = homeDir();
   run(home, '--add', a, b);
-  const r = run(home);
+  const r = run(home, '--no-plugin');
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stdout, new RegExp(`1\\.0\\.0 → ${VERSION.replace(/\./g, '\\.')}`));
-  assert.match(r.stdout, /terbaru/);
+  assert.match(r.stdout, /sudah terbaru/);
   assert.equal(jr(a, '.claude/harness.version').version, VERSION);
-  assert.equal(sh('git', ['branch', '--show-current'], a).stdout.trim(), 'harness-update');
+  assert.equal(sh('git', ['branch', '--show-current'], a).stdout.trim(), 'main', 'tanpa branch tambahan');
+  assert.match(sh('git', ['log', '-1', '--format=%s'], a).stdout, new RegExp(`^chore\\(harness\\): update to v${VERSION.replace(/\./g, '\\.')}`));
+  assert.match(r.stdout, /doctor: OK/);
 });
 
-test('update-all: pohon kotor ditolak installer dan dilaporkan, exit 1', () => {
+test('harness-update: pohon kotor ditolak dan dilaporkan, exit 1', () => {
   const a = project({ v1: true, name: 'k' });
   old(a);
   wr(a, 'README.md', 'diubah user\n'); // tracked + belum di-commit
   const home = homeDir();
   run(home, '--add', a);
-  const r = run(home);
+  const r = run(home, '--no-plugin');
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /GAGAL/);
-  assert.match(r.stdout, /perubahan tracked/, 'catatan memuat alasan dari stderr installer');
-  assert.doesNotMatch(r.stdout, /DIBIARKAN|Cadangan:/, 'tidak menampilkan rencana stdout');
+  assert.match(r.stdout, /GAGAL: .*perubahan tracked/);
+  assert.equal(jr(a, '.claude/harness.version').version, '1.0.0');
 });
 
-test('update-all: folder hilang dan non-harness dilaporkan; --remove membersihkan', () => {
+test('harness-update: folder hilang dilaporkan; --remove membersihkan', () => {
   const home = homeDir();
   const gone = path.join(os.tmpdir(), 'tidak-ada-' + Date.now());
   fs.writeFileSync(path.join(home, 'projects.json'), JSON.stringify({ projects: [gone] }));
-  const r = run(home);
+  const r = run(home, '--no-plugin');
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /HILANG/);
+  assert.match(r.stdout, /GAGAL: bukan root ber-harness/);
   assert.match(run(home, '--remove', gone).stdout, /^- /m);
   assert.match(run(home).stdout, /Belum ada project terdaftar/);
 });
@@ -80,13 +83,24 @@ test('--dry-run tidak mengubah project', () => {
   assert.equal(jr(a, '.claude/harness.version').version, '1.0.0');
 });
 
-test('update-all menandai project yang masih mendaftarkan plugin di tingkat project', () => {
-  const a = project({ v1: true, name: 'reg' });
-  const st = jr(a, '.claude/settings.json'); st.enabledPlugins = { 'harness@harness-marketplace': true };
-  wr(a, '.claude/settings.json', JSON.stringify(st, null, 2)); commitAll(a, 'daftar plugin lama');
-  const home = homeDir();
-  run(home, '--add', a);
-  const r = run(home);
-  assert.match(r.stdout, /terbaru/);
-  assert.match(r.stdout, /masih mendaftarkan plugin di tingkat project/);
+test('harness-update: autoPush ke origin, lalu --rollback membatalkan update terakhir', () => {
+  const a = project({ v1: true, name: 'p' });
+  onMain(a);
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'origin-'));
+  sh('git', ['init', '-q', '--bare', '-b', 'main'], bare);
+  sh('git', ['remote', 'add', 'origin', bare], a);
+  sh('git', ['push', '-q', '-u', 'origin', 'main'], a);
+  const cfg = jr(a, 'harness.config.json'); cfg.update = { autoPush: true }; wr(a, 'harness.config.json', JSON.stringify(cfg, null, 2));
+  old(a);
+  sh('git', ['push', '-q', 'origin', 'main'], a);
+  const hu = path.join(here, '..', 'scripts', 'harness-update.mjs');
+  const env = { ...process.env, HARNESS_HOME: homeDir() };
+  const r = spawnSync('node', [hu, a, '--no-pull', '--no-plugin'], { encoding: 'utf8', env });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /di-push: ya/);
+  assert.equal(sh('git', ['rev-parse', 'HEAD'], a).stdout, sh('git', ['rev-parse', 'main'], bare).stdout);
+  const rb = spawnSync('node', [hu, a, '--rollback'], { encoding: 'utf8', env });
+  assert.equal(rb.status, 0, rb.stdout + rb.stderr);
+  assert.match(rb.stdout, /revert [0-9a-f]{8} "chore\(harness\): update to v/);
+  assert.equal(jr(a, '.claude/harness.version').version, '1.0.0');
 });

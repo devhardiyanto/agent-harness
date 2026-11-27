@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.0
+Pemeliharaan (hasil review sub agent) dan temuan uji di root nyata.
+- **Satu jalur update**: `update-all.mjs` tanpa opsi menjalankan `harness-update.mjs --all` (langsung di `root_branch`, satu commit). Alur lama dengan branch `harness-update` dan `--cleanup-project` dibuang.
+- **Tanpa mencocokkan teks**: `harness-update` menentukan "sudah terbaru" dari versi terpasang vs installer, dan membaca hasil `doctor --json` (opsi baru).
+- **Test jalur update**: update di `main`, sudah terbaru, pohon kotor, folder hilang, `autoPush` ke origin, `--rollback`.
+- **Satu sumber**: helper skrip di `scripts/util.mjs` (versi, JSON, tabel, `claude`, tulis atomik); path dan header `USER.md` dari `memory.mjs` untuk guard dan installer; `check-repo` ikut memeriksa versi di `lib.mjs` dan sintaks semua skrip; `antislop` masuk default config.
+- **`deny_commands` digabung**: larangan bawaan (termasuk yang baru) selalu berlaku; daftar di config menambah, tidak mengganti.
+- **Tulis atomik**: `projects.json`, `installer.json`, state topik, pemakaian skill, cache knowledge, `INDEX.md`, memori.
+- **Topik** (uji event): folder berisi berkas tapi bernama dari path dilaporkan `doctor` sebagai "topik salah nama" (ganti nama, jangan hapus); hanya folder tanpa berkas berisi yang "topik kosong". Status 1.x `merged`/`done`/`promoted`, juga bila hanya di `summary.md`, dihitung ditutup.
+- **Status line**: topik sesi tidak lagi hilang setelah transcript besar dilompati per 1 MB (penanda awal baris salah setelah blok tanpa baris baru).
+- Bersih-bersih: kode mati dibuang (cek `root_branch dilindungi` yang selalu OK, `getInstaller`, opsi `skip`), `AGENTS.md` disamakan dengan kode (batas memori 3.000 karakter; aturan `freya-dba` bukan tugas guard).
+
 ## 2.1.3
 Perbaikan bug dari review logika (sub agent).
 - **Guard per segmen**: perintah dipecah per `&&`, `||`, `;`, `|`, baris baru, dan subshell (kutip dihormati); `cd`/`pushd` diikuti antar segmen, `git -C` dan path Git Bash `/c/...` dikenali. Tertutup: commit di branch dilindungi lewat `pushd`, `( … )`, path berkutip, atau baris baru; `git push origin :main`, `'main'`, beberapa refspec, `--all`/`--mirror`, `+refspec`, `-uf`; `echo "$(gh auth token)"` dan `echo $GH_TOKEN`; `rm -rf ./`, `~/`, `/*`, `--recursive --force`; menulis `MEMORY.md`/`USER.md` lewat shell. Tidak lagi salah blokir `git push feat && npm i --force`, `git log --grep push`, `git stash push`. Pola `deny_commands` rusak dilewati (dilaporkan `doctor`), tidak lagi memblokir semua perintah. Pembanding path MEMORY.md tidak peka huruf besar di Windows.

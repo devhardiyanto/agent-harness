@@ -507,7 +507,12 @@ test('2.1.2: memori format 1.x dirapikan, pemicu ingat/lupakan, status topik imp
   const st = run('topic', 'list', '--stale', '7').stdout;
   assert.match(st, /lama-terbuka/); assert.doesNotMatch(st, /baru-hari-ini|lama-tanpa-fm/);
   assert.doesNotMatch(run('topic', 'list', '--open').stdout, /lama-tanpa-fm|titik-rawan/);
-  assert.match(run('doctor').stdout, /topik sampah \| INFO \| .*tanpa-nama.*c-users-devha-appdata-local-temp-claude/);
+  const doc = run('doctor').stdout;
+  assert.match(doc, /topik kosong \| INFO \| docs\/topics\/2026-11-25\/tanpa-nama →/);
+  assert.match(doc, /topik salah nama \| INFO \| docs\/topics\/2026-11-20\/c-users-devha-appdata-local-temp-claude →.*jangan dihapus/);
+  // 1.x: status merged di summary.md = ditutup
+  wr(root, 'docs/topics/2026-11-19/qr/summary.md', '---\nstatus: merged\n---\n# qr\n');
+  assert.match(run('growth').stdout, /7 total · 2 terbuka · 3 impor \(tanpa frontmatter\) · 2 ditutup/);
   assert.match(run('topic', 'close', 'lama-tanpa-fm').stdout, /^ditutup: /, 'topik impor tanpa topic.md bisa ditutup');
   assert.match(rd(root, 'docs/topics/2026-11-20/lama-tanpa-fm/topic.md'), /^---\nstatus: closed/);
   assert.match(rd(root, '.claude/skills/topic/SKILL.md'), /topic list --stale 7/);

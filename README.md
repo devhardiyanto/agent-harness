@@ -1,6 +1,6 @@
 # agent-harness
 
-Harness untuk Claude Code di root project multi-repo (`source-code/<repo git>`). Versi **2.1.3**.
+Harness untuk Claude Code di root project multi-repo (`source-code/<repo git>`). Versi **2.2.0**.
 
 > Sudah memakai versi sebelumnya? Update (bagian 13), lalu ikuti [13.4 langkah setelah update](#134-sudah-pakai-versi-sebelumnya-langkah-setelah-update).
 
@@ -429,7 +429,7 @@ Alurnya: pindah ke `main` bila bersih → `pull --ff-only` → update di tempat 
 node ~/agent-harness/scripts/update-all.mjs --list
 ```
 
-`--scan /d/dev` mendaftarkan project yang sudah ber-harness; `--add` / `--remove` mengatur manual. Plugin global baru termuat di sesi berikutnya (atau `/reload-plugins`).
+`--scan /d/dev` mendaftarkan project yang sudah ber-harness; `--add` / `--remove` mengatur manual. `update-all.mjs` tanpa opsi sama dengan `harness-update.mjs --all` (satu jalur update, langsung di `main`; branch `harness-update` lama tidak dipakai lagi). Plugin global baru termuat di sesi berikutnya (atau `/reload-plugins`).
 
 ---
 
@@ -546,7 +546,8 @@ Teks aturan disalin (bukan plugin hulu) dengan sedikit penyesuaian; daftar perub
 | USER.md tidak termuat | cek `/memory`; pastikan `~/.harness/USER.md` ada |
 | update ditolak "pohon kotor" | commit dulu atau `--allow-dirty` |
 | `growth` 0 fakta padahal memori berisi | format 1.x (`§`): `memori --rapikan` |
-| `doctor` menyebut topik sampah | periksa foldernya, hapus sendiri |
+| `doctor` menyebut topik kosong | folder tanpa berkas berisi; boleh dihapus |
+| `doctor` menyebut topik salah nama | berisi berkas; ganti nama sesuai isinya (`git mv`), jangan dihapus |
 | perintah diblokir guard | baca alasan `[harness] DIBLOKIR: …`; tindakan berisiko dilakukan sendiri |
 
 ### Belum teruji

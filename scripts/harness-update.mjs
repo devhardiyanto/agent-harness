@@ -11,18 +11,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { readProjects } from './projects.mjs';
+import { ROOT, readVer, readJson, tail, claude, isMainScript, installedOf } from './util.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(`--${n}`);
 const DRY = flag('dry-run');
 const g = (cwd, args, ms = 120000) => spawnSync('git', args, { cwd, encoding: 'utf8', timeout: ms });
 const gout = (cwd, args) => { const r = g(cwd, args); return r.status === 0 ? r.stdout.trim() : ''; };
-const readVer = () => fs.readFileSync(path.join(ROOT, 'VERSION'), 'utf8').trim();
-const readJson = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
-const tail = (r) => String(r.stderr || r.stdout || r.error?.message || '').trim().split(/\r?\n/).filter(Boolean).slice(-2).join(' ; ').slice(0, 220);
 // perubahan tracked selain di bawah .harness/ (yang memang tidak di-commit)
 const dirtyTracked = (cwd) => g(cwd, ['status', '--porcelain', '--untracked-files=no']).stdout.split('\n').filter((l) => l.trim() && !/^.. "?\.harness\//.test(l));
 
@@ -66,18 +62,21 @@ export function updateRoot(root, { dry = DRY, push = flag('push'), pull = !flag(
     step(`fetch + pull --ff-only origin/${branch}`);
   } else step(hasOrigin ? `(dry run) fetch + pull origin/${branch}` : 'tidak ada remote origin: sinkronisasi dilewati');
   // 3. installer sendiri
-  const before = readJson(path.join(root, '.claude', 'harness.version'))?.version || '?';
+  const before = installedOf(root) || '?';
   if (pull && !dry && !gout(ROOT, ['status', '--porcelain', '--untracked-files=no'])) { const r = g(ROOT, ['pull', '--ff-only']); step(r.status === 0 ? 'installer: pull --ff-only' : `installer: pull dilewati (${tail(r)})`); }
   const ver = readVer();
   rep.from = before; rep.to = ver;
   const ins = spawnSync(process.execPath, [path.join(ROOT, 'install.mjs'), root, '--update', '--in-place', '--yes', '--commit-message', `chore(harness): update to v${ver}`, ...(dry ? ['--dry-run'] : [])], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (ins.status !== 0) return stop(`installer gagal: ${tail(ins)}`);
-  const upToDate = /Sudah terbaru/.test(ins.stdout);
+  // Sudah terbaru = versi terpasang sama dengan installer (installer keluar tanpa mengubah apa pun).
+  const upToDate = before === ver;
   step(upToDate ? `sudah terbaru (${ver}); tidak ada perubahan` : dry ? `(dry run) ${before} → ${ver}` : `terapkan ${before} → ${ver} + commit "chore(harness): update to v${ver}"`);
   if (dry) { rep.ok = true; return rep; }
   // 4. doctor
-  const doc = spawnSync(process.execPath, [path.join(root, '.claude', 'hooks', 'harness.mjs'), 'doctor'], { cwd: root, encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
-  rep.doctor = doc.status === 0 ? 'OK' : `GAGAL (${(doc.stdout.match(/\| (.+?) \| GAGAL/g) || []).map((x) => x.slice(2, -8)).join(', ') || 'lihat doctor'})`;
+  const doc = spawnSync(process.execPath, [path.join(root, '.claude', 'hooks', 'harness.mjs'), 'doctor', '--json'], { cwd: root, encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
+  let rows = []; try { rows = JSON.parse(doc.stdout); } catch { /* doctor lama tanpa --json */ }
+  const bad = rows.filter((r) => r.hasil === 'GAGAL').map((r) => r.cek);
+  rep.doctor = doc.status === 0 ? 'OK' : `GAGAL (${bad.join(', ') || 'lihat doctor'})`;
   step(`doctor: ${rep.doctor}`);
   // 5. push hanya bila diizinkan
   const auto = (cfg.update && cfg.update.autoPush) === true;
@@ -90,8 +89,6 @@ export function updateRoot(root, { dry = DRY, push = flag('push'), pull = !flag(
   return rep;
 }
 
-// claude di Windows adalah claude.cmd: lewat shell; argumen konstan (bukan input user).
-const claude = (args) => (process.platform === 'win32' ? spawnSync(`claude ${args.join(' ')}`, { encoding: 'utf8', shell: true, timeout: 120000 }) : spawnSync('claude', args, { encoding: 'utf8', timeout: 120000 }));
 export function updatePlugin() {
   const v = claude(['--version']);
   if (v.error || v.status !== 0) return 'plugin: claude tidak ditemukan di PATH; skill tidak diperbarui (jalankan: node scripts/update-all.mjs --setup-plugin)';
@@ -106,9 +103,8 @@ function show(r) {
   else console.log(`${r.from ? `versi: ${r.from} → ${r.to} · ` : ''}branch: ${r.branch} · di-push: ${r.pushed ? 'ya' : 'tidak'}${r.note ? ` · ${r.note}` : ''}`);
 }
 
-if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
-  const skip = new Set();
-  const roots = flag('all') ? readProjects() : argv.filter((a, i) => !a.startsWith('--') && !skip.has(i)).map((a) => path.resolve(a));
+if (isMainScript(import.meta.url)) {
+  const roots = flag('all') ? readProjects() : argv.filter((a) => !a.startsWith('--')).map((a) => path.resolve(a));
   if (!roots.length) { console.error('pakai: harness-update.mjs <root>... | --all [--dry-run] [--push] [--no-pull] [--rollback]'); process.exit(1); }
   let failed = 0;
   const notes = [];

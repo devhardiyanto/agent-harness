@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_CONFIG = {
-  harness_version: '2.1.3',
+  harness_version: '2.2.0',
   project: '',
   root_branch: 'main',
   layout: 'multi-repo', // 'multi-repo' (services_dir berisi repo git) | 'single'
@@ -22,9 +22,10 @@ export const DEFAULT_CONFIG = {
   knowledge_check: { stale_commits: 30 },
   learn: { memory_chars: 3000, user_chars: 1500, skill_unused_days: 60 },
   update: { autoPush: false },
+  antislop: { mode: 'during' },
 };
 
-const NESTED = ['git', 'remap', 'tui', 'update', 'knowledge_check', 'learn'];
+const NESTED = ['git', 'remap', 'tui', 'update', 'knowledge_check', 'learn', 'antislop'];
 
 // True bila modul dijalankan sebagai skrip. Gagal membandingkan = anggap skrip (gerbang tetap berlaku).
 export function isMain(metaUrl, argv1 = process.argv[1]) {
@@ -46,7 +47,8 @@ export function loadConfig(root) {
   for (const k of NESTED) cfg[k] = { ...DEFAULT_CONFIG[k], ...(user[k] || {}) };
   if (!Array.isArray(cfg.services)) cfg.services = [];
   if (!Array.isArray(cfg.protected_branches)) cfg.protected_branches = DEFAULT_CONFIG.protected_branches;
-  if (!Array.isArray(cfg.deny_commands)) cfg.deny_commands = DEFAULT_CONFIG.deny_commands;
+  // Larangan bawaan selalu ikut (termasuk yang baru di versi berikutnya); daftar user menambah, tidak mengganti.
+  cfg.deny_commands = [...new Set([...DEFAULT_CONFIG.deny_commands, ...(Array.isArray(user.deny_commands) ? user.deny_commands : [])])];
   return cfg;
 }
 
@@ -73,6 +75,14 @@ export function globToRegex(glob) {
 }
 
 export const SECRET_FILE = /(^|\/)(\.env(\.(?![^/]*(example|sample|template)$)[^/]*)?|[^/]*\.pem|[^/]*\.p12|[^/]*\.pfx|id_(rsa|ed25519|ecdsa)|credentials(\.json)?|\.npmrc|\.netrc)$/;
+
+// Tulis lewat berkas sementara lalu rename: pembaca tidak pernah melihat berkas setengah jadi.
+export function writeAtomic(file, text) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tmp, text);
+  try { fs.renameSync(tmp, file); } catch (e) { try { fs.rmSync(tmp, { force: true }); } catch { /* abaikan */ } throw e; }
+}
 
 export function deny(reason) {
   process.stderr.write(`[harness] DIBLOKIR: ${reason}\n`);
