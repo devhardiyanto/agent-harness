@@ -125,7 +125,7 @@ node .claude/hooks/harness.mjs doctor
 | `protected_branches` | `main`, `master`, `develop`, `production`, `staging`, `release/*` | tidak boleh commit/push langsung di repo service |
 | `git` | `host`, `default_account`, `services` | akun per service (bagian 10) |
 | `remap.legacy_months` | `2` | batas umur data sebelum ke `_legacy` |
-| `tui` | `statusline: true`, `theme: kapsul`, `max_width: 120` | status line |
+| `tui` | `statusline: true`, `theme: kapsul`, `max_width: 120`, `background: dark` | status line; `background: light` untuk terminal terang |
 | `knowledge_check.stale_commits` | `30` | knowledge dianggap usang setelah N commit baseline |
 | `learn` | `memory_chars: 3000`, `user_chars: 1500`, `skill_unused_days: 60` | batas memori dan skill |
 | `update.autoPush` | `false` | push otomatis setelah update |
@@ -298,8 +298,8 @@ Saat topik ditutup, perubahan yang belum merged dicatat di `summary.md` service:
 ## 9. Status line
 
 ```
-▐event▌ ▐promo-checkout▌ event-backend* event-web? · Opus 5.5 · medium ponytail:full
-▐konteks 72%▌ 144k/200k 5j 61% · 7h 30% +310 −88
+▐event▌ ▐promo-checkout▌ event-backend*, event-web? · Opus 5.5 · medium · ponytail:full
+▐konteks 72% !▌ 144k/200k · 5j 61% ! · 7h 30% · +310 −88
 ```
 
 | bagian | sumber |
@@ -310,10 +310,21 @@ Saat topik ditutup, perubahan yang belum merged dicatat di `summary.md` service:
 | model · effort | Claude Code |
 | `ponytail:<mode>` | `~/.claude/.ponytail-active`, bila plugin terpasang |
 | konteks | token respons API terakhir dibagi jendela auto-compact (`/autocompact`, `autoCompactWindow`, `CLAUDE_CODE_AUTO_COMPACT_WINDOW`) bila diatur, selain itu jendela model |
-| 5j, 7h | batas pemakaian dari respons API terakhir |
+| 5j, 7h | batas pemakaian dari respons API terakhir; jam reset muncul saat ≥ 85% |
 | `+N −M` | baris berubah; hanya bila sesi punya topik |
 
-Tema (`tui.theme`): `kapsul` (bawaan), `tenang`, `kontras`, `mono` (otomatis bila `NO_COLOR`). Tiap jalan dicatat di `.claude/state/statusline.log`.
+| tanda | arti |
+|---|---|
+| `?` setelah service | knowledge service belum ada |
+| `*` setelah service | knowledge service usang |
+| `!` | 60–84% (kuning) |
+| `!!` | ≥ 85% (merah) |
+| `konteks ?` | belum ada respons API di sesi ini |
+| `status line galat: …` | baca `.claude/state/statusline.log` |
+
+Baris terlalu lebar: yang dibuang lebih dulu ponytail, model, `+N −M`, service, token; topik dipersingkat dengan `…`. Konteks, batas yang ≥ 60%, dan jam reset selalu tampil.
+
+Tema (`tui.theme`): `kapsul` (bawaan), `tenang`, `kontras` (untuk terminal gelap), `mono` (otomatis bila `NO_COLOR`). Terminal berlatar terang: `"tui": { "background": "light" }`. Tiap jalan dicatat di `.claude/state/statusline.log`.
 
 ---
 

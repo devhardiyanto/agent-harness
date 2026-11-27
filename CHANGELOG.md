@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.1
+Status line, dari audit antislop (mode after; nomor 1–8, 10, 12, 13 disetujui, 9 dan 11 tidak).
+- **Kontras**: kapsul root latar 23, topik latar 240, konteks merah latar 124 (teks putih ≥ 6:1); nama service memakai warna teks bawaan terminal; `tenang` redup = 90, merah tebal; `kontras` memakai teks tebal bawaan untuk root/topik (dirancang untuk terminal gelap). Opsi baru `tui.background: "light"` untuk terminal terang.
+- **Makna tanpa warna**: penanda `!` (60–84%) dan `!!` (≥ 85%) pada konteks dan tiap batas 5j/7h, juga di mono; tiap batas berwarna sendiri (batas aman tidak ikut merah). Hijau/kuning/merah hanya untuk status; `+N −M` jadi teks redup.
+- **Pemotongan berprioritas**: saat baris terlalu lebar, dibuang berurutan ponytail, model, `+N −M`, service, token; topik dipersingkat dengan `…`; jam reset ikut batasnya; `+N −M` satu segmen. Lebar dibaca dari terminal dulu, lalu `COLUMNS`.
+- **Keadaan**: sebelum respons API pertama baris 2 tampil `konteks ?` (tinggi tidak melompat); saat galat, baris 2 menunjuk ke `.claude/state/statusline.log`.
+- **Konsistensi**: satu aturan pemisah untuk semua tema; prefiks `▌` di tenang/kontras/mono dihapus (mono memakai `[ ]` seperti kapsul). Alasan dan rasio kontras tiap warna ditulis di kode; legenda tanda di README.
+
 ## 2.2.0
 Pemeliharaan (hasil review sub agent) dan temuan uji di root nyata.
 - **Satu jalur update**: `update-all.mjs` tanpa opsi menjalankan `harness-update.mjs --all` (langsung di `root_branch`, satu commit). Alur lama dengan branch `harness-update` dan `--cleanup-project` dibuang.

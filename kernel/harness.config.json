@@ -1,5 +1,5 @@
 {
-  "harness_version": "2.2.0",
+  "harness_version": "2.2.1",
   "project": "",
   "root_branch": "main",
   "layout": "multi-repo",
@@ -24,7 +24,8 @@
   "tui": {
     "statusline": true,
     "theme": "kapsul",
-    "max_width": 120
+    "max_width": 120,
+    "background": "dark"
   },
   "update": {
     "autoPush": false
