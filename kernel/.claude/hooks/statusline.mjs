@@ -189,20 +189,34 @@ function logRun(root, ms, err) {
   } catch { /* abaikan */ }
 }
 
+const lastFile = (root) => path.join(root, '.claude', 'state', 'statusline.last');
+
+// Satu kali gagal mengosongkan baris di Claude Code (hasil sebelumnya dibuang), jadi galat menampilkan hasil terakhir sesi ini.
+export function statusOutput(root, sid, build) {
+  try {
+    const out = `${build() || path.basename(root)}\n`;
+    try { fs.writeFileSync(lastFile(root), JSON.stringify({ sid, out })); } catch { /* cadangan saja */ }
+    return { out };
+  } catch (err) {
+    let last = ''; try { const j = JSON.parse(fs.readFileSync(lastFile(root), 'utf8')); if (j.sid === sid) last = j.out; } catch { /* belum ada */ }
+    return { out: last || `${path.basename(root)} · status line galat: lihat .claude/state/statusline.log\n`, err };
+  }
+}
+
 async function main() {
   const t0 = Date.now();
   let payload = {};
-  try { const chunks = []; for await (const ch of process.stdin) chunks.push(ch); payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); } catch { /* bukan JSON */ }
+  try { const chunks = []; for await (const ch of process.stdin) chunks.push(ch); payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') || {}; } catch { /* bukan JSON */ }
   const root = path.resolve(process.env.CLAUDE_PROJECT_DIR || (payload.workspace && payload.workspace.project_dir) || payload.cwd || process.cwd());
-  try {
+  const r = statusOutput(root, payload.session_id || null, () => {
     const cfg = loadConfig(root);
-    if (cfg.tui.statusline === false) return;
+    if (cfg.tui.statusline === false) return ' ';
     const theme = process.env.NO_COLOR ? 'mono' : cfg.tui.theme;
     const cols = Number(process.stdout.columns) || Number(process.env.COLUMNS) || 0;
     const max = cols ? Math.max(20, Math.min(cfg.tui.max_width, cols - 4)) : cfg.tui.max_width;
-    const out = render(statusData(root, payload), { theme, max, background: cfg.tui.background });
-    process.stdout.write(`${out || path.basename(root)}\n`);
-    logRun(root, Date.now() - t0);
-  } catch (e) { process.stdout.write(`${path.basename(root)} · status line galat: lihat .claude/state/statusline.log\n`); logRun(root, Date.now() - t0, e); }
+    return render(statusData(root, payload), { theme, max, background: cfg.tui.background });
+  });
+  process.stdout.write(r.out);
+  logRun(root, Date.now() - t0, r.err);
 }
 if (isMain(import.meta.url)) main();

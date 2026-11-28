@@ -10,7 +10,7 @@
   "outputStyle": "harness",
   "statusLine": {
     "type": "command",
-    "command": "node .claude/hooks/statusline.mjs",
+    "command": "d=$PWD; while [ -n \"$d\" ] && [ ! -f \"$d/.claude/hooks/statusline.mjs\" ]; do d=${d%/*}; done; node \"${d:-.}/.claude/hooks/statusline.mjs\"",
     "padding": 0
   },
   "permissions": {
