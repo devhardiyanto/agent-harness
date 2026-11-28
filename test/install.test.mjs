@@ -27,14 +27,14 @@ function gitRepo(dir, branch = 'main') {
   sh('git', ['config', 'user.name', 't'], dir); sh('git', ['config', 'user.email', 't@t.t'], dir); sh('git', ['config', 'commit.gpgsign', 'false'], dir);
 }
 function existingProject() {
-  const root = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ins-')), 'astra');
+  const root = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ins-')), 'proj');
   gitRepo(root);
   for (const d of ['.claude/agents', '.claude/hooks', 'docs/knowledge', 'docs/other', 'scripts', 'ops']) fs.mkdirSync(path.join(root, d), { recursive: true });
   const w = (p, c = 'x') => fs.writeFileSync(path.join(root, p), c);
   w('CLAUDE.md'); w('AGENTS.md'); w('.claude/settings.json', '{}'); w('.claude/settings.local.json', '{"keep":1}'); w('.claude/agents/x.md');
   w('docs/knowledge/a.md'); w('docs/other/note.md', 'keep'); w('scripts/check-git-gate.sh'); w('scripts/my-deploy.sh', 'keep'); w('ops/README.md');
   w('.mcp.json', '{"mcpServers":{"plane":{}}}'); w('.gitignore', 'node_modules/\nsource-code/\n');
-  for (const s of ['ce-api', 'ce-web']) { gitRepo(path.join(root, 'source-code', s)); fs.writeFileSync(path.join(root, 'source-code', s, 'package.json'), '{}'); }
+  for (const s of ['shop-api', 'shop-web']) { gitRepo(path.join(root, 'source-code', s)); fs.writeFileSync(path.join(root, 'source-code', s, 'package.json'), '{}'); }
   sh('git', ['add', '-A'], root); sh('git', ['commit', '-qm', 'init'], root);
   return root;
 }
@@ -69,7 +69,7 @@ test('existing: ganti penuh, tag cadangan, branch, yang lain dipertahankan', () 
   assert.equal(fs.readFileSync(path.join(root, '.claude/settings.local.json'), 'utf8'), '{"keep":1}');
   assert.equal(fs.existsSync(path.join(root, '.harness-staging')), false);
   const cfg = JSON.parse(fs.readFileSync(path.join(root, 'harness.config.json'), 'utf8'));
-  assert.deepEqual(cfg.services, ['ce-api', 'ce-web']);
+  assert.deepEqual(cfg.services, ['shop-api', 'shop-web']);
   assert.equal(cfg.plane, undefined, 'Plane dicabut (1.23.0, D37)');
   const st = JSON.parse(fs.readFileSync(path.join(root, '.claude/settings.json'), 'utf8'));
   assert.equal(st.enabledPlugins, undefined, 'plugin global: tidak didaftarkan di settings project');
@@ -83,10 +83,10 @@ test('hasil instalasi: tanpa gerbang alur, guard keamanan aktif (2.0)', () => {
   assert.equal(install(root, '--yes').status, 0);
   const st = JSON.parse(fs.readFileSync(path.join(root, '.claude/settings.json'), 'utf8'));
   assert.deepEqual(Object.keys(st.hooks), ['PreToolUse']);
-  const file = path.join(root, 'source-code/ce-api/src/a.ts');
+  const file = path.join(root, 'source-code/shop-api/src/a.ts');
   assert.equal(hook(root, 'guard.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: file, old_string: 'a', new_string: 'b' } }).status, 0);
-  assert.equal(hook(root, 'guard.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path: path.join(root, 'source-code/ce-api/.env'), content: 'x' } }).status, 2);
-  const svc = path.join(root, 'source-code/ce-api');
+  assert.equal(hook(root, 'guard.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path: path.join(root, 'source-code/shop-api/.env'), content: 'x' } }).status, 2);
+  const svc = path.join(root, 'source-code/shop-api');
   assert.equal(hook(root, 'guard.mjs', { hook_event_name: 'PreToolUse', tool_name: 'Bash', cwd: svc, tool_input: { command: 'git commit -m x' } }).status, 2);
   for (const f of ['gate.mjs', 'prompt.mjs', 'stop.mjs', 'guard-bash.mjs']) assert.equal(fs.existsSync(path.join(root, '.claude/hooks', f)), false, f);
 });
@@ -179,28 +179,28 @@ test('pasang ulang di atas v1: work item, knowledge, peta, dan checks dipertahan
   assert.equal(install(root, '--yes').status, 0);
   // data user setelah pemasangan pertama
   fs.mkdirSync(path.join(root, 'docs/work/2026-01-01-x'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'docs/work/2026-01-01-x/plan.md'), '---\ntitle: x\nstatus: done\nservices: [ce-api]\n---\n');
-  fs.mkdirSync(path.join(root, 'docs/knowledge/ce-api'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'docs/knowledge/ce-api/summary.md'), 'ringkasan hasil onboard');
+  fs.writeFileSync(path.join(root, 'docs/work/2026-01-01-x/plan.md'), '---\ntitle: x\nstatus: done\nservices: [shop-api]\n---\n');
+  fs.mkdirSync(path.join(root, 'docs/knowledge/shop-api'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'docs/knowledge/shop-api/summary.md'), 'ringkasan hasil onboard');
   fs.mkdirSync(path.join(root, 'docs/discussion'), { recursive: true });
   fs.writeFileSync(path.join(root, 'docs/discussion/catatan.md'), 'diskusi penting');
   fs.writeFileSync(path.join(root, 'docs/_map.md'), '# peta hasil onboard\n');
   const cp = path.join(root, 'harness.config.json');
   const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
-  cfg.checks = { 'ce-api': { lint: null, test: 'npm test' } };
-  cfg.git = { default_account: 'akun-a', services: { 'ce-web': 'akun-b' } };
+  cfg.checks = { 'shop-api': { lint: null, test: 'npm test' } };
+  cfg.git = { default_account: 'akun-a', services: { 'shop-web': 'akun-b' } };
   fs.writeFileSync(cp, JSON.stringify(cfg, null, 2));
   sh('git', ['add', '-A'], root); sh('git', ['commit', '-qm', 'data user'], root);
   const r = install(root, '--yes');
   assert.equal(r.status, 0, r.stderr + r.stdout);
   assert.equal(fs.readFileSync(path.join(root, 'docs/work/2026-01-01-x/plan.md'), 'utf8').includes('status: done'), true);
-  assert.equal(fs.readFileSync(path.join(root, 'docs/knowledge/ce-api/summary.md'), 'utf8'), 'ringkasan hasil onboard');
+  assert.equal(fs.readFileSync(path.join(root, 'docs/knowledge/shop-api/summary.md'), 'utf8'), 'ringkasan hasil onboard');
   assert.equal(fs.readFileSync(path.join(root, 'docs/discussion/catatan.md'), 'utf8'), 'diskusi penting');
   assert.equal(fs.readFileSync(path.join(root, 'docs/_map.md'), 'utf8'), '# peta hasil onboard\n');
   const after = JSON.parse(fs.readFileSync(cp, 'utf8'));
   assert.equal(after.checks, undefined, '2.0: checks 1.x dibuang');
   assert.equal(after.git.default_account, 'akun-a');
-  assert.equal(after.git.services['ce-web'], 'akun-b');
+  assert.equal(after.git.services['shop-web'], 'akun-b');
   assert.ok(fs.existsSync(path.join(root, 'docs/topics')));
   // akun contoh tidak login di gh mesin test: hanya baris itu yang boleh GAGAL
   assert.doesNotMatch(hx(root, 'doctor').stdout.replace(/gh login untuk akun service \| GAGAL[^\n]*/, ''), /GAGAL/);

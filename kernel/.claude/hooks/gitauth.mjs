@@ -13,7 +13,7 @@ export function accountFor(cfg, svc) {
 
 export const helperFor = (account) => `!f() { test "$1" = get || exit 0; echo username=${account}; echo "password=$(gh auth token --user ${account})"; }; f`;
 
-// Remote → { proto, host, repo }. SSH dengan alias host (git@github-kantor:org/repo.git) umum untuk multi-akun.
+// Remote → { proto, host, repo }. SSH dengan alias host (git@github-work:org/repo.git) umum untuk multi-akun.
 export function parseRemote(url) {
   const u = String(url || '').trim();
   let m = /^(?:ssh:\/\/)?[\w.-]+@([^:/]+)(?::\d+)?[:/](.+?)(?:\.git)?\/?$/.exec(u);
