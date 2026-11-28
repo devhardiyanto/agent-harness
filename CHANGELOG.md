@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.2
+Status line: angka token konteks persis.
+- **Token = input + output respons terakhir**: angka sekarang sama dengan "/clear to save …" Claude Code (sebelumnya hanya input, selisih ±1k). Persen dihitung dari token yang sama, sehingga angka dan persen selalu cocok.
+- **Format persis**: satu desimal untuk ribuan (`469.2k`), dua untuk juta (`1.25M`); nol di belakang dibuang (`200k`, `1M`).
+- **Sesudah `/compact`**: token 0 ditampilkan `konteks ?` sampai respons berikutnya, bukan `0%` atau persen lama.
+
 ## 2.2.1
 Status line, dari audit antislop (mode after; nomor 1–8, 10, 12, 13 disetujui, 9 dan 11 tidak).
 - **Kontras**: kapsul root latar 23, topik latar 240, konteks merah latar 124 (teks putih ≥ 6:1); nama service memakai warna teks bawaan terminal; `tenang` redup = 90, merah tebal; `kontras` memakai teks tebal bawaan untuk root/topik (dirancang untuk terminal gelap). Opsi baru `tui.background: "light"` untuk terminal terang.
