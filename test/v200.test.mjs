@@ -605,3 +605,28 @@ test('2.1.3: install --update membawa setelan user', () => {
   assert.match(r.stdout, /hook kustom/);
   assert.ok(fs.existsSync(path.join(root, '.claude/rules/svc-shared.md')), 'rule svc-* buatan user tidak dibuang');
 });
+
+test('2.2.4: status line tetap tampil dari subfolder dan saat galat', () => {
+  const root = project({ v1: true });
+  const sub = path.join(root, 'source-code', 'api', 'src'); fs.mkdirSync(sub, { recursive: true });
+  const cmd = JSON.parse(fs.readFileSync(path.join(root, '.claude/settings.json'), 'utf8')).statusLine.command;
+  const env = { ...process.env, NO_COLOR: '1' }; delete env.CLAUDE_PROJECT_DIR;
+  const input = JSON.stringify({ session_id: 'z1', workspace: { project_dir: root }, context_window: { used_percentage: 10 } });
+  const run = () => spawnSync('bash', ['-c', cmd], { cwd: sub, input, env, encoding: 'utf8' });
+  const ok = run();
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.match(ok.stdout, /^\[proj\]/, 'skrip ditemukan dari source-code/<svc>/src');
+});
+
+test('2.2.4: galat status line menampilkan hasil terakhir sesi yang sama', async () => {
+  const { statusOutput } = await import('../kernel/.claude/hooks/statusline.mjs');
+  const root = project({ v1: true });
+  fs.mkdirSync(path.join(root, '.claude/state'), { recursive: true });
+  const boom = () => { throw new Error('x'); };
+  assert.equal(statusOutput(root, 's1', () => 'baris ok').out, 'baris ok\n');
+  const r = statusOutput(root, 's1', boom);
+  assert.equal(r.out, 'baris ok\n', 'bukan baris kosong');
+  assert.ok(r.err);
+  assert.match(statusOutput(root, 's2', boom).out, /status line galat/, 'sesi lain tidak memakai hasil sesi ini');
+});
+

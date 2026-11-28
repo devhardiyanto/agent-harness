@@ -553,7 +553,7 @@ Teks aturan disalin (bukan plugin hulu) dengan sedikit penyesuaian; daftar perub
 
 | gejala | langkah |
 |---|---|
-| status line hilang | kirim isi `cat .claude/state/statusline.log`; dugaan: Claude Code menyembunyikan baris saat notifikasi/recap |
+| status line hilang | sebelum 2.2.4: hilang setelah `cd` ke subfolder (path relatif) → update harness. Masih hilang: kirim isi `cat .claude/state/statusline.log`. Claude Code memang menyembunyikannya saat menu help dan prompt izin terbuka |
 | `gh` di sesi claude 401 padahal di terminal normal | tutup dan buka ulang Claude Code; jangan logout akun |
 | `git-auth` "belum terpasang" | `git-auth --apply` |
 | `git-auth` "remote bukan github.com" | host lain belum didukung; pakai kredensial yang ada |

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.4
+Status line tidak lagi hilang.
+- **Tetap tampil setelah `cd`**: perintah status line mencari `.claude/hooks/statusline.mjs` dari folder kerja ke atas, sehingga tetap jalan saat sesi berada di `source-code/<svc>` (sebelumnya path relatif → skrip tidak ditemukan → baris kosong). Diuji dari subfolder lewat bash.
+- **Galat tidak mengosongkan baris**: Claude Code membuang hasil sebelumnya saat satu kali gagal; kini skrip selalu keluar 0 dan menampilkan hasil terakhir sesi yang sama (`.claude/state/statusline.last`). Galat tetap dicatat di `statusline.log`.
+- Input bukan objek (`null`) tidak lagi membuat skrip gagal.
+
 ## 2.2.3
 Repo publik: tanpa nama internal.
 - **Contoh netral**: akun git, organisasi, alias SSH, path, nama root, dan nama service di README, aturan `git.md`, komentar `gitauth.mjs`, test, dan CHANGELOG diganti contoh umum (`akun-kantor`, `github-work`, `~/dev/project-a`, `shop-api`).
