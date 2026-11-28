@@ -10,7 +10,8 @@ import { readCache } from './knowledge.mjs';
 
 const width = (s) => [...s.replace(/\x1b\[[0-9;]*m/g, '')].length;
 const num = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
-const kfmt = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1000)}k`);
+// Satu desimal untuk ribuan (469.2k) dan dua untuk juta (1.25M), nol di belakang dibuang: sama dengan angka Claude Code.
+export const kfmt = (n) => (n >= 1e6 ? `${+(n / 1e6).toFixed(2)}M` : n >= 1000 ? `${+(n / 1000).toFixed(1)}k` : String(n));
 const hhmm = (sec) => { const d = new Date(sec * 1000); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 export const level = (p) => (p >= 85 ? 'bad' : p >= 60 ? 'warn' : 'ok');
 
@@ -72,11 +73,16 @@ export function statusData(root, payload = {}, env = process.env) {
   } catch { /* abaikan */ }
   const cw = payload.context_window || {};
   const cu = cw.current_usage || {};
-  const tokens = num(cw.total_input_tokens) ?? (cw.current_usage ? (num(cu.input_tokens) || 0) + (num(cu.cache_creation_input_tokens) || 0) + (num(cu.cache_read_input_tokens) || 0) : null);
+  // Isi konteks giliran berikutnya = input respons terakhir (termasuk cache) + output-nya, sama dengan angka "/clear to save" Claude Code.
+  // used_percentage hanya menghitung input, jadi persen dihitung ulang dari token yang sama agar angka dan persen selaras.
+  const inTok = num(cw.total_input_tokens) ?? (cw.current_usage ? (num(cu.input_tokens) || 0) + (num(cu.cache_creation_input_tokens) || 0) + (num(cu.cache_read_input_tokens) || 0) : null);
+  const outTok = num(cw.total_output_tokens) ?? num(cu.output_tokens) ?? 0;
+  // 0 sebelum respons pertama dan sesudah /compact: kosong, bukan 0%.
+  const tokens = inTok ? inTok + outTok : null;
   const model = num(cw.context_window_size);
   const win = compactWindow(root, payload.model && payload.model.id, env);
   const size = win && (!model || win < model) ? win : model;
-  const pct = size !== model && tokens !== null ? (tokens * 100) / size : num(cw.used_percentage) ?? (tokens !== null && size ? (tokens * 100) / size : null);
+  const pct = tokens !== null && size ? (tokens * 100) / size : tokens === null && inTok !== 0 ? num(cw.used_percentage) : null;
   if (pct !== null) d.ctx = { pct: Math.round(pct), tokens, size };
   const rl = payload.rate_limits || {};
   for (const [key, label] of [['five_hour', '5j'], ['seven_day', '7h']]) {

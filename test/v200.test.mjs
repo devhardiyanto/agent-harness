@@ -356,6 +356,20 @@ test('2.1.1: konteks terhadap jendela auto-compact', async () => {
   assert.equal(d.ctx.size, 300000, 'env menang');
 });
 
+test('2.2.2: token konteks persis (input + output respons terakhir)', async () => {
+  const { statusData, render, kfmt } = await import('../kernel/.claude/hooks/statusline.mjs');
+  const root = project({ v1: true });
+  const env = { CLAUDE_CONFIG_DIR: path.join(root, 'tidak-ada') };
+  assert.deepEqual([999, 1000, 144000, 469212, 200000, 1e6, 1250000].map(kfmt), ['999', '1k', '144k', '469.2k', '200k', '1M', '1.25M']);
+  const d = statusData(root, { context_window: { total_input_tokens: 468000, total_output_tokens: 1200, context_window_size: 1000000, used_percentage: 46 } }, env);
+  assert.deepEqual(d.ctx, { pct: 47, tokens: 469200, size: 1000000 }, 'persen dari token yang sama, bukan used_percentage');
+  assert.match(render(d, { theme: 'mono' }), /\[konteks 47%\] 469\.2k\/1M/);
+  const c = statusData(root, { context_window: { total_input_tokens: 0, total_output_tokens: 0, context_window_size: 1000000, used_percentage: 47, current_usage: null } }, env);
+  assert.equal(c.ctx, null, 'sesudah /compact: konteks ?');
+  const u = statusData(root, { context_window: { context_window_size: 200000, current_usage: { input_tokens: 10, cache_creation_input_tokens: 0, cache_read_input_tokens: 99990, output_tokens: 500 } } }, env);
+  assert.equal(u.ctx.tokens, 100500);
+});
+
 test('2.0.6: perbaikan hasil review', async () => {
   const { sessionTopic, findTopic } = await import('../kernel/.claude/hooks/topics.mjs');
   const root = legacyRoot();
