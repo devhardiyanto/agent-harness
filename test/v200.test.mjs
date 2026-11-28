@@ -42,22 +42,22 @@ test('status line tanpa topik', () => {
 });
 
 function legacyRoot() {
-  const root = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'remap-')), 'astra');
+  const root = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'remap-')), 'proj');
   gitRepo(root);
   wr(root, 'harness.config.json', '{}');
-  wr(root, 'docs/work/2026-11-20-fix-kpb/plan.md', 'plan baru');
-  wr(root, 'docs/work/2026-11-20-fix-kpb/review.md', 'review');
+  wr(root, 'docs/work/2026-11-20-fix-login/plan.md', 'plan baru');
+  wr(root, 'docs/work/2026-11-20-fix-login/review.md', 'review');
   wr(root, 'docs/work/2026-08-02-migrasi-voucher/plan.md', 'plan lama');
   wr(root, 'docs/work/_TEMPLATE/plan.md', 'templat');
   wr(root, 'docs/work/README.md', 'readme');
   wr(root, 'docs/topics/2026-11-24-checkin-500.md', '# topik datar');
   wr(root, 'docs/topics/2026-11-24-checkin-500.diff', 'diff');
   wr(root, 'docs/topics/2026-07-01-lama.md', '# lama');
-  wr(root, 'docs/topik/infra-karcix.md', '# topik tanpa tanggal');
+  wr(root, 'docs/topik/infra-lama.md', '# topik tanpa tanggal');
   wr(root, 'docs/sessions/2026-10-06_090035_SESSION_rating-info.md', 's1');
   wr(root, 'docs/sessions/2026-11-04-booking-detail.md', 's2');
   wr(root, 'docs/sessions/11-2026/2026-11-10-feedback.md', 's3');
-  wr(root, 'docs/sessions/astra-cleaner.md', 's4');
+  wr(root, 'docs/sessions/proj-cleaner.md', 's4');
   wr(root, 'docs/sessions/2026-08-01-sangat-lama.md', 's5');
   wr(root, 'docs/reports/analisis/2026-11-01-stok.md', 'r1');
   wr(root, 'docs/reports/audit/umum.md', 'r2');
@@ -78,17 +78,17 @@ test('remap: rencana, lalu terapkan ke topics/sessions/_legacy', () => {
   assert.equal(p.cutoff, '2026-09-24');
   const to = Object.fromEntries(p.moves.map((m) => [m.src, m.to]));
   const t = today();
-  assert.equal(to['docs/work/2026-11-20-fix-kpb'], 'docs/topics/2026-11-20/fix-kpb');
+  assert.equal(to['docs/work/2026-11-20-fix-login'], 'docs/topics/2026-11-20/fix-login');
   assert.equal(to['docs/work/2026-08-02-migrasi-voucher'], 'docs/_legacy/2026-08-02/migrasi-voucher');
   assert.equal(to['docs/work/_TEMPLATE'], 'docs/_legacy/_lama/harness-1.x/_TEMPLATE');
   assert.equal(to['docs/topics/2026-11-24-checkin-500.md'], 'docs/topics/2026-11-24/checkin-500/topic.md');
   assert.equal(to['docs/topics/2026-11-24-checkin-500.diff'], 'docs/topics/2026-11-24/checkin-500/lampiran/2026-11-24-checkin-500.diff');
   assert.equal(to['docs/topics/2026-07-01-lama.md'], 'docs/_legacy/2026-07-01/lama/topic.md');
-  assert.equal(to['docs/topik/infra-karcix.md'], `docs/topics/${t}/infra-karcix/topic.md`);
+  assert.equal(to['docs/topik/infra-lama.md'], `docs/topics/${t}/infra-lama/topic.md`);
   assert.equal(to['docs/sessions/2026-10-06_090035_SESSION_rating-info.md'], 'docs/sessions/2026-10-06/rating-info.md');
   assert.equal(to['docs/sessions/2026-11-04-booking-detail.md'], 'docs/sessions/2026-11-04/booking-detail.md');
   assert.equal(to['docs/sessions/11-2026/2026-11-10-feedback.md'], 'docs/sessions/2026-11-10/feedback.md');
-  assert.equal(to['docs/sessions/astra-cleaner.md'], `docs/sessions/${t}/astra-cleaner.md`);
+  assert.equal(to['docs/sessions/proj-cleaner.md'], `docs/sessions/${t}/proj-cleaner.md`);
   assert.equal(to['docs/sessions/2026-08-01-sangat-lama.md'], 'docs/_legacy/2026-08-01/sangat-lama/session.md');
   assert.equal(to['docs/reports/analisis/2026-11-01-stok.md'], 'docs/topics/2026-11-01/stok/lampiran/2026-11-01-stok.md');
   assert.equal(to['docs/reports/audit/umum.md'], `docs/topics/${t}/audit-umum/lampiran/umum.md`);
@@ -100,7 +100,7 @@ test('remap: rencana, lalu terapkan ke topics/sessions/_legacy', () => {
   assert.match(remap.deleteScript(p), /rm -rf "\.harness"/);
 
   remap.apply(root, p);
-  assert.equal(rd(root, 'docs/topics/2026-11-20/fix-kpb/plan.md'), 'plan baru');
+  assert.equal(rd(root, 'docs/topics/2026-11-20/fix-login/plan.md'), 'plan baru');
   assert.equal(rd(root, 'docs/_legacy/2026-08-02/migrasi-voucher/plan.md'), 'plan lama');
   assert.equal(rd(root, 'docs/topics/2026-11-24/checkin-500/topic.md'), '# topik datar');
   assert.equal(rd(root, 'docs/sessions/2026-11-10/feedback.md'), 's3');
@@ -115,12 +115,12 @@ test('remap: rencana, lalu terapkan ke topics/sessions/_legacy', () => {
 
 test('remap: tujuan yang sudah ada digabung tanpa menimpa', () => {
   const root = legacyRoot();
-  wr(root, 'docs/topics/2026-11-20/fix-kpb/plan.md', 'plan topik baru');
+  wr(root, 'docs/topics/2026-11-20/fix-login/plan.md', 'plan topik baru');
   const p = remap.plan(root, { remap: { legacy_months: 2 } }, { now: new Date(2026, 10, 24) });
   remap.apply(root, p);
-  assert.equal(rd(root, 'docs/topics/2026-11-20/fix-kpb/plan.md'), 'plan topik baru');
-  assert.equal(rd(root, 'docs/topics/2026-11-20/fix-kpb/plan-2.md'), 'plan baru');
-  assert.equal(rd(root, 'docs/topics/2026-11-20/fix-kpb/review.md'), 'review');
+  assert.equal(rd(root, 'docs/topics/2026-11-20/fix-login/plan.md'), 'plan topik baru');
+  assert.equal(rd(root, 'docs/topics/2026-11-20/fix-login/plan-2.md'), 'plan baru');
+  assert.equal(rd(root, 'docs/topics/2026-11-20/fix-login/review.md'), 'review');
 });
 
 test('remap CLI: tanpa --apply hanya rencana', () => {
@@ -142,10 +142,10 @@ test('guard: keamanan tetap, alur kerja bebas', () => {
   assert.equal(bash('git push --force origin fix/x'), 2);
   assert.equal(bash('git push origin main'), 2);
   assert.equal(bash('git reset --hard HEAD~1'), 2);
-  assert.equal(bash('gh auth token --user nawa9nest-dev'), 2, 'token tidak boleh dicetak');
-  assert.equal(bash('GH_TOKEN="$(gh auth token --user nawa9nest-dev)" gh pr create -R a/b --title x'), 0);
+  assert.equal(bash('gh auth token --user akun-kerja'), 2, 'token tidak boleh dicetak');
+  assert.equal(bash('GH_TOKEN="$(gh auth token --user akun-kerja)" gh pr create -R a/b --title x'), 0);
   // 2.0.5 (G1): token dibuang ke /dev/null tidak tercetak → boleh; hanya stderr yang dibuang → tetap dilarang
-  assert.equal(bash('gh auth token --user nawa9nest-dev >/dev/null 2>&1 && echo ADA || echo GAGAL'), 0);
+  assert.equal(bash('gh auth token --user akun-kerja >/dev/null 2>&1 && echo ADA || echo GAGAL'), 0);
   assert.equal(bash('gh auth token --user a &>/dev/null; echo $?'), 0);
   assert.equal(bash('gh auth token --user a > NUL'), 0);
   assert.equal(bash('gh auth token --user a 2>/dev/null'), 2);
@@ -188,7 +188,7 @@ test('git-auth: helper per service memakai token akunnya sendiri tanpa switch', 
 
 test('git-auth: remote SSH beralias dikenali, helper tidak dipasang; doctor tidak OK palsu', async () => {
   const { parseRemote } = await import('../kernel/.claude/hooks/gitauth.mjs');
-  assert.deepEqual(parseRemote('git@github-kantor:DinovInovasi/ce-console-api.git'), { proto: 'ssh', host: 'github-kantor', repo: 'DinovInovasi/ce-console-api' });
+  assert.deepEqual(parseRemote('git@github-work:acme/console-api.git'), { proto: 'ssh', host: 'github-work', repo: 'acme/console-api' });
   assert.deepEqual(parseRemote('ssh://git@github.com:22/org/r.git'), { proto: 'ssh', host: 'github.com', repo: 'org/r' });
   assert.deepEqual(parseRemote('https://github.com/org/r.git'), { proto: 'https', host: 'github.com', repo: 'org/r' });
   assert.deepEqual(parseRemote('https://x-access-token@gitlab.com/g/sub/r'), { proto: 'https', host: 'gitlab.com', repo: 'g/sub/r' });
@@ -238,9 +238,9 @@ test('status line 2.0.2: kapsul, konteks + token, batas, +/- baris, badge ponyta
   assert.equal(d2.ctx.pct, 25);
   assert.equal(r(d, { theme: 'mono', max: 20 }).split('\n')[0], '[proj]');
   // 2.2.1 (5): lebar sempit membuang segmen berprioritas rendah dulu; topik dipersingkat, batas kritis + reset tetap
-  const dn = { ...d, topic: 'integrasi-md10-homi-h3-phase-3-di-ce-share-api', services: ['a', 'b'], lines: { add: 12, del: 3 } };
+  const dn = { ...d, topic: 'integrasi-pembayaran-tahap-3-di-shop-share-api', services: ['a', 'b'], lines: { add: 12, del: 3 } };
   const n40 = r(dn, { theme: 'mono', max: 40 }).split('\n');
-  assert.match(n40[0], /^\[proj\] \[integrasi-md10-homi-h3-[^\]]*…\]$/);
+  assert.match(n40[0], /^\[proj\] \[integrasi-pembayaran-tah[^\]]*…\]$/);
   assert.ok(n40[0].length <= 40 && n40[1].length <= 40, n40.join('|'));
   assert.match(n40[1], /^\[konteks 72% !\] 5j 88% !! \(reset \d\d:\d\d\)$/);
   assert.match(r(dn, { theme: 'mono', max: 200 }), /\+12 −3$/, '+/- satu segmen');
@@ -319,18 +319,18 @@ test('2.0.5: topic find/use dari kalimat biasa, lingkup service, +/- hanya denga
   const tr = path.join(root, 't.jsonl');
   const L = (content) => JSON.stringify({ message: { content } }) + '\n';
   const P = { session_id: 's9', transcript_path: tr, cost: { total_lines_added: 730, total_lines_removed: 18 } };
-  fs.writeFileSync(tr, L([{ type: 'tool_use', name: 'Edit', input: { file_path: 'source-code/ce-share-api/a.ts' } }]));
+  fs.writeFileSync(tr, L([{ type: 'tool_use', name: 'Edit', input: { file_path: 'source-code/shop-share-api/a.ts' } }]));
   let d = statusData(root, P, { CLAUDE_CONFIG_DIR: root });
   assert.equal(d.topic, null); assert.equal(d.lines, null, 'U2 b: tanpa topik, +/- disembunyikan');
   fs.appendFileSync(tr, L([{ type: 'tool_result', content: u.stdout }]));
-  fs.appendFileSync(tr, L([{ type: 'tool_use', name: 'Bash', input: { command: 'git -C source-code/ce-microservices-go status' } }]));
-  wr(root, `docs/topics/${t}/feedback-microservices-go-booking-service/plan.md`, '| # | tugas | service | agent | status |\n|---|---|---|---|---|\n| 1 | a | ce-console-api, ce-microservices-go | nikola-be | rencana |\n| 2 | b | keduanya + frontend | hana-fe | rencana |\n');
-  for (const s of ['ce-console-api', 'ce-microservices-go']) fs.mkdirSync(path.join(root, 'source-code', s), { recursive: true });
+  fs.appendFileSync(tr, L([{ type: 'tool_use', name: 'Bash', input: { command: 'git -C source-code/shop-microservices-go status' } }]));
+  wr(root, `docs/topics/${t}/feedback-microservices-go-booking-service/plan.md`, '| # | tugas | service | agent | status |\n|---|---|---|---|---|\n| 1 | a | shop-console-api, shop-microservices-go | nikola-be | rencana |\n| 2 | b | keduanya + frontend | hana-fe | rencana |\n');
+  for (const s of ['shop-console-api', 'shop-microservices-go']) fs.mkdirSync(path.join(root, 'source-code', s), { recursive: true });
   d = statusData(root, P, { CLAUDE_CONFIG_DIR: root });
   assert.equal(d.topic, 'feedback-microservices-go-booking-service');
-  assert.deepEqual(d.services, ['ce-console-api', 'ce-microservices-go'], 'plan + transcript, tanpa duplikat; service sebelum topik dan teks bebas (keduanya) tidak dihitung');
+  assert.deepEqual(d.services, ['shop-console-api', 'shop-microservices-go'], 'plan + transcript, tanpa duplikat; service sebelum topik dan teks bebas (keduanya) tidak dihitung');
   assert.deepEqual(d.lines, { add: 730, del: 18 });
-  assert.match(render(d, { theme: 'mono' }), /\[feedback-microservices-go-booking-servi…\] ce-console-api, ce-microservices-go\n\[konteks \?\] \+730 −18$/);
+  assert.match(render(d, { theme: 'mono' }), /\[feedback-microservices-go-booking-servi…\] shop-console-api, shop-microservices-go\n\[konteks \?\] \+730 −18$/);
   // transcript besar (resume sesi lama): pertama kali hanya ekor 2 MB yang dibaca
   const big = path.join(root, 'big.jsonl');
   fs.writeFileSync(big, L([{ type: 'tool_use', input: { file_path: `docs/topics/${t}/promo-invitation-code/topic.md` } }]) + `${'x'.repeat(1000)}\n`.repeat(3000));

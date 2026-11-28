@@ -45,9 +45,9 @@ Harness untuk Claude Code di root project multi-repo (`source-code/<repo git>`).
 | Node ≥ 18 | hook dan CLI tanpa dependency |
 | git | root project dan tiap service |
 | Claude Code ≥ 2.1.295 | |
-| `gh` | clone repo privat ini, PR, token akun per service |
+| `gh` | PR dan token akun per service (repo ini publik: clone cukup dengan `git`) |
 
-Sekali per mesin: `gh auth login`, lalu `gh auth setup-git`.
+Sekali per mesin, untuk PR dan repo service privat: `gh auth login`, lalu `gh auth setup-git`.
 
 ---
 
@@ -55,18 +55,22 @@ Sekali per mesin: `gh auth login`, lalu `gh auth setup-git`.
 
 ### 3.1 Project baru atau project lama
 
+Repo ini publik, jadi clone cukup dengan `git`, tanpa login `gh`. Clone sekali per mesin; perintah update (bagian 13) memakai salinan ini.
+
 ```bash
-d=$(mktemp -d) && gh repo clone devhardiyanto/agent-harness "$d" -- --depth 1
+git clone --depth 1 https://github.com/devhardiyanto/agent-harness.git ~/agent-harness
 ```
 ```bash
 cd /path/ke/root-project
 ```
 ```bash
-node "$d/install.mjs" --dry-run
+node ~/agent-harness/install.mjs --dry-run
 ```
 ```bash
-node "$d/install.mjs"
+node ~/agent-harness/install.mjs
 ```
+
+Sudah punya clone: `git -C ~/agent-harness pull --ff-only` sebelum memasang.
 
 `--dry-run` menampilkan rencana (dibuang / dipertahankan / dipasang). Mode interaktif pada project existing meminta kamu mengetik `ganti`; `--yes` untuk non-interaktif.
 
@@ -333,7 +337,7 @@ Tema (`tui.theme`): `kapsul` (bawaan), `tenang`, `kontras` (untuk terminal gelap
 ### 10.1 Konfigurasi
 
 ```json
-"git": { "host": "github.com", "default_account": "nawa9nest-dev", "services": { "<svc-pengecualian>": "devhardiyanto" } }
+"git": { "host": "github.com", "default_account": "akun-kantor", "services": { "<svc-pengecualian>": "akun-pribadi" } }
 ```
 
 Root memakai akun `gh` aktif. Konfigurasi ini hanya untuk repo di `source-code/`.
@@ -349,7 +353,7 @@ node .claude/hooks/harness.mjs git-auth --apply
 
 | remote | hasil |
 |---|---|
-| SSH beralias (`git@github-kantor:org/repo.git`) | `SSH <alias>: helper tidak perlu`; kunci SSH sudah memilih akun |
+| SSH beralias (`git@github-work:org/repo.git`) | `SSH <alias>: helper tidak perlu`; kunci SSH sudah memilih akun |
 | HTTPS | credential helper lokal yang meminta `gh auth token --user <akun>`; token tidak ditulis ke berkas |
 | GitLab / host lain | belum didukung |
 
@@ -411,16 +415,16 @@ Setelah setuju, agent menjalankan `remap --apply`. Commit hasilnya sendiri di `m
 ### 13.1 Satu atau semua project (disarankan)
 
 ```bash
-node ~/agent-harness/scripts/harness-update.mjs /d/dev/event --dry-run
+node ~/agent-harness/scripts/harness-update.mjs ~/dev/project-a --dry-run
 ```
 ```bash
-node ~/agent-harness/scripts/harness-update.mjs /d/dev/event
+node ~/agent-harness/scripts/harness-update.mjs ~/dev/project-a
 ```
 ```bash
 node ~/agent-harness/scripts/harness-update.mjs --all
 ```
 ```bash
-node ~/agent-harness/scripts/harness-update.mjs /d/dev/event --rollback
+node ~/agent-harness/scripts/harness-update.mjs ~/dev/project-a --rollback
 ```
 
 Alurnya: pindah ke `main` bila bersih → `pull --ff-only` → update di tempat → satu commit lokal `chore(harness): update to vX.Y.Z` → `doctor`. Tidak di-push kecuali `update.autoPush` atau `--push`. Dari dalam sesi claude: `/harness:update`.
@@ -440,7 +444,7 @@ Alurnya: pindah ke `main` bila bersih → `pull --ff-only` → update di tempat 
 node ~/agent-harness/scripts/update-all.mjs --list
 ```
 
-`--scan /d/dev` mendaftarkan project yang sudah ber-harness; `--add` / `--remove` mengatur manual. `update-all.mjs` tanpa opsi sama dengan `harness-update.mjs --all` (satu jalur update, langsung di `main`; branch `harness-update` lama tidak dipakai lagi). Plugin global baru termuat di sesi berikutnya (atau `/reload-plugins`).
+`--scan ~/dev` mendaftarkan project yang sudah ber-harness; `--add` / `--remove` mengatur manual. `update-all.mjs` tanpa opsi sama dengan `harness-update.mjs --all` (satu jalur update, langsung di `main`; branch `harness-update` lama tidak dipakai lagi). Plugin global baru termuat di sesi berikutnya (atau `/reload-plugins`).
 
 ---
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.3
+Repo publik: tanpa nama internal.
+- **Contoh netral**: akun git, organisasi, alias SSH, path, nama root, dan nama service di README, aturan `git.md`, komentar `gitauth.mjs`, test, dan CHANGELOG diganti contoh umum (`akun-kantor`, `github-work`, `~/dev/project-a`, `shop-api`).
+- **Pemasangan tanpa `gh`**: README 3.1 memakai `git clone` biasa ke `~/agent-harness`; `gh` hanya untuk PR dan repo service privat.
+- **Dokumen riwayat dibuang**: `PILOT.md`, `docs/HANDOFF.md`, `docs/v1.15/` (rancangan 1.x, tersedia di riwayat git). `ROADMAP.md` ditulis ulang sebagai daftar sisa 2.x.
+
 ## 2.2.2
 Status line: angka token konteks persis.
 - **Token = input + output respons terakhir**: angka sekarang sama dengan "/clear to save …" Claude Code (sebelumnya hanya input, selisih ±1k). Persen dihitung dari token yang sama, sehingga angka dan persen selalu cocok.
@@ -35,14 +41,14 @@ Perbaikan bug dari review logika (sub agent).
 - Berkas contoh seperti `.env.production.example` boleh ditulis.
 
 ## 2.1.2
-Hasil review `growth` di astra, event, yhpa.
+Hasil review `growth` di tiga root project.
 - **Memori 1.x**: `MEMORY.md`/`USER.md` dengan entri dipisah `§` kini terbaca (`growth` tidak lagi 0 fakta). Perintah baru `harness.mjs memori --rapikan [--apply]` mengubahnya ke satu baris `- ` per fakta dengan header 2.1 (USER.md dicadangkan ke `USER.md.bak`). `doctor` memberi PERINGATAN selama format 1.x masih ada.
 - **Pemicu memori** (aturan B-06, B-07): "ingat: …" → `MEMORY.md`, "ingat user: …" → `USER.md`, "lupakan …" → hapus baris, lewat skill `belajar` di giliran itu juga.
 - **Status topik**: `promoted` (1.x) dihitung ditutup; folder tanpa frontmatter `status` (hasil remap) = `impor`, bukan terbuka. `growth` menampilkan terbuka · impor · ditutup; topik aktif hanya dari topik terbuka; topik impor tanpa `topic.md` bisa ditutup.
 - **Topik lama dan sampah**: `topic list --stale <hari>`; skill `topic` menawarkan menutup topik terbuka > 7 hari (mode ringkas) saat topik baru dibuat. `doctor` menyebut topik sampah (`tanpa-nama`, slug dari path, folder kosong) untuk dihapus sendiri.
 
 ## 2.1.1
-Perbaikan status line dari uji di `astra`.
+Perbaikan status line dari uji di root project.
 - **Konteks terhadap jendela auto-compact**: JSON status line hanya memberi jendela model (`context_window_size`, mis. 1M), sedangkan compact bisa diatur lebih kecil (`/autocompact 400k`). Status line kini membaca `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, lalu `modelSettings.<model>.autoCompactWindow` / `autoCompactWindow` di settings (local → project → user), dan menghitung `konteks %` serta `208k/400k` terhadap jendela itu bila lebih kecil. Angkanya kini sama dengan `/context`.
 - **Service di status line**: hanya nama yang ada di `services` config atau folder `source-code/`; teks bebas di kolom service `plan.md` (mis. "keduanya") tidak lagi tampil.
 
@@ -56,7 +62,7 @@ Harness yang tumbuh (keputusan G1–G12, satu rilis). Diadaptasi dari learning l
 - **Status line**: membaca transcript ≤ 1 MB per refresh, selalu mencetak minimal nama root, dan mencatat durasi serta galat terakhir ke `.claude/state/statusline.log` untuk menyelidiki status line yang hilang.
 
 ## 2.0.6
-Review kode sejak 2.0.0, plugin hallmark untuk frontend, dan temuan remap di astra.
+Review kode sejak 2.0.0, plugin hallmark untuk frontend, dan temuan remap di root project.
 - **remap**: berkas titik (`.gitkeep`, `.DS_Store`) tidak lagi dipindah. Sebelumnya `docs/topics/.gitkeep` menjadi topik palsu `<tgl>/tanpa-nama/lampiran/.gitkeep` di setiap update. Folder `tanpa-nama` sisa itu dihapus oleh remap berikutnya, dan kernel tidak lagi memasang `docs/topics/.gitkeep`.
 - **Status line, transcript UTF-8**: batas baris dicari di level byte. Sebelumnya ekor transcript yang terpotong di tengah karakter multibyte (✓, emoji) menggeser posisi baca, sehingga baris berikutnya bisa gagal dibaca.
 - **Status line, terminal sempit**: lebar minimum 20 kolom, sehingga `COLUMNS` kecil tidak lagi membuat status line kosong.
@@ -66,7 +72,7 @@ Review kode sejak 2.0.0, plugin hallmark untuk frontend, dan temuan remap di ast
 - Komentar kode di hooks dirapikan (antislop-code): tanpa riwayat versi atau keputusan, cukup alasan/batasan.
 
 ## 2.0.5
-Temuan pemakaian di astra (sesi lanjutan yang besar).
+Temuan pemakaian di root project (sesi lanjutan yang besar).
 - **Lanjut topik dengan kalimat biasa** (U1 a): `harness.mjs topic find <kata>` mencari di `docs/topics` dan `docs/_legacy` (skor: slug/judul ×3, isi ×1); `topic use <topik>` mengaktifkan topik untuk sesi ini (`dipakai: …`, topik `closed` dibuka lagi). Skill `topic`: satu kandidat jelas langsung dipakai, beberapa → satu pertanyaan, hanya di legacy → topik baru dengan `--ref`. User tidak perlu menyebut slug.
 - **Lingkup topik di status line** (F2): service dari kolom `service` di `plan.md` topik + `source-code/<svc>` yang disentuh tool di sesi ini, mis. `ce-console-api, ce-microservices-go` (maks 3, sisanya `+N`).
 - **`+N −M` hanya tampil bila sesi sudah punya topik** (U2 b).
@@ -80,7 +86,7 @@ Tim agent bernama orang (K20, keputusan N1 a: satu tim untuk semua project).
 - Aturan `T-02`: sebutan user "be"/"backend"/"Nikola", "fe"/"frontend"/"Hana", "dba"/"database"/"Freya", "ops"/"devops"/"Kofi", "review"/"Lucia" dipetakan ke agent yang benar. `AGENTS.md`, `T-04`, `T-07`, README, dan `check-repo` memakai nama baru.
 
 ## 2.0.3
-Temuan uji 2.0.2 di astra, event, yhpa.
+Temuan uji 2.0.2 di tiga root project.
 - **Topik di status line = topik sesi ini** (T1 a): dibaca dari transcript sesi (`transcript_path`), hanya dari bukti kerja: input tool (path berkas/perintah di `docs/topics/<tgl>/<slug>/`) dan keluaran `topic new`. Teks chat dan keluaran lain (mis. tabel remap) diabaikan. Dibaca bertahap; posisi disimpan di `.claude/state/topic-<sesi>.json`. Sesi baru tampil "belum ada topik". Sebelumnya: topik terbuka terakhir di project, sehingga topik lama hasil remap ikut tampil.
 - `+0 −0` tidak ditampilkan; tema kapsul memakai pemisah `·` antar teks (mis. sebelum badge `ponytail:`).
 - Skill `summarize`: slug = topik sesi ini.
@@ -94,7 +100,7 @@ Status line baru (keputusan D1–D4, tema C) dan penyesuaian ponytail (P1–P3).
 - `git-auth` hanya menampilkan petunjuk `--apply` bila ada service yang belum terpasang.
 
 ## 2.0.1
-Temuan pemakaian pertama 2.0.0 (astra, event, yhpa): remote repo service berupa SSH dengan alias per akun (`git@github-kantor:org/repo.git`).
+Temuan pemakaian pertama 2.0.0 di tiga root project: remote repo service berupa SSH dengan alias per akun (`git@github-work:org/repo.git`).
 - **`git-auth` mengenali remote SSH beralias**: status `SSH <alias>: helper tidak perlu` (kunci SSH per alias sudah memisahkan akun; helper HTTPS tidak dipasang). Alias dicek lewat `ssh -G`. Remote HTTPS tetap memakai credential helper. Tabel kini memuat kolom `repo`.
 - **`git-auth repo <svc>`** mencetak `owner/repo` dari remote, untuk `gh ... -R <owner/repo>` (gh tidak mengenali alias SSH). Aturan `G-02`, `G-03`, dan `T-03` diperbarui.
 - **`doctor` tidak lagi OK palsu**: baris "akses git per service" hanya OK bila tiap service terpasang (HTTPS) atau SSH; service dengan remote lain/tanpa remote dilaporkan sebagai INFO.
@@ -129,7 +135,7 @@ Langkah pertama 2.0 (ROADMAP §12, **R1**; keputusan D37): **Plane dicabut**. Se
 - ROADMAP: status per 2026-11-22, R1 ✅.
 
 ## 1.22.11
-Penutup uji nyata di event: gerbang pilot §10 **hijau** (S1–S4 dan GitHub asli, PR #95 di repo event merged; `pilot --hours 6` = "Siap 2.0").
+Penutup uji nyata di root project: gerbang pilot §10 **hijau** (S1–S4 dan GitHub asli, PR di repo service merged; `pilot --hours 6` = "Siap 2.0").
 - **Model bawaan sesi: Opus 5.5, effort medium** (`.claude/settings.json`: `"model": "claude-opus-5-5"`, `"effortLevel": "medium"`; permintaan user). `/model` atau `/effort` di dalam sesi tetap bisa menggantinya. Subagent tidak berubah (scout/runner Haiku, reviewer Opus, spesialis Sonnet).
 - **Rekap yang hanya berisi usulan memori tidak menahan giliran** (H9): setelah item merged, Stop menahan sekali hanya untuk menampilkan satu baris usulan memori lama.
 - ROADMAP §10 ditandai hijau, beserta buktinya.
@@ -262,7 +268,7 @@ Patch dari uji sandbox.
 - **Tidak lagi mendorong `quick:`**: pesan "tidak ada work item", penolakan gate, dan AGENTS.md kini menyuruh agent membuat item dari permintaan biasa; `quick:` disebut sebagai pilihan user sendiri.
 
 ## 1.19.2
-Patch dari pilot yhpa.
+Patch dari pilot di root project.
 - **Stop hook**: giliran tidak lagi ditahan untuk tabel keputusan kalau keputusan dan klaim terbuka berjumlah 0. Giliran yang hanya menunggu agent latar belakang ("sedang mengerjakan", "hasilnya belum ada") juga tidak ditahan; rekapnya muncul di giliran berikutnya, bukan dua kali di tengah pekerjaan.
 - **Tabel recap**: teks aksi mengikuti bentuk item. Untuk item satu berkas tertulis "isi ### Bukti di plan.md" dan "### Tinjauan plan.md", bukan `progress.md`/`review.md`. Sel panjang dipotong di batas kata dengan "…".
 - **`/summarize [catatan]`**: argumen kini catatan tambahan untuk rangkuman (yang perlu ditekankan, ditambah, atau dilewati), seperti instruksi opsional `/compact` tetapi arahnya menambah. Argumen bukan lagi nama berkas; nama tetap dari nama sesi atau topik, kecuali catatannya jelas menyebut berkas di `docs/sessions/`.
@@ -270,7 +276,7 @@ Patch dari pilot yhpa.
 - **Audit**: tiap tool yang dijalankan subagent dicatat dengan `agent` (`agent_type`) dan `agent_id` di `.claude/audit/`, sebagai bukti uji M0 nomor 2 dan dasar menyalakan `bidang.enforce`.
 
 ## 1.19.1
-Patch dari uji di yhpa.
+Patch dari uji di root project.
 - **`tidy`**: item lajur quick (bentuk folder) tidak lagi dilaporkan "brief.md tidak ada", karena lajur itu memang hanya punya `plan.md` dan `progress.md`. `--apply` tanpa item usang atau grup gabung kini menyatakan "Tidak ada yang diterapkan" (sebelumnya mencetak ulang rencana tanpa keterangan).
 - **`bidang`**: kalau `services` kosong, perintah ini memberi petunjuk dan tidak lagi mencetak tabel kosong.
 - **`spike.mjs report`**: uji 1 menampilkan `TIDAK ADA DATA` (bukan `TIDAK`) kalau tidak ada catatan pemilih, karena itu juga terjadi saat pemilih tidak pernah dipakai.
@@ -319,7 +325,7 @@ Merapikan work item (keputusan D36 a, D37 b, D38 a).
 ## 1.15.1
 - **Model dan effort di status line**: baris kedua diawali model dan effort sesi (mis. `Sonnet 5.5 · high`), dibaca dari `model.display_name` dan `effort.level` di JSON sesi Claude Code. Effort hanya tampil bila model mendukungnya.
 - **Laporan uji M0**: log kosong (belum ada sesi setelah `on`) kini mencetak pesan "Log kosong", bukan tabel berisi TIDAK.
-- `docs/v1.15/SPIKE.md`: hasil sementara uji M0 di `event` (status line proyek tampil lewat `claude agents`, nama sesi terkirim, skill `user-invocable: false` tidak bisa dipanggil user).
+- `docs/v1.15/SPIKE.md`: hasil sementara uji M0 di root project (status line proyek tampil lewat `claude agents`, nama sesi terkirim, skill `user-invocable: false` tidak bisa dipanggil user).
 
 ## 1.15.0
 Milestone 1 dari rancangan "Sederhana" (`docs/v1.15/`, keputusan D29–D35). Aditif; mematikan `tui.statusline` dan menghapus `outputStyle` mengembalikan tampilan 1.14.
@@ -347,7 +353,7 @@ Keputusan D26–D28. Hanya dokumen dan aturan; tidak ada hook atau config baru.
 - Tabel di berkas (`gate.md`, `handoff.md`, summary) dan teks yang disuntik hook tetap Markdown biasa.
 
 ## 1.13.1
-Perbaikan dari pemakaian 1.13.0 di event/astra (keputusan D25).
+Perbaikan dari pemakaian 1.13.0 di root project (keputusan D25).
 - **Token Plane dibersihkan sebelum dipakai**: CR di akhir (`~/.bashrc` ber-CRLF di Windows), spasi/baris baru, dan tanda kutip pembungkus dibuang. Sebelumnya ini berujung `HTTP 403 Given API token is not valid`. `plane check` menampilkan baris Info bila token sempat dibersihkan, tanpa isi token.
 - **`token_env` harus nama variabel**: `plane check` dan `doctor` menolak bila isinya mirip token (diawali `plane_api_`, bukan pola nama variabel), dengan saran mencabut token yang telanjur tertulis di config. Tanpa permintaan jaringan.
 - **Rekap "Belum selesai" sebagai tabel Markdown** (`recap.render`, bawaan `"assistant"`): hook Stop menahan giliran sekali saat isi rekap berubah, dan agent menutup dengan tabel itu (dirender TUI). Tidak ditahan bila pesan terakhir agent sudah memuatnya (`last_assistant_message`) atau giliran itu sudah pernah ditahan (`stop_hook_active`). `"system"` = perilaku lama (`systemMessage`, teks polos).
@@ -398,13 +404,13 @@ Fokus: **mudah dipakai, tidak mondar-mandir.** Semua aditif, perintah `/harness:
 ## 1.9.0
 Fase 1 integrasi Plane: **sinkron status satu arah**, work item lokal → kartu Plane. Mati bawaan; root yang tidak menyalakannya tidak berubah perilaku.
 - Baru: `.claude/hooks/plane.mjs` dan perintah `harness.mjs plane sync [slug] [--dry-run] [--include-merged]` / `plane check`. Kartu dibuat di state sesuai status (`external_id` = slug, `external_source` = `harness`), `plane_id` ditulis ke frontmatter `plan.md` (sudah diabaikan oleh pembekuan plan), tiap pemindahan kolom memberi komentar bertanda `[harness]`.
-- Config `plane`: `enabled`, `base_url` (https; http hanya localhost), `workspace`, `project_id`, `token_env` (nama variabel lingkungan; token tidak pernah di berkas), `marker`, `states` (status harness → nama state Plane; astra: `in-review` → `In Review`). Blok `plane` lama (`enabled:false, project_id:null`) tetap kompatibel; installer tidak lagi menandainya sebagai modul lama.
+- Config `plane`: `enabled`, `base_url` (https; http hanya localhost), `workspace`, `project_id`, `token_env` (nama variabel lingkungan; token tidak pernah di berkas), `marker`, `states` (status harness → nama state Plane; contoh: `in-review` → `In Review`). Blok `plane` lama (`enabled:false, project_id:null`) tetap kompatibel; installer tidak lagi menandainya sebagai modul lama.
 - Pemicu: `audit` untuk peristiwa `status`/`approve`/`quick`/`promote` dan awal sesi menjalankan sync di proses latar (`planeKick`); tidak menunda hook, gagal diam, satu proses sekaligus (kunci `.harness/plane.lock`). Yang gagal dikirim diulang pada sync berikutnya.
 - Keamanan: tanpa redirect, timeout 10 dtk, galat disaring `redact`, pesan galat tanpa header; `doctor` GAGAL bila `enabled` tanpa konfigurasi/token lengkap.
 - Belum: Plane Wiki, polling dari Plane (Todo memulai Build), isi task di Plane.
 
 ## 1.8.5
-Ditemukan saat update yhpa di Windows: `gc --yes` mencetak "dihapus: 0 dari 1" tanpa alasan karena worktree-nya **terkunci** (Claude Code mengunci worktree buatannya selama sesi hidup: `claude session <nama> (pid N)`; git menolak menghapus yang terkunci).
+Ditemukan saat update root project di Windows: `gc --yes` mencetak "dihapus: 0 dari 1" tanpa alasan karena worktree-nya **terkunci** (Claude Code mengunci worktree buatannya selama sesi hidup: `claude session <nama> (pid N)`; git menolak menghapus yang terkunci).
 - `gc`: worktree root yang terkunci tidak masuk rencana hapus. Laporan "DITAHAN" menyebut alasan kunci dan cara menanganinya: tutup sesinya, atau bila sesi sudah mati, `git worktree unlock <path>` (keputusan manusia). Alasan lain (kotor, belum digabung, folder hilang) tetap disebut bersamaan.
 - `doctor`: baris "tidak ada worktree di root" menandai `[dikunci]` pada worktree yang terkunci.
 - Baru: workflow `.github/workflows/release.yml`. Saat `VERSION` berubah di `main`, ia membuat tag `vX.Y.Z` dan GitHub Release dengan catatan dari bagian `## X.Y.Z` di CHANGELOG. Dilewati bila release-nya sudah ada; gagal (merah) bila `VERSION` bukan semver atau bagian CHANGELOG-nya tidak ada. Hanya memakai `GITHUB_TOKEN` (`contents: write`). Alur rilis jadi: bump, PR, merge; tag dan release menyusul otomatis.
